@@ -1,0 +1,13 @@
+PROTOCOL_VERSION = 1
+
+STARTUP_TIMEOUT = 45
+SHUTDOWN_TIMEOUT = 15
+EVENT_STREAM_TIMEOUT = 10
+SOCKET_CONNECT_TIMEOUT = 2
+
+FABRIC_API = "https://meta.fabricmc.net/v2"
+MODRINTH_API = "https://api.modrinth.com/v3"
+
+WARD_HOST = "127.0.0.1"
+PID_FILE = "ward.pid"
+PORT_FILE = "ward.port"

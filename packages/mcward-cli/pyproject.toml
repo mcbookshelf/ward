@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcward-cli"
+version = "1.0.0"
+description = "Command-line interface for Ward - A testing framework for Minecraft datapacks using mcfunction."
+readme = "../../README.md"
+requires-python = ">=3.14"
+license = { text = "MPL-2.0" }
+authors = [{ name = "Aksiome", email = "54895777+aksiome@users.noreply.github.com" }]
+dependencies = [
+    "mcward-core",
+    "click>=8.4.0",
+    "rich>=15.0.0",
+    "rich-click>=1.8.0",
+    "questionary>=2.1.1",
+]
+
+[tool.uv.sources]
+mcward-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcward"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"

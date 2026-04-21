@@ -1,0 +1,54 @@
+[project]
+name = "mcward"
+version = "1.0.0"
+description = "A testing framework for Minecraft datapacks using mcfunction."
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MPL-2.0" }
+authors = [{ name = "Aksiome", email = "54895777+aksiome@users.noreply.github.com" }]
+dependencies = ["mcward-core"]
+
+[project.optional-dependencies]
+beet = ["mcward-beet"]
+cli = ["mcward-cli"]
+
+[project.scripts]
+mcward = "mcward:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.13",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+mcward-beet = { workspace = true }
+mcward-cli = { workspace = true }
+mcward-core = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mcward"]
+combine-as-imports = true
+split-on-trailing-comma = true

@@ -1,0 +1,33 @@
+{
+	"schemaVersion": 1,
+	"id": "ward",
+	"version": "${version}",
+	"name": "Ward",
+	"description": "A testing framework for Minecraft datapacks using mcfunction.",
+	"authors": [
+		"Aksiome"
+	],
+	"contact": {
+		"homepage": "https://github.com/mcbookshelf/ward",
+		"sources": "https://github.com/mcbookshelf/ward",
+		"issues": "https://github.com/mcbookshelf/ward/issues"
+	},
+	"license": "MPL-2.0",
+	"icon": "assets/ward/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.mcbookshelf.ward.Ward"
+		]
+	},
+	"mixins": [
+		"ward.mixins.json"
+	],
+	"accessWidener": "ward.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
