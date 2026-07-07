@@ -40,6 +40,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.progress.LoggingLevelLoadListener;
 import net.minecraft.server.notifications.EmptyNotificationService;
+import net.minecraft.server.notifications.NotificationManager;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.permissions.LevelBasedPermissionSet;
 import net.minecraft.server.permissions.PermissionSet;
@@ -163,7 +164,8 @@ public class WardServer extends MinecraftServer {
 				DataFixers.getDataFixer(),
 				WardServices.OFFLINE,
 				LoggingLevelLoadListener.forDedicatedServer(),
-				false);
+				false,
+				new NotificationManager());
 		this.daemon = daemon;
 		this.selection = selection;
 	}
@@ -357,6 +359,16 @@ public class WardServer extends MinecraftServer {
 
 	@Override
 	public int getRateLimitPacketsPerSecond() {
+		return 0;
+	}
+
+	@Override
+	public int getCommandSpamThresholdSeconds() {
+		return 0;
+	}
+
+	@Override
+	public int getChatSpamThresholdSeconds() {
 		return 0;
 	}
 
