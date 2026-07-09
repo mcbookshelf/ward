@@ -1,4 +1,8 @@
-# Ward
+<p align="center">
+  <img src="./docs/assets/logo.png" alt="Ward" width="100" height="100">
+</p>
+
+<h1 align="center">Ward</h1>
 
 A testing framework for Minecraft datapacks using mcfunction.
 
