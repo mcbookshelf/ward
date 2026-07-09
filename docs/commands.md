@@ -2,8 +2,7 @@
 
 The Ward mod registers five commands: `/assert`, `/await`, `/fail`, `/succeed`
 and `/dummy`. They require permission level 2 (gamemasters), and all of them
-except `/dummy` only work while a test is executing — used outside a test they
-fail with *"This command can only be used inside a test"*.
+except `/dummy` only work while a test is executing.
 
 Commands in a test file run sequentially on the test's command source. An
 `/await` pauses execution until its condition holds; everything after it waits.

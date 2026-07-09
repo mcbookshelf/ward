@@ -3,9 +3,9 @@
 A testing framework for Minecraft datapacks using mcfunction.
 
 Ward lets you write automated tests for your datapacks as plain `.mcfunction`
-files in a `test/` folder, executed through Minecraft's GameTest framework on
-a real server — in-game, headless in CI, or live-reloading in daemon mode
-while you develop.
+files in a `test/` folder.
+
+![demo](./docs/assets/demo.gif)
 
 Ward is two pieces that work together:
 
@@ -46,11 +46,11 @@ Test files support directives (`# @timeout`, `# @optional`, `# @dummy`,
 
 ## Documentation
 
-- [Test commands](docs/commands.md) — `/assert`, `/await`, `/fail`, `/succeed`
-- [Directives](docs/directives.md) — `# @timeout`, `# @environment`, ...
-- [Test environments](docs/environments.md) — world setup/teardown around tests
+- [CLI](docs/cli.md) — the `mcward` CLI and `beet test`
 - [Dummies](docs/dummies.md) — fake players and the `/dummy` command
-- [Command-line tooling](docs/cli.md) — the `mcward` CLI and `beet test`
+- [Directives](docs/directives.md) — `# @timeout`, `# @environment`, ...
+- [Test commands](docs/commands.md) — `/assert`, `/await`, `/fail`, `/succeed`
+- [Test environments](docs/environments.md) — world setup/teardown around tests
 
 ## Commands
 

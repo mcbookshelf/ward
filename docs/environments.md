@@ -3,7 +3,7 @@
 A test environment prepares the world before tests run and restores it
 afterwards: game rules, weather, time, or arbitrary setup/teardown functions.
 Tests declare their environment with the
-[`# @environment` directive](directives.md); tests sharing an environment are
+[`# @environment` directive](directives.md). Tests sharing an environment are
 batched together, so the setup runs once per batch, not once per test.
 
 Environments are vanilla registry entries (this section matches the vanilla
@@ -19,9 +19,7 @@ environment (no setup at all) is used when a test declares nothing.
 
 Ward extends vanilla in one important way: vanilla only loads the
 `test_environment` registry at world creation, while Ward reloads it on every
-`/reload` — so environments live-update in daemon mode like the tests
-themselves. A file that fails to parse is reported as a diagnostic in the test
-report instead of being skipped silently.
+`/reload`.
 
 ## Environment types
 

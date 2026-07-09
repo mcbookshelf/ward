@@ -37,14 +37,4 @@ Notes:
   Coordinates in test commands are relative to the structure origin.
 - **`@dummy`** — the spawned dummy becomes `@s` for every command in the test,
   so `assert data entity @s ...`, `dummy @s jump`, etc. work directly. The
-  position is relative to the structure origin and accepts rotation-free
-  `~`/absolute coordinates; the dummy stands on the bottom center of the
-  block containing it.
-
-## File format
-
-Test files are plain mcfunction files stored under `data/<namespace>/test/`
-and support the usual conventions:
-
-- blank lines and `#` comments are ignored (except `# @` directives),
-- a trailing `\` continues the command on the next line.
+  position is relative to the structure origin.

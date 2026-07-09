@@ -2,13 +2,7 @@
 
 The `mcward` CLI installs headless test servers and runs your datapacks
 against them. Everything needed to run them — server jar, Fabric loader, the
-Ward mod, and even Java itself — is downloaded and cached automatically in
-the user cache directory (`~/.cache/mcward` on Linux,
-`%LOCALAPPDATA%\mcward\Cache` on Windows).
-
-Java is resolved from a recent enough `java` on the `PATH`, and otherwise a
-[Temurin](https://adoptium.net) JRE is provisioned into the cache while
-installing a test server.
+Ward mod, and even Java itself — is downloaded and cached automatically.
 
 ```sh
 uv tool install mcward[cli]   # or: pip install mcward[cli]
@@ -46,7 +40,7 @@ datapack fails to load.
 
 - **`live`** (default) — the interactive display. Failure positions and
   load diagnostics show the file as a `path:line` relative to the project
-  root, which most terminals detect and open at the right line.
+  root.
 - **`github`** — plain logs plus [GitHub Actions annotations](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions):
   each failed test becomes an `::error` pointing at the failing line of its
   `.mcfunction` file, datapack load problems annotate the broken file, and
@@ -95,16 +89,3 @@ beet test [-v <version>]... [selector]
 It builds the current beet project (the `mcward.beet.plugin` plugin is
 required automatically so `test/` folders are picked up), then runs the
 built pack exactly like `mcward test`.
-
-To include test functions in your regular `beet build` output as well, require
-the plugin in your project config:
-
-```yaml
-require:
-  - mcward.beet.plugin
-```
-
-Custom toolchains built on beet can reuse either layer: add the click
-command to their own group (`from mcward.beet import test`), or call
-`test_project(project, versions=..., selector=...)` directly — it returns
-the `TestSession` without the CLI exit semantics.

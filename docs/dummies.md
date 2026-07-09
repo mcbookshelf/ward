@@ -12,13 +12,10 @@ A dummy is a full server-side player attached to a no-op network connection:
   and deterministic however the position was derived,
 - it ticks like a real player (gravity, damage, item use, container logic),
   counts for `@a`/`@p` selectors, and receives chat like anyone else,
-- it is never saved with the world; stats and advancements are kept in a
-  separate `ward/` directory so repeated runs stay clean,
+- it is never saved with the world,
 - when it dies it stays on the death screen like a real player — respawn it
   with `/dummy <name> respawn`, or enable the `doImmediateRespawn` game rule
   to make dummies respawn automatically,
-- respawning preserves the dummy (it comes back as a dummy at its original
-  spawn point, not as a regular player).
 
 ## Creating dummies
 
