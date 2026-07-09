@@ -1,8 +1,7 @@
-<p align="center">
-  <img src="./docs/assets/logo.png" alt="Ward" width="100" height="100">
-</p>
-
-<h1 align="center">Ward</h1>
+<div>
+  <img src="./docs/assets/logo.png" alt="Ward logo" height="42" align="left">
+  <h1>Ward</h1>
+</div>
 
 A testing framework for Minecraft datapacks using mcfunction.
 
