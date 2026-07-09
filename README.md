@@ -12,15 +12,15 @@ files in a `test/` folder.
 
 Ward is two pieces that work together:
 
-- **The mod** ([Modrinth](https://modrinth.com/mod/ward)) — a Fabric mod
+- 🧩 **Mod** ([Modrinth](https://modrinth.com/mod/ward)) — a Fabric mod
   adding the test commands (`/assert`, `/await`, `/fail`, `/succeed`,
   `/dummy`) and a headless test server that streams results live.
-- **The tooling** ([PyPI](https://pypi.org/project/mcward/)) — the `mcward`
-  CLI that installs test servers, runs your packs against one or several
+- 🐍 **Tooling** ([PyPI](https://pypi.org/project/mcward/)) — the `mcward`
+  CLI that installs test servers (fetching Java and the mod for you), runs your packs against one or several
   Minecraft versions with a live display, plus a [beet](https://github.com/mcbeet/beet)
   plugin adding `beet test`.
 
-## Quick start
+## Quickstart
 
 ```sh
 uv tool install mcward[cli]   # or: pip install mcward[cli]
@@ -65,22 +65,18 @@ mcward list [--remote]                                    # installed / availabl
 beet test                                                 # build the beet project and test it
 ```
 
+## Acknowledgements
+
+Ward is heavily inspired by [packtest](https://github.com/misode/packtest) by
+[misode](https://github.com/misode).
+
+Ward implements packtest's full command set, so **existing packtest tests run
+unmodified under Ward**. On top of that, Ward adds a few extra commands, a CLI
+with multi-version runs and a live test display, and a `beet test` plugin.
+
 ## Development
 
-Requires [uv](https://docs.astral.sh/uv/), [just](https://just.systems), a JDK,
-and Gradle (wrapper included).
-
-```sh
-uv sync --all-extras          # set up the workspace
-just check                    # lint + types + unit tests
-just verify                   # build the mod and run the full integration suite
-```
-
-Layout: the Fabric mod lives in `src/`, the Python packages in `packages/`
-(`mcward-core`, `mcward-cli`, `mcward-beet`), tooling in `tools/`, and the
-integration fixture datapacks in `tests/packs/`. Releases are automated from
-the versions committed to the tree — see
-[CONTRIBUTING.md](.github/CONTRIBUTING.md) for the guidelines and workflow.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the guidelines and workflow.
 
 ## License
 
