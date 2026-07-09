@@ -3,8 +3,6 @@
   <h1>Ward</h1>
 </div>
 
-A testing framework for Minecraft datapacks using mcfunction.
-
 Ward lets you write automated tests for your datapacks as plain `.mcfunction`
 files in a `test/` folder.
 
@@ -12,10 +10,10 @@ files in a `test/` folder.
 
 Ward is two pieces that work together:
 
-- 🧩 **Mod** ([Modrinth](https://modrinth.com/mod/ward)) — a Fabric mod
+- 🧩 **The Mod** (on [Modrinth](https://modrinth.com/mod/ward)) — a Fabric mod
   adding the test commands (`/assert`, `/await`, `/fail`, `/succeed`,
   `/dummy`) and a headless test server that streams results live.
-- 🐍 **Tooling** ([PyPI](https://pypi.org/project/mcward/)) — the `mcward`
+- 🐍 **The Tooling** (on [PyPI](https://pypi.org/project/mcward/)) — the `mcward`
   CLI that installs test servers (fetching Java and the mod for you), runs your packs against one or several
   Minecraft versions with a live display, plus a [beet](https://github.com/mcbeet/beet)
   plugin adding `beet test`.
