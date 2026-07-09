@@ -1,5 +1,5 @@
 <div>
-  <img src="./docs/assets/logo.png" alt="Ward logo" height="42" align="left">
+  <img src="./docs/assets/logo.png" alt="Ward logo" height="44" align="left">
   <h1>Ward</h1>
 </div>
 
