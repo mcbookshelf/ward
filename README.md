@@ -52,9 +52,8 @@ assert entity @e[tag=target]
 await not entity @e[tag=target]
 ```
 
-Comment lines starting with `# @` are [directives](docs/directives.md) that
-configure the test, and `assert`/`await` are two of the
-[test commands](docs/commands.md).
+Comment lines starting with `@` are [directives](docs/directives.md) that
+configure the test, and `assert`/`await` are [test commands](docs/commands.md).
 
 Then run the tests and watch the results come in:
 
@@ -64,11 +63,11 @@ ward   # discovers your packs, picks compatible versions, runs the tests
 
 ## Documentation
 
-- [CLI](docs/cli.md): the `mcward` CLI and `beet test`
-- [Dummies](docs/dummies.md): fake players and the `/dummy` command
-- [Directives](docs/directives.md): `# @max_ticks`, `# @environment`, ...
-- [Test commands](docs/commands.md): `/assert`, `/await`, `/fail`, `/succeed`
-- [Test environments](docs/environments.md): world setup/teardown around tests
+- [CLI](docs/cli.md) — the `mcward` CLI and `beet test`
+- [Dummies](docs/dummies.md) — fake players and the `/dummy` command
+- [Directives](docs/directives.md) — `# @max_ticks`, `# @environment`, ...
+- [Test commands](docs/commands.md) — `/assert`, `/await`, `/fail`, `/succeed`
+- [Test environments](docs/environments.md) — world setup/teardown around tests
 
 ## Acknowledgements
 
