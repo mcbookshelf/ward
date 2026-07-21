@@ -4,9 +4,9 @@ import net.minecraft.gametest.framework.GameTestException;
 import net.minecraft.network.chat.Component;
 
 public class TestException extends GameTestException {
-	protected final Component message;
-	protected final int line;
-	protected final long tick;
+	private final Component message;
+	private final int line;
+	private final long tick;
 
 	public TestException(final Component message, final int line, final long tick) {
 		super(message.getString());

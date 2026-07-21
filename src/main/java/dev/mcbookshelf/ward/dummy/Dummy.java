@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
 
+import net.minecraft.advancements.triggers.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketFlow;
@@ -20,26 +22,25 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A fake server-side player for testing player-specific mechanics.
- *
- * <p>Dummies simulate real players but use no-op network connections, skip saving to disk, and
- * store stats/advancements separately in the ward/ directory. They respawn as Dummy instances (not
- * base ServerPlayer) to preserve testing behavior.
- *
- * <p>Inspired by <a href="https://github.com/gnembon/fabric-carpet">Carpet</a>
+ * A fake server-side player with a no-op network connection. Dummies are never saved and keep
+ * their stats and advancements in memory. Inspired by <a href="https://github.com/gnembon/fabric-carpet">Carpet</a>.
  */
 public class Dummy extends ServerPlayer {
-	public Vec3 ward$originalSpawnPosition;
-	public Vec2 ward$originalSpawnRotation;
+	public final Vec3 ward$originalSpawnPosition;
+	public final Vec2 ward$originalSpawnRotation;
 
 	/**
 	 * Creates and spawns a dummy with a randomly generated name.
@@ -55,9 +56,7 @@ public class Dummy extends ServerPlayer {
 	}
 
 	/**
-	 * Creates and spawns a dummy with the specified name.
-	 *
-	 * <p>The dummy stands on the bottom center of the block containing the given position.
+	 * Creates and spawns a dummy standing on the bottom center of the block at the position.
 	 */
 	public static Dummy create(String username, ServerLevel level, Vec3 position, Vec2 rotation) {
 		position = Vec3.atBottomCenterOf(BlockPos.containing(position));
@@ -90,13 +89,60 @@ public class Dummy extends ServerPlayer {
 		this.ward$originalSpawnRotation = originalSpawnRotation;
 	}
 
-	/**
-	 * Disconnects the dummy from the server.
-	 */
 	public void leave(Component reason) {
 		MinecraftServer server = Objects.requireNonNull(this.level().getServer());
 		server.getPlayerList().remove(this);
 		this.connection.onDisconnect(new DisconnectionDetails(reason));
+	}
+
+	public void respawn() {
+		MinecraftServer server = Objects.requireNonNull(this.level().getServer());
+		server.getPlayerList().respawn(this, false, Entity.RemovalReason.KILLED);
+	}
+
+	public boolean useItem() {
+		for (InteractionHand hand : InteractionHand.values()) {
+			ItemStack handItem = getItemInHand(hand);
+
+			if (gameMode.useItem(this, level(), handItem, hand).consumesAction()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public boolean useOnBlock(Vec3 pos, Direction direction) {
+		for (InteractionHand hand : InteractionHand.values()) {
+			ItemStack handItem = getItemInHand(hand);
+			BlockHitResult blockHit = new BlockHitResult(pos, direction, BlockPos.containing(pos), false);
+
+			if (gameMode.useItemOn(this, level(), handItem, hand, blockHit).consumesAction()) {
+				// The trigger normally fires from the network handler, which dummies bypass
+				CriteriaTriggers.ANY_BLOCK_USE.trigger(this, blockHit.getBlockPos(), handItem);
+				swing(hand);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public boolean useOnEntity(Entity entity, Vec3 location) {
+		for (InteractionHand hand : InteractionHand.values()) {
+			ItemStack used = getItemInHand(hand).copy();
+
+			if (interactOn(entity, hand, location) instanceof InteractionResult.Success success) {
+				// The trigger normally fires from the network handler, which dummies bypass
+				CriteriaTriggers.PLAYER_INTERACTED_WITH_ENTITY.trigger(
+						this,
+						success.wasItemInteraction() ? used : ItemStack.EMPTY,
+						entity);
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	@Override
@@ -121,7 +167,6 @@ public class Dummy extends ServerPlayer {
 	@Override
 	public void die(DamageSource cause) {
 		super.die(cause);
-		// Auto-respawns if IMMEDIATE_RESPAWN is enabled.
 
 		if (this.level().getGameRules().get(GameRules.IMMEDIATE_RESPAWN)) {
 			MinecraftServer server = Objects.requireNonNull(this.level().getServer());

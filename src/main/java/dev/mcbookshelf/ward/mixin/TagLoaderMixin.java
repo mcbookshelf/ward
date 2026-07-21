@@ -17,8 +17,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagLoader;
 
-import dev.mcbookshelf.ward.report.Diagnostic;
-import dev.mcbookshelf.ward.report.ReportManager;
+import dev.mcbookshelf.ward.LoadDiagnostic;
+import dev.mcbookshelf.ward.ReportManager;
 
 @Mixin(TagLoader.class)
 public class TagLoaderMixin {
@@ -29,9 +29,6 @@ public class TagLoaderMixin {
 	@Unique
 	private static final ThreadLocal<String> ward$currentDirectory = new ThreadLocal<>();
 
-	/**
-	 * Capture the directory at the start of build() so the lambda can access it.
-	 */
 	@Inject(method = "build", at = @At("HEAD"))
 	private void captureDirectory(
 			Map<Identifier, List<TagLoader.EntryWithSource>> builders,
@@ -39,9 +36,6 @@ public class TagLoaderMixin {
 		ward$currentDirectory.set(this.directory);
 	}
 
-	/**
-	 * Clear the ThreadLocal after build() completes.
-	 */
 	@Inject(method = "build", at = @At("RETURN"))
 	private void clearDirectory(
 			Map<Identifier, List<TagLoader.EntryWithSource>> builders,
@@ -50,7 +44,7 @@ public class TagLoaderMixin {
 	}
 
 	/**
-	 * Intercept error logging in load() method when reading tag files fails.
+	 * Reports tag files that fail to read. The log args carry the id first and the exception last.
 	 */
 	@WrapOperation(method = "load", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;[Ljava/lang/Object;)V"))
 	private void catchLoadError(
@@ -59,12 +53,17 @@ public class TagLoaderMixin {
 			Object[] args,
 			Operation<Void> original) {
 		original.call(logger, message, args);
-		String error = Diagnostic.describe((Throwable) args[3]);
-		ReportManager.report(Diagnostic.error("minecraft:" + this.directory, args[0].toString(), error));
+
+		if (args.length > 0 && args[args.length - 1] instanceof Throwable throwable) {
+			String error = LoadDiagnostic.describe(throwable);
+			ReportManager.report(LoadDiagnostic.error("minecraft:" + this.directory, args[0].toString(), error));
+		}
 	}
 
 	/**
-	 * Intercept error logging in build() method when tags have missing references.
+	 * Reports tags with missing references, from the static "Couldn't load tag" lambda in
+	 * {@code build}. The lambda only captures the id, which is why {@link #directory} goes
+	 * through a ThreadLocal.
 	 */
 	@WrapOperation(method = "lambda$build$2", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
 	private static void catchBuildError(
@@ -75,6 +74,6 @@ public class TagLoaderMixin {
 			Operation<Void> original) {
 		original.call(logger, message, id, references);
 		String error = String.format("Missing references: %s", references);
-		ReportManager.report(Diagnostic.error("minecraft:" + ward$currentDirectory.get(), id.toString(), error));
+		ReportManager.report(LoadDiagnostic.error("minecraft:" + ward$currentDirectory.get(), id.toString(), error));
 	}
 }

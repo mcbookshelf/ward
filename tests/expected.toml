@@ -1,162 +1,54 @@
-# Expected outcome of the integration fixture run, compared against the
-# aggregated bridge session by scripts/verify.py.
-#
-# tests: every game test in the fixture must appear with this exact result;
-#        "message" must be a substring of the failure/skip message.
-# diagnostics: each entry must match at least one reported load diagnostic
-#        (substring match on its kind/id).
+# Expected outcome of the integration fixture run, checked by tools/verify.py.
 
-[tests."ward:assert_block"]
-result = "passed"
+passed = [
+  "ward:assert_block",
+  "ward:assert_entity",
+  "ward:assert_data",
+  "ward:assert_score",
+  "ward:assert_items",
+  "ward:assert_predicate",
+  "ward:assert_biome",
+  "ward:assert_run",
+  "ward:chat_server",
+  "ward:await_entity",
+  "ward:await_delay",
+  "ward:await_limit",
+  "ward:await_run",
+  "ward:await_score",
+  "ward:execute_modifiers",
+  "ward:succeed_early",
+  "ward:dummy_actions",
+  "ward:dummy_lifecycle",
+  "ward:dummy_items",
+  "ward:dummy_world",
+  "ward:environment_directive",
+  "ward:dimension_nether",
+  "ward:max_ticks_alias",
+  "ward:directives_combined",
+  "ward:flaky_retry",
+  "ward:flaky_successes",
+  "ward:use_block_advancement",
+  "ward:use_entity_advancement",
+  "ward:forceload_during",
+  "ward:forceload_kept",
+]
 
-[tests."ward:assert_entity"]
-result = "passed"
+[failed]
+"ward:fail_expected" = "ward intentional failure"
+"ward:assert_fail_expected" = "Expected block"
+"ward:timeout_expected" = "Expected entity matching"
+"ward:errored_expected" = "Unknown scoreboard objective"
+"ward:error_order" = "first failure"
+"ward:flaky_exhausted" = "flaky ran out of attempts"
 
-[tests."ward:assert_data"]
-result = "passed"
+[skipped]
+"ward:optional_expected" = "Fail command invoked"
 
-[tests."ward:assert_score"]
-result = "passed"
-
-[tests."ward:assert_items"]
-result = "passed"
-
-[tests."ward:assert_predicate"]
-result = "passed"
-
-[tests."ward:assert_biome"]
-result = "passed"
-
-[tests."ward:await_entity"]
-result = "passed"
-
-[tests."ward:await_delay"]
-result = "passed"
-
-# A 100 tick await fits the default 100 tick timeout exactly
-[tests."ward:await_limit"]
-result = "passed"
-
-# The run / result / function conditions across assert, await and not
-[tests."ward:assert_run"]
-result = "passed"
-
-[tests."ward:await_run"]
-result = "passed"
-
-# Assert and await compose with /execute modifiers
-[tests."ward:execute_modifiers"]
-result = "passed"
-
-[tests."ward:await_score"]
-result = "passed"
-
-[tests."ward:succeed_early"]
-result = "passed"
-
-[tests."ward:dummy_actions"]
-result = "passed"
-
-[tests."ward:dummy_lifecycle"]
-result = "passed"
-
-[tests."ward:dummy_items"]
-result = "passed"
-
-[tests."ward:dummy_world"]
-result = "passed"
-
-[tests."ward:environment_directive"]
-result = "passed"
-
-[tests."ward:fail_expected"]
-result = "failed"
-message = "ward intentional failure"
-
-[tests."ward:assert_fail_expected"]
-result = "failed"
-message = "Expected block"
-
-[tests."ward:timeout_expected"]
-result = "failed"
-message = "Expected entity matching"
-
-[tests."ward:optional_expected"]
-result = "skipped"
-message = "Fail command invoked"
-
-# Unresolvable arguments fail the assert with the command error instead of
-# being silently swallowed by the engine (which would falsely pass the test)
-[tests."ward:errored_expected"]
-result = "failed"
-message = "Unknown scoreboard objective"
-
-[tests."ward:error_order"]
-result = "failed"
-message = "first failure"
-
-[tests."ward:use_block_advancement"]
-result = "passed"
-
-# Same class of bug for entity interactions (player_interacted_with_entity)
-[tests."ward:use_entity_advancement"]
-result = "passed"
-
-# The vanilla runner clears forced chunks between batches; load-time and
-# mid-run forceloads must survive until the run ends
-[tests."ward:forceload_during"]
-result = "passed"
-
-[tests."ward:forceload_kept"]
-result = "passed"
-
-[[diagnostics]]
-type = "minecraft:function"
-id = "ward:broken"
-
-[[diagnostics]]
-type = "minecraft:tags/function"
-id = "ward:broken"
-
-# Malformed JSON (exception path)
-[[diagnostics]]
-type = "minecraft:loot_table"
-id = "ward:broken"
-
-# Valid JSON failing the codec (parse-error path)
-[[diagnostics]]
-type = "minecraft:loot_table"
-id = "ward:invalid"
-
-# Valid loot table referencing a missing sub-table (validation warning)
-[[diagnostics]]
-type = "minecraft:loot_table"
-id = "ward:ref_missing"
-
-# Requirements referencing an unknown criterion
-[[diagnostics]]
-type = "minecraft:advancement"
-id = "ward:broken"
-
-# Test file that fails to parse
-[[diagnostics]]
-type = "ward:test"
-id = "ward:invalid_test"
-
-# Test using an environment that does not exist
-[[diagnostics]]
-type = "ward:test"
-id = "ward:invalid_environment"
-
-# Broken test_environment/test_instance JSON cannot be covered here: the
-# packs deployed by a run stay in world/datapacks, and vanilla loads those
-# registries strictly at every server boot (fatal), so the next daemon
-# start would crash. Ward's tolerant path only covers the in-run reload.
-
-[[diagnostics]]
-type = "pack.mcmeta"
-id = "broken"
-
-[[diagnostics]]
-type = "pack.mcmeta"
-id = "overlay"
+[diagnostics]
+"minecraft:function" = ["ward:broken"]
+"minecraft:tags/function" = ["ward:broken"]
+"minecraft:loot_table" = ["ward:broken", "ward:invalid", "ward:ref_missing"]
+"minecraft:advancement" = ["ward:broken"]
+"minecraft:worldgen/biome" = ["ward:broken"]
+"ward:test" = ["ward:invalid_test", "ward:invalid_environment"]
+"pack.mcmeta" = ["broken", "overlay"]

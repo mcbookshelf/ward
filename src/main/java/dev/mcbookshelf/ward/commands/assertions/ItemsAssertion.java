@@ -23,11 +23,8 @@ import net.minecraft.world.entity.SlotProvider;
 import net.minecraft.world.inventory.SlotRange;
 import net.minecraft.world.item.ItemStack;
 
-import dev.mcbookshelf.ward.TestExecutor;
+import dev.mcbookshelf.ward.AssertResult;
 
-/**
- * Asserts that items matching a predicate exist in entity inventory or block container slots.
- */
 class ItemsAssertion implements Assertion {
 	private static final Dynamic3CommandExceptionType ERROR_SOURCE_NOT_A_CONTAINER = new Dynamic3CommandExceptionType(
 			(x, y, z) -> Component.translatableEscape("commands.item.source.not_a_container", x, y, z));
@@ -38,49 +35,36 @@ class ItemsAssertion implements Assertion {
 				.then(Commands.literal("entity").then(Commands.argument("entities", EntityArgument.entities())
 						.then(Commands.argument("slots", SlotsArgument.slots())
 								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(context.buildContext()))
-										.executes(ctx -> assertItemsEntity(ctx, context))))))
+										.executes(ctx -> runForEntity(ctx, context))))))
 				.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
 						.then(Commands.argument("slots", SlotsArgument.slots())
 								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(context.buildContext()))
-										.executes(ctx -> assertItemsBlock(ctx, context)))))));
+										.executes(ctx -> runForBlock(ctx, context)))))));
 	}
 
-	private static int assertItemsEntity(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
+	private static int runForEntity(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
 		EntitySelector selector = context.getArgument("entities", EntitySelector.class);
 		SlotRange slots = SlotsArgument.getSlots(context, "slots");
 		Predicate<ItemStack> predicate = ItemPredicateArgument.getItemPredicate(context, "predicate");
 
 		return assertion.apply(() -> {
-			int count = countItems(selector.findEntities(context.getSource()), slots, predicate);
-
-			return new TestExecutor.AssertResult(count, negated -> {
-				String key = Assertions.getTranslationKey("items", negated);
-				String input = Assertions.getRawArgument(context, "predicate");
-				return Component.translatable(key, input, count);
-			});
+			int count = countEntityItems(selector.findEntities(context.getSource()), slots, predicate);
+			return AssertResult.of(count, "items", Assertion.getRawArgument(context, "predicate"), count);
 		});
 	}
 
-	private static int assertItemsBlock(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
+	private static int runForBlock(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
 		SlotRange slots = SlotsArgument.getSlots(context, "slots");
 		Predicate<ItemStack> predicate = ItemPredicateArgument.getItemPredicate(context, "predicate");
 
 		return assertion.apply(() -> {
 			BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
-			int count = countItems(context.getSource(), pos, slots, predicate);
-
-			return new TestExecutor.AssertResult(count, negated -> {
-				String key = Assertions.getTranslationKey("items", negated);
-				String input = Assertions.getRawArgument(context, "predicate");
-				return Component.translatable(key, input, count);
-			});
+			int count = countBlockItems(context.getSource(), pos, slots, predicate);
+			return AssertResult.of(count, "items", Assertion.getRawArgument(context, "predicate"), count);
 		});
 	}
 
-	/**
-	 * Counts total items matching a predicate across entity inventory slots.
-	 */
-	private static int countItems(Iterable<? extends SlotProvider> sources, SlotRange slotRange, Predicate<ItemStack> predicate) {
+	private static int countEntityItems(Iterable<? extends SlotProvider> sources, SlotRange slotRange, Predicate<ItemStack> predicate) {
 		int count = 0;
 
 		for (SlotProvider slotProvider : sources) {
@@ -103,30 +87,27 @@ class ItemsAssertion implements Assertion {
 		return count;
 	}
 
-	/**
-	 * Counts total items matching a predicate in block container slots.
-	 */
-	private static int countItems(CommandSourceStack source, BlockPos pos, SlotRange slotRange, Predicate<ItemStack> predicate) throws CommandSyntaxException {
-		if (source.getLevel().getBlockEntity(pos) instanceof Container container) {
-			int count = 0;
-			int size = container.getContainerSize();
-			IntList slots = slotRange.slots();
-
-			for (int i = 0; i < slots.size(); ++i) {
-				int slot = slots.getInt(i);
-
-				if (slot >= 0 && slot < size) {
-					ItemStack itemStack = container.getItem(slot);
-
-					if (predicate.test(itemStack)) {
-						count += itemStack.getCount();
-					}
-				}
-			}
-
-			return count;
-		} else {
+	private static int countBlockItems(CommandSourceStack source, BlockPos pos, SlotRange slotRange, Predicate<ItemStack> predicate) throws CommandSyntaxException {
+		if (!(source.getLevel().getBlockEntity(pos) instanceof Container container)) {
 			throw ERROR_SOURCE_NOT_A_CONTAINER.create(pos.getX(), pos.getY(), pos.getZ());
 		}
+
+		int count = 0;
+		int size = container.getContainerSize();
+		IntList slots = slotRange.slots();
+
+		for (int i = 0; i < slots.size(); ++i) {
+			int slot = slots.getInt(i);
+
+			if (slot >= 0 && slot < size) {
+				ItemStack itemStack = container.getItem(slot);
+
+				if (predicate.test(itemStack)) {
+					count += itemStack.getCount();
+				}
+			}
+		}
+
+		return count;
 	}
 }

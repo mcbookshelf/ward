@@ -10,8 +10,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import net.minecraft.server.ReloadableServerRegistries;
 import net.minecraft.util.ProblemReporter;
 
-import dev.mcbookshelf.ward.report.Diagnostic;
-import dev.mcbookshelf.ward.report.ReportManager;
+import dev.mcbookshelf.ward.LoadDiagnostic;
+import dev.mcbookshelf.ward.ReportManager;
 
 @Mixin(ReloadableServerRegistries.class)
 public class ReloadableServerRegistriesMixin {
@@ -22,11 +22,13 @@ public class ReloadableServerRegistriesMixin {
 			Operation<Void> original) {
 		original.call(collector, consumer);
 		collector.forEach((id, problem) -> {
+			// Problem paths render as "{<element id>@<registry>}<path>", e.g.
+			// "{blocks/stone@minecraft:loot_table}.pools[0]" (ProblemReporter.RootElementPathElement)
 			int end = id.indexOf('}');
 			String path = id.substring(end + 2);
 			String[] parts = id.substring(id.indexOf('{') + 1, end).split("@");
 			String message = String.format("%s (at %s)", problem.description(), path);
-			ReportManager.report(Diagnostic.warn(parts[1], parts[0], message));
+			ReportManager.report(LoadDiagnostic.warn(parts[1], parts[0], message));
 		});
 	}
 }

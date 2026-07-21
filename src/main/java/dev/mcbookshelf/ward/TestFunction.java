@@ -15,14 +15,14 @@ import net.minecraft.commands.functions.CommandFunction;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 /**
- * Represents a test parsed from a function file, containing commands and directives.
+ * A test parsed from a function file, with its commands and directives.
  */
 public record TestFunction(List<Entry> commands, TestDirectives directives) {
 	public record Entry(String command, ContextChain<CommandSourceStack> chain, int line) {
 	}
 
 	public void run(GameTestHelper helper) {
-		TestExecutor test = new TestExecutor(helper, this.directives().timeout());
+		TestExecutor test = new TestExecutor(helper, this.directives().maxTicks());
 		test.run(this);
 	}
 
@@ -39,7 +39,6 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) {
 			final int line = i + 1;
 			StringBuilder builder = new StringBuilder(lines.get(i++).trim());
 
-			// Handle line continuation
 			while (!builder.isEmpty() && builder.charAt(builder.length() - 1) == '\\') {
 				if (i >= lines.size()) {
 					throw new IllegalArgumentException("Line continuation at end of file");
@@ -59,13 +58,11 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) {
 
 			if (!reader.canRead()) continue;
 
-			// Handle comments/directives
 			if (reader.peek() == '#') {
 				parseDirective(reader, line, directives);
 				continue;
 			}
 
-			// Handle commands
 			try {
 				commands.add(new Entry(command, parseCommand(dispatcher, context, command), line));
 			} catch (CommandSyntaxException e) {
@@ -80,11 +77,11 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) {
 			StringReader reader,
 			int line,
 			TestDirectives.Builder directives) throws IllegalArgumentException {
-		reader.skip(); // Skip '#'
+		reader.skip();
 		reader.skipWhitespace();
 
 		if (reader.canRead() && reader.peek() == '@') {
-			reader.skip(); // Skip '@'
+			reader.skip();
 			String name = reader.readUnquotedString();
 			reader.skipWhitespace();
 			String value = reader.canRead() ? reader.getRemaining() : null;

@@ -11,7 +11,6 @@ import java.util.function.BooleanSupplier;
 import com.google.common.base.Stopwatch;
 import com.mojang.brigadier.StringReader;
 import com.mojang.serialization.Lifecycle;
-import org.jspecify.annotations.Nullable;
 
 import net.minecraft.CrashReport;
 import net.minecraft.SystemReport;
@@ -28,11 +27,11 @@ import net.minecraft.gametest.framework.GameTestBatchListener;
 import net.minecraft.gametest.framework.GameTestInstance;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.gametest.framework.GameTestTicker;
-import net.minecraft.gametest.framework.MultipleTestTracker;
 import net.minecraft.gametest.framework.StructureGridSpawner;
 import net.minecraft.gizmos.GizmoCollector;
 import net.minecraft.gizmos.Gizmos;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.WorldStem;
@@ -55,6 +54,7 @@ import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.level.DataPackConfig;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.dimension.LevelStem;
@@ -68,28 +68,22 @@ import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 
-import dev.mcbookshelf.ward.report.Diagnostic;
-import dev.mcbookshelf.ward.report.ReportManager;
-
 /**
- * Headless game test server for a single run: boots a fresh world, runs the selected tests and
- * halts itself once they complete. The {@link WardDaemon} creates one instance per run so that
- * every run sees freshly loaded dynamic registries and datapacks.
+ * Headless game test server for a single run. It boots a fresh world, runs the selected tests
+ * and halts. The {@link WardDaemon} creates one instance per run.
  */
 public class WardServer extends MinecraftServer {
-	private static final FeatureFlagSet ENABLED_FEATURES = FeatureFlags.REGISTRY.allFlags().subtract(FeatureFlagSet.of(
-			FeatureFlags.REDSTONE_EXPERIMENTS,
-			FeatureFlags.MINECART_IMPROVEMENTS));
+	private static final FeatureFlagSet ENABLED_FEATURES = FeatureFlags.REGISTRY.allFlags().subtract(FeatureFlagSet.of(FeatureFlags.REDSTONE_EXPERIMENTS, FeatureFlags.MINECART_IMPROVEMENTS));
 	private static final WorldOptions WORLD_OPTIONS = new WorldOptions(0L, false, false);
 	private static final int TEST_POSITION_RANGE = 14999992;
-	private static final int TEST_Y_LEVEL = -59;
+	private static final int TEST_HEIGHT_ABOVE_FLOOR = 5;
 	private static final int STRUCTURE_GRID_SPACING = 8;
 
 	private final LocalSampleLogger sampleLogger = new LocalSampleLogger(4);
 	private final Stopwatch stopwatch = Stopwatch.createUnstarted();
 	private final WardDaemon daemon;
 	private final String selection;
-	private @Nullable MultipleTestTracker tracker;
+	private boolean started;
 
 	public static WardServer create(
 			WardDaemon daemon,
@@ -123,7 +117,7 @@ public class WardServer extends MinecraftServer {
 			WorldStem worldStem = Util.blockUntilDone(executor -> WorldLoader.load(initConfig, context -> {
 				Registry<LevelStem> noDatapack = new MappedRegistry<>(Registries.LEVEL_STEM, Lifecycle.stable()).freeze();
 
-				WorldDimensions dimensions = context.datapackWorldgen()
+				WorldDimensions dimensions = context.datapackWorldRegistries()
 						.lookupOrThrow(Registries.WORLD_PRESET)
 						.getOrThrow(WorldPresets.FLAT)
 						.value()
@@ -142,8 +136,8 @@ public class WardServer extends MinecraftServer {
 
 			return new WardServer(daemon, thread, storage, packs, worldStem, selection);
 		} catch (Exception e) {
-			// Propagates to WardDaemon.boot which reports the failure to clients
-			throw new RuntimeException("Failed to load datapacks: " + Diagnostic.describe(e), e);
+			// Propagates to WardDaemon.boot, which reports the failure to clients
+			throw new RuntimeException("Failed to load datapacks: " + LoadDiagnostic.describe(e), e);
 		}
 	}
 
@@ -185,10 +179,8 @@ public class WardServer extends MinecraftServer {
 		Gizmos.withCollector(GizmoCollector.NOOP);
 		this.loadLevel();
 
-		// The world lives in memory only: chunks are never saved nor even
-		// unloaded during the run. The vanilla shutdown path resets this flag
-		// and still tries to save while draining; those writes are dropped at
-		// the storage layer (IOWorkerMixin, SavedDataStorageMixin)
+		// The world only lives in memory. The vanilla shutdown path resets this flag and
+		// still tries to save, but IOWorkerMixin and SavedDataStorageMixin drop the writes
 		for (ServerLevel level : this.getAllLevels()) {
 			level.noSave = true;
 		}
@@ -199,8 +191,8 @@ public class WardServer extends MinecraftServer {
 
 	@Override
 	public boolean saveAllChunks(boolean silent, boolean flush, boolean force) {
-		// Nothing is persisted: skips chunks, level.dat, scoreboard and saved
-		// data for the autosave and the shutdown save alike
+		// Nothing is persisted. This skips chunks, level.dat, scoreboard and
+		// saved data, for autosaves and the shutdown save alike
 		return true;
 	}
 
@@ -208,7 +200,7 @@ public class WardServer extends MinecraftServer {
 	protected void tickServer(BooleanSupplier haveTime) {
 		super.tickServer(haveTime);
 
-		if (this.tracker == null) {
+		if (!this.started) {
 			try {
 				startTests(this.overworld());
 			} catch (Exception e) {
@@ -219,17 +211,12 @@ public class WardServer extends MinecraftServer {
 			return;
 		}
 
-		if (this.tracker.isDone()) {
+		if (ReportManager.isRunComplete()) {
 			this.stopwatch.stop();
-
-			int total = this.tracker.getTotalCount();
-			int failed = this.tracker.getFailedRequiredCount();
-			int skipped = this.tracker.getFailedOptionalCount();
-			int passed = total - failed - skipped;
 			long elapsed = this.stopwatch.elapsed(TimeUnit.MILLISECONDS);
 
-			Ward.LOGGER.info("Test run finished: {}/{} passed in {}", passed, total, formatMillis(elapsed));
-			ReportManager.runFinished(total, passed, failed, skipped, elapsed);
+			Ward.LOGGER.info("Test run finished in {}", formatMillis(elapsed));
+			ReportManager.runFinished(elapsed);
 
 			GameTestTicker.SINGLETON.clear();
 			this.halt(false);
@@ -237,7 +224,8 @@ public class WardServer extends MinecraftServer {
 	}
 
 	/**
-	 * Runs tests matching the selection pattern; the tracker reports done once they complete.
+	 * Runs the tests matching the selection pattern. The run only finishes once every test has
+	 * reported a final result, so flaky reruns settle before the server halts.
 	 */
 	private void startTests(ServerLevel level) throws Exception {
 		GameTestTicker.SINGLETON.clear();
@@ -255,19 +243,19 @@ public class WardServer extends MinecraftServer {
 		BlockPos startPos = pickStartPosition(level);
 		level.setRespawnData(LevelData.RespawnData.of(level.dimension(), startPos, 0.0F, 0.0F));
 
-		List<GameTestBatch> batches = GameTestBatchFactory.divideIntoBatches(tests, GameTestBatchFactory.DIRECT, level);
-		GameTestRunner runner = GameTestRunner.Builder.fromBatches(batches, level)
-				.newStructureSpawner(new StructureGridSpawner(startPos, STRUCTURE_GRID_SPACING, false))
+		List<GameTestBatch> batches = GameTestBatchFactory.divideIntoBatches(tests, GameTestBatchFactory.DIRECT, this);
+		GameTestRunner runner = GameTestRunner.Builder.fromBatches(batches, this)
+				.newStructureSpawner(new StructureGridSpawner(dimension -> startPositionFor(dimension, startPos), STRUCTURE_GRID_SPACING, false))
 				.build();
 
-		this.tracker = new MultipleTestTracker(runner.getTestInfos());
 		runner.addListener(new BatchListener());
-		ReportManager.runStarted(this.tracker.getTotalCount(), startPos);
+		ReportManager.runStarted(tests.size(), startPos);
 
-		Ward.LOGGER.info("{} tests are now running at position {}!", this.tracker.getTotalCount(), startPos.toShortString());
+		Ward.LOGGER.info("{} tests are now running at position {}!", tests.size(), startPos.toShortString());
 		this.stopwatch.reset();
 		this.stopwatch.start();
 		runner.start();
+		this.started = true;
 	}
 
 	@Override
@@ -278,7 +266,7 @@ public class WardServer extends MinecraftServer {
 	@Override
 	protected void onServerExit() {
 		super.onServerExit();
-		TestLibrary.release();
+		WardRegistries.release();
 		ChatRecorder.clear();
 		this.daemon.serverExited();
 	}
@@ -290,9 +278,6 @@ public class WardServer extends MinecraftServer {
 		this.daemon.reportFailure(report.getException());
 	}
 
-	/**
-	 * Returns all available pack ids ordered with vanilla first.
-	 */
 	private static List<String> selectPacks(PackRepository packs) {
 		List<String> enabledPacks = new ArrayList<>(packs.getAvailableIds());
 		enabledPacks.remove("vanilla");
@@ -307,12 +292,19 @@ public class WardServer extends MinecraftServer {
 		RandomSource random = level.getRandom();
 		int x = random.nextIntBetweenInclusive(-TEST_POSITION_RANGE, TEST_POSITION_RANGE);
 		int z = random.nextIntBetweenInclusive(-TEST_POSITION_RANGE, TEST_POSITION_RANGE);
-		return new BlockPos(x, TEST_Y_LEVEL, z);
+		return new BlockPos(x, 0, z);
 	}
 
 	/**
-	 * Formats a duration in milliseconds for display (e.g. "250ms", "1.5s").
+	 * Anchors a dimension's test grid at the shared {@code x}/{@code z}, just above that
+	 * dimension's floor. Dimensions are separate levels, so they cannot overlap.
 	 */
+	private BlockPos startPositionFor(ResourceKey<Level> dimension, BlockPos startPos) {
+		ServerLevel level = this.getLevel(dimension);
+		int y = level != null ? level.getMinY() + TEST_HEIGHT_ABOVE_FLOOR : startPos.getY();
+		return new BlockPos(startPos.getX(), y, startPos.getZ());
+	}
+
 	private static String formatMillis(long milliseconds) {
 		if (milliseconds < 1000) {
 			return milliseconds + "ms";
@@ -399,18 +391,20 @@ public class WardServer extends MinecraftServer {
 
 	@Override
 	public <T> T getOrThrow(Key<T> key) {
-		throw new UnsupportedOperationException("getOrThrow should be provided by mixin");
+		// Fabric API injects this method into MinecraftServer and implements it at runtime,
+		// but javac still demands an override. Data resources are never used on this server
+		throw new UnsupportedOperationException("Data resources are unsupported on the ward server");
 	}
 
 	private static class BatchListener implements GameTestBatchListener {
 		@Override
 		public void testBatchStarting(GameTestBatch batch) {
-			ReportManager.batchStarted(batch.index(), batch.environment().getRegisteredName());
+			ReportManager.batchStarted(batch.index(), batch.environment().getRegisteredName(), batch.dimension().identifier().toString());
 		}
 
 		@Override
 		public void testBatchFinished(GameTestBatch batch) {
-			ReportManager.batchFinished(batch.index(), batch.environment().getRegisteredName());
+			ReportManager.batchFinished(batch.index(), batch.environment().getRegisteredName(), batch.dimension().identifier().toString());
 		}
 	}
 }

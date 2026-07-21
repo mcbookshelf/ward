@@ -8,38 +8,29 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.NbtPathArgument;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
+import net.minecraft.server.commands.ArgProvider;
 import net.minecraft.server.commands.data.DataAccessor;
 import net.minecraft.server.commands.data.DataCommands;
 
-import dev.mcbookshelf.ward.TestExecutor;
+import dev.mcbookshelf.ward.AssertResult;
 
-/**
- * Asserts that an NBT path exists on a block entity, entity or command storage.
- */
 class DataAssertion implements Assertion {
 	@Override
 	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
-		for (DataCommands.DataProvider provider : DataCommands.SOURCE_PROVIDERS) {
+		for (ArgProvider<DataAccessor> provider : DataCommands.SOURCE_PROVIDERS) {
 			root.then(provider.wrap(Commands.literal("data"), p -> p
 					.then(Commands.argument("path", NbtPathArgument.nbtPath())
-							.executes(ctx -> assertData(ctx, context, provider)))));
+							.executes(ctx -> run(ctx, context, provider)))));
 		}
 	}
 
-	private static int assertData(
-			CommandContext<CommandSourceStack> context,
-			Context assertion,
-			DataCommands.DataProvider provider) throws CommandSyntaxException {
+	private static int run(CommandContext<CommandSourceStack> context, Context assertion, ArgProvider<DataAccessor> provider) throws CommandSyntaxException {
 		return assertion.apply(() -> {
 			NbtPathArgument.NbtPath path = NbtPathArgument.getPath(context, "path");
 			DataAccessor accessor = provider.access(context);
 			CompoundTag data = accessor.getData();
 
-			return new TestExecutor.AssertResult(path.countMatching(data), negated -> {
-				String key = Assertions.getTranslationKey("data", negated);
-				return Component.translatable(key, path.asString(), data.toString());
-			});
+			return AssertResult.of(path.countMatching(data), "data", path.asString(), data.toString());
 		});
 	}
 }

@@ -29,7 +29,6 @@ spotless {
 	lineEndings = com.diffplug.spotless.LineEnding.UNIX
 
 	java {
-		// Mechanical fixes only; layout is the developer's job, checked by checkstyle
 		importOrder('java', 'javax', '', 'net.minecraft', 'dev.mcbookshelf')
 		removeUnusedImports()
 		trimTrailingWhitespace()
@@ -38,22 +37,17 @@ spotless {
 }
 
 dependencies {
-	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
 processResources {
-	inputs.property "version", project.version
-	inputs.property "minecraft_version", project.minecraft_version
+	def version = project.version
+	inputs.property "version", version
 
 	filesMatching("fabric.mod.json") {
-		expand "version": inputs.properties.version,
-			"minecraft_version": inputs.properties.minecraft_version
+		expand "version": version
 	}
 }
 
@@ -62,9 +56,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
 	withSourcesJar()
 
 	sourceCompatibility = JavaVersion.VERSION_25
@@ -72,9 +63,10 @@ java {
 }
 
 jar {
-	inputs.property "projectName", project.name
+	def projectName = project.name
+	inputs.property "projectName", projectName
 
 	from("LICENSE") {
-		rename { "${it}_${project.name}"}
+		rename { "${it}_$projectName"}
 	}
 }

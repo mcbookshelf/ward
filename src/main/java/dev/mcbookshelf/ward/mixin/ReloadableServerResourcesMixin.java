@@ -13,11 +13,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.commands.Commands;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentInitializers;
-import net.minecraft.server.RegistryLayer;
+import net.minecraft.server.ReloadableServerRegistries;
 import net.minecraft.server.ReloadableServerResources;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.permissions.PermissionSet;
@@ -38,8 +36,7 @@ public abstract class ReloadableServerResourcesMixin {
 
 	@Inject(method = "<init>", at = @At("RETURN"))
 	private void init(
-			LayeredRegistryAccess<RegistryLayer> fullLayers,
-			HolderLookup.Provider loadingContext,
+			ReloadableServerRegistries.LoadResult loadingContext,
 			FeatureFlagSet enabledFeatures,
 			Commands.CommandSelection commandSelection,
 			List<Registry.PendingTags<?>> postponedTags,
@@ -47,7 +44,7 @@ public abstract class ReloadableServerResourcesMixin {
 			List<DataComponentInitializers.PendingComponents<?>> newComponents,
 			CallbackInfo ci) {
 		this.testLibrary = new TestLibrary(
-				loadingContext,
+				loadingContext.lookupWithUpdatedTags(),
 				functionCompilationPermissions,
 				this.commands.getDispatcher());
 	}

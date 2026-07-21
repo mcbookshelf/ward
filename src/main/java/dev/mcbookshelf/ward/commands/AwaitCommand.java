@@ -15,16 +15,13 @@ import dev.mcbookshelf.ward.TestExecutor;
 import dev.mcbookshelf.ward.commands.assertions.Assertion;
 import dev.mcbookshelf.ward.commands.assertions.Assertions;
 
-/**
- * The await command for waiting until conditions are met.
- */
 public final class AwaitCommand {
 	private AwaitCommand() {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
-		Assertion.Context root = new Assertion.Context(dispatcher, context, Assertion.Mode.AWAIT_TRUE);
-		Assertion.Context not = new Assertion.Context(dispatcher, context, Assertion.Mode.AWAIT_FALSE);
+		Assertion.Context root = new Assertion.Context(dispatcher, context, false, false);
+		Assertion.Context not = new Assertion.Context(dispatcher, context, false, true);
 
 		dispatcher.register(Assertions.build(Commands.literal("await")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))

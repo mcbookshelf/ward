@@ -1,7 +1,6 @@
 # @dummy
 # @timeout 200
 
-# Dummies spawn on the bottom center of their block
 execute positioned ~.5 ~ ~.5 run assert entity @s[distance=..0.1]
 
 dummy @s jump

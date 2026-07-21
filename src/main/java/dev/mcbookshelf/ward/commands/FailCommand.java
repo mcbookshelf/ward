@@ -13,9 +13,6 @@ import net.minecraft.network.chat.ComponentUtils;
 
 import dev.mcbookshelf.ward.TestExecutor;
 
-/**
- * The fail command for explicitly failing a test.
- */
 public final class FailCommand {
 	private FailCommand() {
 	}
@@ -23,28 +20,21 @@ public final class FailCommand {
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
 		dispatcher.register(Commands.literal("fail")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-				.executes(FailCommand::failWithoutMessage)
+				.executes(_ -> fail(Component.translatable("ward.fail")))
 				.then(Commands.argument("message", ComponentArgument.textComponent(context))
-						.executes(FailCommand::failWithMessage)));
+						.executes(FailCommand::failWithArgument)));
 	}
 
-	private static int failWithoutMessage(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-		TestExecutor.current().fail(Component.translatable("ward.fail"));
+	private static int fail(Component message) throws CommandSyntaxException {
+		TestExecutor.current().fail(message);
 		return 0;
 	}
 
-	private static int failWithMessage(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-		TestExecutor executor = TestExecutor.current();
-
-		Component message;
-
+	private static int failWithArgument(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		try {
-			message = ComponentArgument.getResolvedComponent(context, "message");
+			return fail(ComponentArgument.getResolvedComponent(context, "message"));
 		} catch (CommandSyntaxException e) {
-			message = ComponentUtils.fromMessage(e.getRawMessage());
+			return fail(ComponentUtils.fromMessage(e.getRawMessage()));
 		}
-
-		executor.fail(message);
-		return 0;
 	}
 }

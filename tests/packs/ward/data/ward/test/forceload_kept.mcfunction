@@ -5,5 +5,5 @@ forceload add 15000640 15000640
 await block 15000640 -64 15000640 minecraft:bedrock
 await delay 40
 scoreboard players set #kept ward.forceload 1
-execute if score #during ward.forceload matches 1 unless loaded 15000000 0 15000000 run fail "Load-time forceloaded chunk was unloaded by the test runner"
-execute if score #during ward.forceload matches 1 unless loaded 15000320 0 15000320 run fail "Mid-test forceloaded chunk was unloaded by the test runner"
+execute if score #during ward.forceload matches 1 run await run execute if loaded 15000000 0 15000000
+execute if score #during ward.forceload matches 1 run await run execute if loaded 15000320 0 15000320

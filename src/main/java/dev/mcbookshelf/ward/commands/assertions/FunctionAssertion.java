@@ -2,10 +2,10 @@ package dev.mcbookshelf.ward.commands.assertions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.ContextChain;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -29,49 +29,19 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.commands.ExecuteCommand;
 import net.minecraft.server.commands.FunctionCommand;
 
+import dev.mcbookshelf.ward.AssertResult;
 import dev.mcbookshelf.ward.TestExecutor;
 
-/**
- * The function condition, mirroring the semantics of /execute if function: satisfied when the
- * function returns a nonzero result, unsatisfied when it returns zero, fails, or never returns.
- */
 class FunctionAssertion implements Assertion {
 	@Override
 	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
-		RequiredArgumentBuilder<CommandSourceStack, FunctionArgument.Result> function = Commands
-				.argument("function", FunctionArgument.functions())
-				.suggests(FunctionCommand.SUGGEST_FUNCTION);
-
-		if (context.immediate()) {
-			function.executes(new AssertFunction(context));
-		} else {
-			function.executes(ctx -> awaitFunction(ctx, context));
-		}
-
-		root.then(Commands.literal("function").then(function));
+		root.then(Commands.literal("function")
+				.then(Commands.argument("function", FunctionArgument.functions())
+						.suggests(FunctionCommand.SUGGEST_FUNCTION)
+						.executes(new AssertFunction(context))));
 	}
 
-	private static InstantiatedFunction<CommandSourceStack> instantiate(
-			CommandFunction<CommandSourceStack> function,
-			CommandDispatcher<CommandSourceStack> dispatcher) throws CommandSyntaxException {
-		try {
-			return function.instantiate(null, dispatcher);
-		} catch (FunctionInstantiationException e) {
-			throw ExecuteCommand.ERROR_FUNCTION_CONDITION_INSTANTATION_FAILURE.create(function.id(), e.messageComponent());
-		}
-	}
-
-	private static Component functionMessage(Identifier function, Object result, boolean negated) {
-		return Component.translatable(Assertions.getTranslationKey("function", negated), Component.translationArg(function), result);
-	}
-
-	/**
-	 * Immediate variant of the function condition. Terminal commands only reach the execution
-	 * queue through this vanilla extension point, which is what allows queueing the isolated
-	 * function calls and checking their outcome afterwards.
-	 */
-	private record AssertFunction(Context assertion)
-			implements CustomCommandExecutor.CommandAdapter<CommandSourceStack> {
+	private record AssertFunction(Context assertion) implements CustomCommandExecutor.CommandAdapter<CommandSourceStack> {
 		@Override
 		public void run(
 				CommandSourceStack sender,
@@ -91,88 +61,87 @@ class FunctionAssertion implements Assertion {
 				ContextChain<CommandSourceStack> currentStep,
 				ExecutionControl<CommandSourceStack> output) throws CommandSyntaxException {
 			TestExecutor test = TestExecutor.current();
-			boolean negated = this.assertion.mode() == Mode.ASSERT_FALSE;
 			CommandContext<CommandSourceStack> context = currentStep.getTopContext().copyFor(sender);
 			CommandSourceStack functionContext = FunctionCommand.modifySenderForExecution(sender.clearCallbacks());
+			String name = Assertion.getRawArgument(context, "function");
+			List<InstantiatedFunction<CommandSourceStack>> functions = instantiate(context, this.assertion.dispatcher());
 
-			for (CommandFunction<CommandSourceStack> function : FunctionArgument.getFunctions(context, "function")) {
-				InstantiatedFunction<CommandSourceStack> instantiated = instantiate(function, this.assertion.dispatcher());
-				boolean[] fired = {false};
+			queueFunctions(output, functionContext, functions, name, result ->
+					this.assertion.deliver(test, result, () -> pollFunctions(functionContext, functions, name)));
+		}
 
-				output.queueNext(new IsolatedCall<>(control -> {
-					control.queueNext(new CallFunction<>(instantiated, control.currentFrame().returnValueConsumer(), true).bind(functionContext));
-					control.queueNext(FallthroughTask.instance());
-				}, (success, result) -> {
-					fired[0] = true;
+		private static void queueFunctions(
+				ExecutionControl<CommandSourceStack> output,
+				CommandSourceStack functionContext,
+				List<InstantiatedFunction<CommandSourceStack>> functions,
+				String name,
+				Consumer<AssertResult> onResult) {
+			int[] passing = {0};
+			int[] found = {0};
 
-					if ((result != 0) == negated) {
-						test.fail(functionMessage(function.id(), result, negated));
-					}
-				}));
-
-				// A function that never returns is unsatisfied, like for
-				// /execute if function; the check runs once the call completed
-				if (!negated) {
-					output.queueNext(new IsolatedCall<>(control -> {
-						if (!fired[0]) {
-							test.fail(Component.translatable("ward.assert.function_no_result", Component.translationArg(function.id())));
-						}
-
-						control.queueNext(FallthroughTask.instance());
-					}, CommandResultCallback.EMPTY));
+			output.queueNext(new IsolatedCall<>(control -> {
+				for (InstantiatedFunction<CommandSourceStack> function : functions) {
+					control.queueNext(new CallFunction<>(function, control.currentFrame().returnValueConsumer(), true).bind(functionContext));
 				}
-			}
-		}
-	}
 
-	/**
-	 * Polling variant of the function condition: the functions are re-executed in their own
-	 * context every tick until their results satisfy the mode. Polling starts the tick after
-	 * registration, since the registration check runs inside the active execution context.
-	 */
-	private static int awaitFunction(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
-		CommandSourceStack functionContext = FunctionCommand.modifySenderForExecution(context.getSource().clearCallbacks());
-		String name = Assertions.getRawArgument(context, "function");
-		List<InstantiatedFunction<CommandSourceStack>> functions = new ArrayList<>();
+				control.queueNext(FallthroughTask.instance());
+			}, (success, result) -> {
+				found[0] = result;
 
-		for (CommandFunction<CommandSourceStack> function : FunctionArgument.getFunctions(context, "function")) {
-			functions.add(instantiate(function, assertion.dispatcher()));
+				if (result != 0) {
+					passing[0]++;
+				}
+			}));
+
+			output.queueNext(new IsolatedCall<>(control -> {
+				onResult.accept(functionResult(name, passing[0], found[0]));
+				control.queueNext(FallthroughTask.instance());
+			}, CommandResultCallback.EMPTY));
 		}
 
-		boolean[] registering = {true};
-
-		return assertion.apply(() -> {
-			// An errored result keeps both await modes polling
-			if (registering[0]) {
-				registering[0] = false;
-				return TestExecutor.AssertResult.error(Component.translatable("ward.assert.function_no_result", name));
-			}
-
-			int satisfied = 0;
-			int result = 0;
+		private static AssertResult pollFunctions(
+				CommandSourceStack functionContext,
+				List<InstantiatedFunction<CommandSourceStack>> functions,
+				String name) {
+			int passing = 0;
+			int found = 0;
 
 			for (InstantiatedFunction<CommandSourceStack> function : functions) {
 				int[] value = {0};
-				boolean[] fired = {false};
 
 				// The function reports its return through the sender's callback
-				CommandSourceStack capturing = functionContext.withCallback((success, functionResult) -> {
-					fired[0] = true;
-					value[0] = functionResult;
-				});
+				CommandSourceStack capturing = functionContext.withCallback((success, result) -> value[0] = result);
+				Commands.executeCommandInContext(capturing, ctx -> ExecutionContext.queueInitialFunctionCall(ctx, function, capturing, CommandResultCallback.EMPTY));
 
-				Commands.executeCommandInContext(capturing, ctx ->
-						ExecutionContext.queueInitialFunctionCall(ctx, function, capturing, CommandResultCallback.EMPTY));
+				found = value[0];
 
-				satisfied += fired[0] && value[0] != 0 ? 1 : 0;
-				result = value[0];
+				if (value[0] != 0) {
+					passing++;
+				}
 			}
 
-			int found = result;
-			return new TestExecutor.AssertResult(satisfied, negated -> functionMessage(
-					Identifier.parse(name.startsWith("#") ? name.substring(1) : name),
-					found,
-					negated));
-		});
+			return functionResult(name, passing, found);
+		}
+
+		private static AssertResult functionResult(String name, int passing, int found) {
+			Identifier id = Identifier.parse(name.startsWith("#") ? name.substring(1) : name);
+			return AssertResult.of(passing, "function", Component.translationArg(id), found);
+		}
+
+		private static List<InstantiatedFunction<CommandSourceStack>> instantiate(
+				CommandContext<CommandSourceStack> context,
+				CommandDispatcher<CommandSourceStack> dispatcher) throws CommandSyntaxException {
+			List<InstantiatedFunction<CommandSourceStack>> functions = new ArrayList<>();
+
+			for (CommandFunction<CommandSourceStack> function : FunctionArgument.getFunctions(context, "function")) {
+				try {
+					functions.add(function.instantiate(null, dispatcher));
+				} catch (FunctionInstantiationException e) {
+					throw ExecuteCommand.ERROR_FUNCTION_CONDITION_INSTANTATION_FAILURE.create(function.id(), e.messageComponent());
+				}
+			}
+
+			return functions;
+		}
 	}
 }

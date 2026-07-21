@@ -114,24 +114,30 @@ def check_session(session: TestSession, expected_file: Path) -> int:
     results = {result.name: result for batch in session.batches for result in batch.results}
     problems: list[str] = []
 
-    expected_tests = expected.get("tests", {})
-    for name, spec in expected_tests.items():
+    tests: dict[str, tuple[str, str]] = {}
+    for name in expected.get("passed", []):
+        tests[name] = ("passed", "")
+    for status in ("failed", "skipped"):
+        for name, message in expected.get(status, {}).items():
+            tests[name] = (status, message)
+    for name, (status, message) in tests.items():
         if name not in results:
             problems.append(f"missing test: {name}")
             continue
         outcome = results[name].outcomes[version]
         result = outcome.status.value
-        if result != spec["result"]:
-            problems.append(f"{name}: expected {spec['result']}, got {result} ({outcome.error})")
-        elif spec.get("message", "") not in outcome.error:
-            problems.append(f"{name}: message {outcome.error!r} missing {spec['message']!r}")
-    for name in results.keys() - expected_tests.keys():
+        if result != status:
+            problems.append(f"{name}: expected {status}, got {result} ({outcome.error})")
+        elif message not in outcome.error:
+            problems.append(f"{name}: message {outcome.error!r} missing {message!r}")
+    for name in results.keys() - tests.keys():
         problems.append(f"unexpected test in run: {name}")
 
     diagnostics = list(session.diagnostics)
-    for spec in expected.get("diagnostics", []):
-        if not any(spec["type"] in d.kind and spec["id"] in d.id for d in diagnostics):
-            problems.append(f"missing diagnostic: {spec['type']} for {spec['id']}")
+    for kind, ids in expected.get("diagnostics", {}).items():
+        for id in ids:
+            if not any(kind in d.kind and id in d.id for d in diagnostics):
+                problems.append(f"missing diagnostic: {kind} for {id}")
 
     if problems:
         failure = f"run does not match {expected_file.name}"
@@ -140,7 +146,7 @@ def check_session(session: TestSession, expected_file: Path) -> int:
             print(f"  {color('-', '31')} {problem}", file=sys.stderr)
         return 1
 
-    counts = f"{len(expected_tests)} tests and {len(diagnostics)} diagnostics as expected"
+    counts = f"{len(tests)} tests and {len(diagnostics)} diagnostics as expected"
     print(f"\n{color('OK:', '1;32')} {counts}")
     return 0
 

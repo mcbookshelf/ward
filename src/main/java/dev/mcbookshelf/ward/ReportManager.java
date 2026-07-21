@@ -1,4 +1,4 @@
-package dev.mcbookshelf.ward.report;
+package dev.mcbookshelf.ward;
 
 import java.util.Locale;
 
@@ -11,26 +11,28 @@ import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GlobalTestReporter;
 import net.minecraft.gametest.framework.TestReporter;
 
-import dev.mcbookshelf.ward.TestException;
-import dev.mcbookshelf.ward.WardBridge;
-
 /**
- * Broadcasts load diagnostics, test results and run lifecycle events over the bridge, as JSON
- * messages to all connected clients.
- *
- * <p>Entries can be reported from the server thread as well as datapack reload worker threads, so
- * every dispatch is synchronized. The bridge is registered once at daemon startup, before any
- * world load, so the boot-time diagnostics of each run reach the clients that requested it.
+ * Broadcasts load diagnostics, test results and run lifecycle events over the bridge. Reports
+ * come from the server thread as well as reload workers, so every dispatch is synchronized.
  */
 public class ReportManager {
 	private static @Nullable WardBridge bridge;
+
+	private static int expectedTotal;
+	private static int passedCount;
+	private static int failedCount;
+	private static int skippedCount;
+
+	public static synchronized boolean isRunComplete() {
+		return passedCount + failedCount + skippedCount >= expectedTotal;
+	}
 
 	public static synchronized void register(WardBridge wardBridge) {
 		GlobalTestReporter.replaceWith(new TestReporterProxy());
 		bridge = wardBridge;
 	}
 
-	public static synchronized void report(Diagnostic diagnostic) {
+	public static synchronized void report(LoadDiagnostic diagnostic) {
 		JsonObject data = new JsonObject();
 		data.addProperty("severity", diagnostic.severity().name().toLowerCase(Locale.ROOT));
 		data.addProperty("kind", diagnostic.type());
@@ -40,6 +42,11 @@ public class ReportManager {
 	}
 
 	public static synchronized void runStarted(int total, BlockPos startPos) {
+		expectedTotal = total;
+		passedCount = 0;
+		failedCount = 0;
+		skippedCount = 0;
+
 		JsonObject data = new JsonObject();
 		data.addProperty("total", total);
 
@@ -52,20 +59,20 @@ public class ReportManager {
 		broadcast("tests_started", data);
 	}
 
-	public static synchronized void batchStarted(int index, String environment) {
-		broadcast("batch_started", createBatchData(index, environment));
+	public static synchronized void batchStarted(int index, String environment, String dimension) {
+		broadcast("batch_started", createBatchData(index, environment, dimension));
 	}
 
-	public static synchronized void batchFinished(int index, String environment) {
-		broadcast("batch_finished", createBatchData(index, environment));
+	public static synchronized void batchFinished(int index, String environment, String dimension) {
+		broadcast("batch_finished", createBatchData(index, environment, dimension));
 	}
 
-	public static synchronized void runFinished(int total, int passed, int failed, int skipped, long elapsedMs) {
+	public static synchronized void runFinished(long elapsedMs) {
 		JsonObject data = new JsonObject();
-		data.addProperty("total", total);
-		data.addProperty("passed", passed);
-		data.addProperty("failed", failed);
-		data.addProperty("skipped", skipped);
+		data.addProperty("total", expectedTotal);
+		data.addProperty("passed", passedCount);
+		data.addProperty("failed", failedCount);
+		data.addProperty("skipped", skippedCount);
 		data.addProperty("elapsed", elapsedMs);
 		broadcast("tests_finished", data);
 	}
@@ -73,14 +80,16 @@ public class ReportManager {
 	private static synchronized void reportTest(GameTestInfo info, boolean passed) {
 		JsonObject data = new JsonObject();
 		data.addProperty("name", info.getTestHolder().key().identifier().toString());
-		// Durations cross the wire as milliseconds; consumers format them
+		// Durations cross the wire as milliseconds and consumers format them
 		data.addProperty("time", info.getRunTime());
 
 		if (passed) {
+			passedCount++;
 			broadcast("test_passed", data);
 		} else if (info.getError() != null) {
 			// Consumers treat failures of optional tests as skipped
-			data.addProperty("required", info.isRequired());
+			boolean required = info.isRequired();
+			data.addProperty("required", required);
 
 			if (info.getError() instanceof TestException error) {
 				data.addProperty("error", error.getRawMessage());
@@ -91,13 +100,20 @@ public class ReportManager {
 			}
 
 			broadcast("test_failed", data);
+
+			if (required) {
+				failedCount++;
+			} else {
+				skippedCount++;
+			}
 		}
 	}
 
-	private static JsonObject createBatchData(int index, String environment) {
+	private static JsonObject createBatchData(int index, String environment, String dimension) {
 		JsonObject data = new JsonObject();
 		data.addProperty("batch", index);
 		data.addProperty("environment", environment);
+		data.addProperty("dimension", dimension);
 		return data;
 	}
 
@@ -120,8 +136,6 @@ public class ReportManager {
 
 		@Override
 		public void finish() {
-			// Run completion is driven by WardServer through runFinished; vanilla
-			// only invokes this from its own GameTestServer, never for Ward.
 		}
 	}
 }
