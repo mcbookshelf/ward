@@ -6,11 +6,11 @@
 </h1>
 
 <div align="center">
-  <a href="https://github.com/mcbookshelf/ward/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcbookshelf/ward/ci.yml?style=for-the-badge&label=ci&colorA=363a4f&colorB=c6a0f6&logo=githubactions&logoColor=cad3f5" alt="CI"></a>
+  <a href="https://github.com/mcbookshelf/ward/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcbookshelf/ward/ci.yml?style=for-the-badge&label=ci&colorA=363a4f&colorB=926bd1&logo=githubactions&logoColor=cad3f5" alt="CI"></a>
   &nbsp;
-  <a href="https://modrinth.com/mod/ward"><img src="https://img.shields.io/modrinth/v/ward?style=for-the-badge&label=modrinth&colorA=363a4f&colorB=74d996&logo=modrinth&logoColor=cad3f5" alt="Modrinth"></a>
+  <a href="https://modrinth.com/mod/ward"><img src="https://img.shields.io/modrinth/v/ward?style=for-the-badge&label=modrinth&colorA=363a4f&colorB=2eb86a&logo=modrinth&logoColor=cad3f5" alt="Modrinth"></a>
   &nbsp;
-  <a href="https://pypi.org/project/mcward/"><img src="https://img.shields.io/pypi/v/mcward?style=for-the-badge&label=pypi&colorA=363a4f&colorB=eed49f&logo=python&logoColor=cad3f5" alt="PyPI"></a>
+  <a href="https://pypi.org/project/mcward/"><img src="https://img.shields.io/pypi/v/mcward?style=for-the-badge&label=pypi&colorA=363a4f&colorB=3775A9&logo=python&logoColor=cad3f5" alt="PyPI"></a>
   &nbsp;
   <a href="https://discord.gg/MkXytNjmBt"><img src="https://img.shields.io/discord/1247513995376726116?style=for-the-badge&color=%237289DA&labelColor=363a4f&logo=discord&logoColor=cad3f5" alt="Discord"></a>
 </div>

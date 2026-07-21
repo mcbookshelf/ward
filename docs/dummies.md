@@ -1,21 +1,20 @@
 # Dummies
 
 Dummies are fake players for testing player-specific mechanics: interactions,
-inventories, advancements, chat, damage — anything that needs a real
+inventories, advancements, chat, damage, or anything else that needs a real
 `ServerPlayer` on the server. They are inspired by
 [Carpet](https://github.com/gnembon/fabric-carpet)'s fake players.
 
 A dummy is a full server-side player attached to a no-op network connection:
 
-- it spawns in **survival mode** on the bottom center of the block containing
-  the position of the command that created it — placement is block-aligned
-  and deterministic however the position was derived,
-- it ticks like a real player (gravity, damage, item use, container logic),
-  counts for `@a`/`@p` selectors, and receives chat like anyone else,
-- it is never saved with the world,
-- when it dies it stays on the death screen like a real player — respawn it
+- It spawns in **survival mode**, standing on the bottom center of the block
+  at the spawn position.
+- It ticks like a real player: gravity, damage, item use, container logic.
+  It counts for `@a`/`@p` selectors and receives chat like anyone else.
+- It is never saved with the world.
+- When it dies it stays on the death screen, like a real player. Respawn it
   with `/dummy <name> respawn`, or enable the `doImmediateRespawn` game rule
-  to make dummies respawn automatically,
+  to make dummies respawn on their own.
 
 ## Creating dummies
 
@@ -38,9 +37,9 @@ assert block 8 0 9 minecraft:torch
 
 ## Subcommands
 
-All actions hard-fail with a descriptive error when they cannot be performed —
-a dummy that is already sneaking cannot `sneak true`, a mid-air dummy cannot
-`jump`. This is intentional: a test action that does nothing is a bug in the
+Every action fails with a descriptive error when it cannot be performed: a
+dummy that is already sneaking cannot `sneak true`, a mid-air dummy cannot
+`jump`. This is intentional. A test action that does nothing is a bug in the
 test.
 
 | Command | Action | Fails when |
@@ -62,7 +61,7 @@ test.
 | `dummy <name> use block <pos> [<direction>]` | Use the held item on a block face (default `up`) | interaction not consumed |
 | `dummy <name> use entity <entity> [<pos>]` | Interact with an entity, optionally at a precise point | interaction not consumed |
 
-`<name>` accepts a player name or a selector resolving to a dummy (`@s` inside
-a `@dummy` test); targeting a real player is an error. `drop` and
-`drop from` return the number of items dropped, the `use` variants try the
-main hand first and fall back to the off hand.
+`<name>` accepts a player name or a selector that resolves to a dummy (`@s`
+inside a `@dummy` test). Targeting a real player is an error. The `drop`
+variants return the number of items dropped. The `use` variants try the main
+hand first, then the off hand.

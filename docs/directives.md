@@ -1,8 +1,8 @@
 # Test directives
 
 Directives configure how a test runs. They are comments of the form
-`# @directive value` inside the test's `.mcfunction` file — conventionally at
-the top, though any comment line in the file is scanned:
+`# @directive value` in the test's `.mcfunction` file, conventionally at the
+top (any comment line in the file is scanned):
 
 ```mcfunction
 # @max_ticks 200
@@ -13,9 +13,9 @@ the top, though any comment line in the file is scanned:
 say running as a dummy in the nether
 ```
 
-Test files are parsed strictly when the pack loads: an unknown directive, an
-invalid value, or an unparseable command makes the whole file fail to load,
-and the test is reported as a load error instead of silently running without
+Test files are parsed strictly when the pack loads. An unknown directive, a
+bad value, or a command that does not parse makes the whole file fail to
+load. The test is then reported as a load error instead of running without
 it.
 
 ## Reference
@@ -38,20 +38,3 @@ it.
 Directives map onto the vanilla
 [test instance](https://minecraft.wiki/w/Test_instance) fields, and keep the
 vanilla spelling as an alias where the names differ.
-
-Notes:
-
-- **`@max_ticks`** counts in game ticks (20 per second). A pending `/await`
-  fails with its descriptive message on the last tick before the timeout.
-- **`@dimension`** — tests declaring the same environment *and* dimension are
-  batched together. All tests default to the flat overworld; the nether and end
-  are available as standard (non-flat) dimensions.
-- **`@template`** — with the default empty template the test area is a plain
-  platform; point it to a structure to run the test inside a prebuilt scene.
-  Coordinates in test commands are relative to the structure origin.
-- **`@max_attempts` / `@required_successes`** — mark a test as flaky: it is
-  retried up to `@max_attempts` times and passes once it reaches
-  `@required_successes` successful runs.
-- **`@dummy`** — the spawned dummy becomes `@s` for every command in the test,
-  so `assert data entity @s ...`, `dummy @s jump`, etc. work directly. The
-  position is relative to the structure origin.

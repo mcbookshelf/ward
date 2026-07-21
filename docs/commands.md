@@ -1,13 +1,13 @@
 # Test commands
 
 The Ward mod registers five commands: `/assert`, `/await`, `/fail`, `/succeed`
-and `/dummy`. They require permission level 2 (gamemasters), and all of them
-except `/dummy` only work while a test is executing.
+and `/dummy`. They require permission level 2 (gamemasters). All of them
+except `/dummy` only work while a test is running.
 
-Commands in a test file run sequentially on the test's command source. An
-`/await` pauses execution until its condition holds; everything after it waits.
-When the last command has run and no awaits are pending, the test succeeds
-automatically — an explicit `/succeed` is only needed to end a test early.
+Commands in a test file run in order, on the test's command source. An
+`/await` pauses the test until its condition holds. When the last command has
+run and no awaits are pending, the test succeeds on its own; `/succeed` is
+only needed to end a test early.
 
 ## `/assert` and `/await`
 
@@ -21,16 +21,15 @@ await not <condition>       retries every tick until the condition no longer hol
 await delay <time>          pauses the test for a duration (e.g. 10, 2s, 1d)
 ```
 
-An `/await` that never succeeds fails the test on its final tick with the same
-descriptive message an `/assert` would produce, just before the test would time
-out (see the [`@timeout` directive](directives.md)).
+An `/await` that never succeeds fails the test right before the timeout (see
+the [`@max_ticks` directive](directives.md)), with the same message an
+`/assert` would produce.
 
-Conditions are counting checks: the assertion holds when at least one match is
-found, and the reported message includes what was found instead. If a check
-cannot be evaluated at all — unloaded position, unknown scoreboard objective,
-missing entity — that is an *errored* check: it fails both `assert` and
-`assert not` (rather than silently passing the negation), and it keeps an
-`await` polling.
+Conditions are counting checks: they hold when at least one match is found,
+and failure messages report what was found instead. A check that cannot be
+evaluated at all (unloaded position, unknown objective, missing entity) counts
+as *errored*. An errored check fails both `assert` and `assert not`, and
+keeps an `await` polling.
 
 ### Conditions
 
@@ -62,9 +61,9 @@ fail <message>       fails the test with a text component message
 succeed              ends the test successfully, skipping remaining commands
 ```
 
-`<message>` is a full text component, so it can be a plain string
-(`fail "chest not filled"`) or structured (`fail {"text":"...","color":"red"}`)
-and may use component resolution against the executing source.
+`<message>` is a text component: a plain string (`fail "chest not filled"`)
+or a structured component (`fail {"text":"...","color":"red"}`). Components
+resolve against the executing source.
 
 ## `/dummy`
 

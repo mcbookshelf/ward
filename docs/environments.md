@@ -3,12 +3,12 @@
 A test environment prepares the world before tests run and restores it
 afterwards: game rules, weather, time, or arbitrary setup/teardown functions.
 Tests declare their environment with the
-[`# @environment` directive](directives.md); tests sharing an environment are
+[`# @environment` directive](directives.md). Tests sharing an environment are
 batched together, so the setup runs once per batch, not once per test.
 
-Environments are vanilla registry entries (this section matches the vanilla
-format documented on the [Minecraft wiki](https://minecraft.wiki/w/Test_environment_definition)),
-stored in your datapack at:
+Environments are vanilla registry entries, following the format documented on
+the [Minecraft wiki](https://minecraft.wiki/w/Test_environment_definition).
+They live in your datapack at:
 
 ```
 data/<namespace>/test_environment/<name>.json
@@ -17,11 +17,10 @@ data/<namespace>/test_environment/<name>.json
 and referenced as `<namespace>:<name>`. The built-in `minecraft:default`
 environment (no setup at all) is used when a test declares nothing.
 
-Ward extends vanilla in one important way: vanilla only loads the
-`test_environment` registry at world creation, while Ward reloads it on every
-`/reload` — so environments live-update in daemon mode like the tests
-themselves. A file that fails to parse is reported as a diagnostic in the test
-report instead of being skipped silently.
+Ward changes one thing: vanilla only loads the `test_environment` registry at
+world creation, while Ward reloads it on every `/reload`. Environments
+live-update in daemon mode like the tests themselves, and a file that fails
+to parse shows up as a diagnostic in the test report.
 
 ## Environment types
 
@@ -102,8 +101,8 @@ batch.
 
 ### `minecraft:all_of`
 
-Composes several environments; entries can reference other environment files
-by id or be inlined. Teardown runs in reverse order.
+Composes several environments. Entries can reference other environment files
+by id, or be inlined. Teardown runs in reverse order.
 
 ```json
 {
