@@ -65,7 +65,7 @@ ward   # discovers your packs, picks compatible versions, runs the tests
 
 - [CLI](docs/cli.md) — the `mcward` CLI and `beet test`
 - [Dummies](docs/dummies.md) — fake players and the `/dummy` command
-- [Directives](docs/directives.md) — `# @max_ticks`, `# @environment`, ...
+- [Directives](docs/directives.md) — `@max_ticks`, `@environment`, ...
 - [Test commands](docs/commands.md) — `/assert`, `/await`, `/fail`, `/succeed`
 - [Test environments](docs/environments.md) — world setup/teardown around tests
 
