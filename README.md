@@ -6,11 +6,13 @@
 </h1>
 
 <div align="center">
-  <a href="https://github.com/mcbookshelf/ward/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcbookshelf/ward/ci.yml?style=for-the-badge&label=ci&colorA=363a4f&colorB=a6da95&logo=githubactions&logoColor=cad3f5" alt="CI"></a>
+  <a href="https://github.com/mcbookshelf/ward/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcbookshelf/ward/ci.yml?style=for-the-badge&label=ci&colorA=363a4f&colorB=926bd1&logo=githubactions&logoColor=cad3f5" alt="CI"></a>
   &nbsp;
-  <a href="https://modrinth.com/mod/ward"><img src="https://img.shields.io/modrinth/v/ward?style=for-the-badge&label=modrinth&colorA=363a4f&colorB=926bd1&logo=modrinth&logoColor=cad3f5" alt="Modrinth"></a>
+  <a href="https://modrinth.com/mod/ward"><img src="https://img.shields.io/modrinth/v/ward?style=for-the-badge&label=modrinth&colorA=363a4f&colorB=a6da95&logo=modrinth&logoColor=cad3f5" alt="Modrinth"></a>
   &nbsp;
-  <a href="https://pypi.org/project/mcward/"><img src="https://img.shields.io/pypi/v/mcward?style=for-the-badge&label=pypi&colorA=363a4f&colorB=b7bdf8&logo=python&logoColor=cad3f5" alt="PyPI"></a>
+  <a href="https://pypi.org/project/mcward/"><img src="https://img.shields.io/pypi/v/mcward?style=for-the-badge&label=pypi&colorA=363a4f&colorB=91d7e3&logo=python&logoColor=cad3f5" alt="PyPI"></a>
+  &nbsp;
+  <a href="https://discord.gg/MkXytNjmBt"><img src="https://img.shields.io/discord/1247513995376726116?style=for-the-badge&color=%237289DA&labelColor=363a4f&logo=discord&logoColor=cad3f5" alt="Discord"></a>
 </div>
 
 Ward lets you write automated tests for your datapacks as plain `.mcfunction`
@@ -22,19 +24,25 @@ files in a `test/` folder.
 
 Ward comes in two parts:
 
-| | |
-| --- | --- |
-| 🧩 **Mod**<br>[Modrinth](https://modrinth.com/mod/ward) | Adds the test commands (`/assert`, `/await`, `/fail`, `/succeed`, `/dummy`) and a headless test server that streams results live. |
-| 🐍 **CLI**<br>[PyPI](https://pypi.org/project/mcward/) | Installs test servers (Java and the mod are fetched for you) and runs your packs on one or several Minecraft versions. Also ships a [beet](https://github.com/mcbeet/beet) plugin that adds `beet test`. |
+<table>
+  <tr>
+    <td align="center" nowrap>🧩 <b>Mod</b> (<a href="https://modrinth.com/mod/ward">Modrinth</a>)</td>
+    <td>Adds the test commands (<code>/assert</code>, <code>/await</code>, <code>/fail</code>, <code>/succeed</code>, <code>/dummy</code>) and a headless test server that streams results live.</td>
+  </tr>
+  <tr>
+    <td align="center" nowrap>🐍 <b>CLI</b> (<a href="https://pypi.org/project/mcward/">PyPI</a>)</td>
+    <td>Installs test servers (Java and the mod are fetched for you) and runs your packs on one or several Minecraft versions. Also ships a <a href="https://github.com/mcbeet/beet">beet</a> plugin that adds <code>beet test</code>.</td>
+  </tr>
+</table>
 
 ## Quickstart
 
 ```sh
 uv tool install mcward[cli]   # or: pip install mcward[cli]
-mcward test                   # discovers datapacks, picks compatible versions, runs
+ward                          # discovers datapacks, picks compatible versions, runs
 ```
 
-`mcward list --remote` shows the Minecraft versions Ward currently supports.
+`ward list --remote` shows the Minecraft versions Ward currently supports.
 
 Write tests in your datapack under `data/<namespace>/test/`:
 
@@ -59,10 +67,10 @@ configure the test. Inside the test, these commands are available:
 ## CLI
 
 ```sh
-mcward test [-v <version>]... [-p <pack>]... [selector]   # run tests (default command)
-mcward install [version]                                  # install a test server
-mcward start / stop / status                              # manage the test daemon
-mcward list [--remote]                                    # installed / available versions
+ward test [-v <version>]... [-p <pack>]... [selector]   # run tests (default command)
+ward install [version]                                  # install a test server
+ward start / stop / status                              # manage the test daemon
+ward list [--remote]                                    # installed / available versions
 beet test                                                 # build the beet project and test it
 ```
 
