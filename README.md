@@ -15,6 +15,8 @@
   <a href="https://discord.gg/MkXytNjmBt"><img src="https://img.shields.io/discord/1247513995376726116?style=for-the-badge&color=%237289DA&labelColor=363a4f&logo=discord&logoColor=cad3f5" alt="Discord"></a>
 </div>
 
+<br/>
+
 Ward lets you write automated tests for your datapacks as plain `.mcfunction`
 files in a `test/` folder.
 
