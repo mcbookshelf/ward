@@ -60,7 +60,6 @@ ward   # discovers your packs, picks compatible versions, runs the tests
 
 Comment lines starting with `@` are [directives](docs/directives.md) that
 configure the test, and `assert`/`await` are [test commands](docs/commands.md).
-`ward list --remote` shows the Minecraft versions Ward supports.
 
 ## Documentation
 
