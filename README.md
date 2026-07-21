@@ -26,12 +26,12 @@ Ward comes in two parts:
 
 <table>
   <tr>
-    <td align="center" nowrap>🐍 <b>CLI</b> - <a href="https://pypi.org/project/mcward/">PyPI</a></td>
-    <td>Installs test servers (Java and the mod are fetched for you) and runs your packs on one or several Minecraft versions. Also ships a <a href="https://github.com/mcbeet/beet">beet</a> plugin that adds <code>beet test</code>.</td>
-  </tr>
-  <tr>
     <td align="center" nowrap>🧩 <b>Mod</b> - <a href="https://modrinth.com/mod/ward">Modrinth</a></td>
     <td>Adds the test commands (<code>/assert</code>, <code>/await</code>, <code>/fail</code>, <code>/succeed</code>, <code>/dummy</code>) and a headless test server that streams results live.</td>
+  </tr>
+  <tr>
+    <td align="center" nowrap>🐍 <b>CLI</b> - <a href="https://pypi.org/project/mcward/">PyPI</a></td>
+    <td>Installs test servers (Java and the mod are fetched for you) and runs your packs on one or several Minecraft versions. Also ships a <a href="https://github.com/mcbeet/beet">beet</a> plugin that adds <code>beet test</code>.</td>
   </tr>
 </table>
 
