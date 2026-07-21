@@ -1,7 +1,9 @@
-<div>
-  <img src="./docs/assets/logo.png" alt="Ward logo" height="44" align="left">
-  <h1>Ward</h1>
-</div>
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/banner-light.png">
+    <img src="docs/assets/banner-dark.png" alt="Ward" width="400">
+  </picture>
+</h1>
 
 Ward lets you write automated tests for your datapacks as plain `.mcfunction`
 files in a `test/` folder.
