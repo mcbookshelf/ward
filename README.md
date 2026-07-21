@@ -20,7 +20,7 @@
 <p align="center">Ward lets you write automated tests for your datapacks as plain <code>.mcfunction</code> files in a <code>test/</code> folder.</p>
 
 <p align="center"><img src="./docs/assets/demo.gif" alt="demo"></p>
-<p align="center"><i>A test run with <code>ward</code>: results stream in live.</i></p>
+<p align="center"><i>A test run with <code>ward</code>, results stream in live.</i></p>
 
 Ward comes in two parts:
 
