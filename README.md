@@ -20,16 +20,15 @@ files in a `test/` folder.
 
 Ward comes in two parts:
 
-- 🧩 **Mod** ([Modrinth](https://modrinth.com/mod/ward)) — adds the test
-  commands (`/assert`, `/await`, `/fail`, `/succeed`, `/dummy`) and a headless
-  test server that streams results live.
-- 🐍 **CLI** ([PyPI](https://pypi.org/project/mcward/)) — installs test
-  servers (Java and the mod are fetched for you) and runs your packs on one or
-  several Minecraft versions. Also ships a
-  [beet](https://github.com/mcbeet/beet) plugin that adds `beet test`.
+- 🧩 **Mod** ([Modrinth](https://modrinth.com/mod/ward))
 
-Ward is compatible with [packtest](https://github.com/misode/packtest):
-existing packtest tests run unmodified.
+  Adds the test commands (`/assert`, `/await`, `/fail`, `/succeed`, `/dummy`) and a
+  headless test server that streams results live.
+- 🐍 **CLI** ([PyPI](https://pypi.org/project/mcward/))
+
+  Installs test servers (Java and the mod are fetched for you) and runs your packs
+  on one or several Minecraft versions. Also ships a
+  [beet](https://github.com/mcbeet/beet) plugin that adds `beet test`.
 
 ## Quickstart
 
