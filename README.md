@@ -37,13 +37,13 @@ Ward comes in two parts:
 
 ## Quickstart
 
+Install the CLI:
+
 ```sh
 uv tool install mcward[cli]   # or: pip install mcward[cli]
 ```
 
-`ward list --remote` shows the Minecraft versions Ward currently supports.
-
-Write tests in your datapack under `data/<namespace>/test/`:
+Write a test in your datapack under `data/<namespace>/test/`:
 
 ```mcfunction
 # @max_ticks 100
@@ -52,14 +52,15 @@ assert entity @e[tag=target]
 await not entity @e[tag=target]
 ```
 
-Comment lines starting with `@` are [directives](docs/directives.md) that
-configure the test, and `assert`/`await` are [test commands](docs/commands.md).
-
-Then run the tests and watch the results come in:
+Run it:
 
 ```sh
 ward   # discovers your packs, picks compatible versions, runs the tests
 ```
+
+Comment lines starting with `@` are [directives](docs/directives.md) that
+configure the test, and `assert`/`await` are [test commands](docs/commands.md).
+`ward list --remote` shows the Minecraft versions Ward supports.
 
 ## Documentation
 
