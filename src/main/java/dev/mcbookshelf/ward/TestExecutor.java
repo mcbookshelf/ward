@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -30,24 +29,16 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
-import dev.mcbookshelf.ward.accessor.GameTestHelperAccessor;
 import dev.mcbookshelf.ward.dummy.Dummy;
 
 /**
- * Executes test commands and manages asynchronous await conditions.
- *
- * <p>Commands execute sequentially, pausing when awaits are encountered. Once all commands and
- * awaits have completed, the test succeeds.
+ * Runs test commands in order, pausing while awaits are pending. The test succeeds once every
+ * command and await has completed.
  */
 public class TestExecutor {
 	private static final SimpleCommandExceptionType ERROR_NOT_IN_TEST = new SimpleCommandExceptionType(
 			Component.translatable("ward.not_in_test"));
 
-	/**
-	 * The executor whose commands are currently being executed. Commands run synchronously on the
-	 * server thread, so a single reference is enough to expose the executor to Ward commands (/fail,
-	 * /assert, /await, ...) even across /execute modifiers and nested function calls.
-	 */
 	private static @Nullable TestExecutor current;
 
 	private final List<Supplier<Boolean>> awaits = new ArrayList<>();
@@ -61,23 +52,14 @@ public class TestExecutor {
 	public TestExecutor(GameTestHelper helper, int timeout) {
 		this.helper = helper;
 		this.timeout = timeout;
-		// Dummies spawned by the test must not outlive it and leak into other
-		// tests; the listener fires on every completion path, timeouts included
-		((GameTestHelperAccessor) helper).ward$getTestInfo().addListener(new DummyCleanup());
+		helper.testInfo.addListener(new DummyCleanup());
 	}
 
-	/**
-	 * Returns the executor of the test currently executing commands.
-	 */
 	public static TestExecutor current() throws CommandSyntaxException {
 		if (current == null) throw ERROR_NOT_IN_TEST.create();
 		return current;
 	}
 
-	/**
-	 * Registers a dummy spawned by the test currently executing commands: it is removed once that
-	 * test finishes. Dummies spawned outside of a test are left alone.
-	 */
 	public static void trackDummy(Dummy dummy) {
 		if (current != null) {
 			current.dummies.add(dummy);
@@ -92,12 +74,10 @@ public class TestExecutor {
 			current = this;
 
 			try {
-				// Check if the first await condition is satisfied
 				if (!this.awaits.isEmpty() && this.awaits.getFirst().get()) {
 					this.awaits.removeFirst();
 				}
 
-				// Execute commands while no awaits are blocking
 				while (!commands.isEmpty() && !this.done && this.awaits.isEmpty()) {
 					TestFunction.Entry entry = commands.poll();
 					this.line = entry.line();
@@ -110,13 +90,11 @@ public class TestExecutor {
 									CommandResultCallback.EMPTY));
 				}
 
-				// If all commands and awaits complete, the test succeeds
 				if (!this.done && this.awaits.isEmpty()) {
 					succeed();
 				}
 			} finally {
 				current = null;
-				// Messages processed by this tick are no longer visible to this test
 				this.chatSequence = ChatRecorder.sequence();
 			}
 		};
@@ -125,133 +103,101 @@ public class TestExecutor {
 		this.helper.runAtTickTime(this.timeout, tick);
 	}
 
-	/**
-	 * Immediately fails the test with the given message.
-	 */
 	public void fail(Component message) {
 		this.done = true;
-		throw new TestException(message, this.line, this.helper.getTick());
+		throw failure(message);
 	}
 
-	/**
-	 * Immediately succeeds the test and stops execution.
-	 */
 	public void succeed() {
 		this.done = true;
 		this.helper.succeed();
 	}
 
-	/**
-	 * Asserts that a condition is true (count > 0). Fails immediately if the check returns 0 or
-	 * errors.
-	 *
-	 * @return the count from the check
-	 */
-	public int assertTrue(Supplier<AssertResult> check) {
-		AssertResult result = check.get();
-		if (result.count() > 0) return result.count();
-		fail(result.message().apply(false));
-		return 0;
-	}
-
-	/**
-	 * Asserts that a condition is false (count == 0). Fails immediately if the check returns > 0 or
-	 * errors.
-	 *
-	 * @return 1 if the check passed (count was 0)
-	 */
-	public int assertFalse(Supplier<AssertResult> check) {
-		AssertResult result = check.get();
-		if (result.count() == 0 && !result.errored()) return 1;
-		fail(result.message().apply(true));
-		return 0;
-	}
-
-	/**
-	 * Awaits a condition to become true (count > 0). Tries immediately, then retries every tick until
-	 * timeout.
-	 */
-	public void awaitTrue(Supplier<AssertResult> check) {
-		AssertResult result = check.get();
-		if (result.count() > 0) return;
-
-		this.awaits.add(() -> {
-			AssertResult retry = check.get();
-			if (retry.count() > 0) return true;
-			if (!isLastTick()) return false;
-			throw new TestException(retry.message().apply(false), this.line, this.helper.getTick());
-		});
-	}
-
-	/**
-	 * Awaits a condition to become false (count == 0). Tries immediately, then retries every tick
-	 * until timeout. A check that errors counts as unsatisfied and keeps polling.
-	 */
-	public void awaitFalse(Supplier<AssertResult> check) {
-		AssertResult result = check.get();
-		if (result.count() == 0 && !result.errored()) return;
-
-		this.awaits.add(() -> {
-			AssertResult retry = check.get();
-			if (retry.count() == 0 && !retry.errored()) return true;
-			if (!isLastTick()) return false;
-			throw new TestException(retry.message().apply(true), this.line, this.helper.getTick());
-		});
-	}
-
-	/**
-	 * Queues a delay for the specified number of ticks. Test execution pauses until the delay
-	 * completes.
-	 *
-	 * @param delay number of ticks to wait
-	 */
 	public void await(int delay) {
 		AtomicInteger remaining = new AtomicInteger(delay);
 		this.awaits.add(() -> {
 			if (remaining.decrementAndGet() <= 0) return true;
-			// A delay knows its future: it fails with its line as soon as it
-			// cannot complete by the timeout tick, and keeps counting otherwise
+			// Fail early, with this delay's line, once the delay can no
+			// longer finish before the timeout
 			if (this.helper.getTick() + remaining.get() <= this.timeout) return false;
-			throw new TestException(Component.translatable("ward.timeout", this.timeout), this.line, this.helper.getTick());
+			throw failure(Component.translatable("ward.timeout", this.timeout));
 		});
 	}
 
 	/**
-	 * Returns true on the last tick a pending condition can fail with its descriptive message.
-	 *
-	 * <p>The executor ticks through the timeout tick, but a failure raised there would only
-	 * finish on the next tick, where the framework overwrites it with its generic timeout;
-	 * conditions fail one tick early instead, keeping their message.
+	 * Asserts a condition immediately. The plain form expects at least one match, the negated
+	 * form expects none (and no error).
 	 */
+	public int assertThat(AssertResult result, boolean negated) {
+		if (satisfied(result, negated)) return negated ? 1 : result.count();
+		fail(result.message().apply(negated));
+		return 0;
+	}
+
+	public int assertThat(Supplier<AssertResult> check, boolean negated) {
+		return assertThat(check.get(), negated);
+	}
+
+	/**
+	 * Awaits a condition, retrying every tick until it is satisfied or the test times out. A check
+	 * that errors counts as unsatisfied and keeps polling.
+	 */
+	public void awaitThat(Supplier<AssertResult> check, boolean negated) {
+		awaitThat(check.get(), negated, check);
+	}
+
+	public void awaitThat(AssertResult first, boolean negated, Supplier<AssertResult> check) {
+		if (satisfied(first, negated)) return;
+		registerPoll(check, negated);
+	}
+
+	/**
+	 * A plain check passes with a positive count, a negated check with a clean zero count.
+	 */
+	private boolean satisfied(AssertResult result, boolean negated) {
+		return negated ? result.count() == 0 && !result.errored() : result.count() > 0;
+	}
+
+	/**
+	 * Registers a pending condition. It retries every tick and fails with the check's message on
+	 * the last tick before the timeout.
+	 */
+	private void registerPoll(Supplier<AssertResult> check, boolean negated) {
+		this.awaits.add(() -> {
+			AssertResult retry = check.get();
+			if (satisfied(retry, negated)) return true;
+			if (!isLastTick()) return false;
+			throw failure(retry.message().apply(negated));
+		});
+	}
+
+	private TestException failure(Component message) {
+		return new TestException(message, this.line, this.helper.getTick());
+	}
+
 	private boolean isLastTick() {
 		return this.helper.getTick() + 1 >= this.timeout;
 	}
 
-	/**
-	 * Returns the axis-aligned bounding box representing the test structure bounds.
-	 */
 	public AABB getBounds() {
 		return this.helper.getBounds();
 	}
 
-	/**
-	 * Returns all chat messages recorded since this test last processed its commands.
-	 */
 	public Stream<String> chatMessages() {
 		return ChatRecorder.since(this.chatSequence);
 	}
 
-	/**
-	 * Returns chat messages received by the given player since this test last processed its commands.
-	 */
 	public Stream<String> chatMessages(UUID recipient) {
 		return ChatRecorder.since(this.chatSequence, recipient);
 	}
 
 	private CommandSourceStack createCommandSourceStack(TestFunction function) {
+		// The server source stack defaults to the respawn dimension (the
+		// overworld), so tests declaring @dimension must rebind their level
 		CommandSourceStack source = this.helper.getLevel()
 				.getServer()
 				.createCommandSourceStack()
+				.withLevel(this.helper.getLevel())
 				.withPosition(this.helper.absoluteVec(Vec3.ZERO))
 				.withSuppressedOutput();
 
@@ -274,24 +220,7 @@ public class TestExecutor {
 	}
 
 	/**
-	 * Result of an assertion check.
-	 *
-	 * @param count   number of matching items (>0 indicates condition met)
-	 * @param errored true if the check itself failed to evaluate
-	 * @param message builder function that creates error messages based on negation state
-	 */
-	public record AssertResult(int count, boolean errored, Function<Boolean, Component> message) {
-		public AssertResult(int count, Function<Boolean, Component> message) {
-			this(count, false, message);
-		}
-
-		public static AssertResult error(Component message) {
-			return new AssertResult(0, true, _ -> message);
-		}
-	}
-
-	/**
-	 * Removes the dummies spawned by this test once it finishes, whichever way it ends.
+	 * Removes the dummies spawned by this test once it finishes, pass or fail.
 	 */
 	private final class DummyCleanup implements GameTestListener {
 		@Override
@@ -316,8 +245,6 @@ public class TestExecutor {
 			PlayerList players = TestExecutor.this.helper.getLevel().getServer().getPlayerList();
 
 			for (Dummy dummy : TestExecutor.this.dummies) {
-				// Deaths respawn a fresh instance and /dummy leave may already
-				// have removed it: resolve the live player by id first
 				if (players.getPlayer(dummy.getUUID()) instanceof Dummy connected) {
 					connected.leave(Component.literal("Test finished"));
 				}

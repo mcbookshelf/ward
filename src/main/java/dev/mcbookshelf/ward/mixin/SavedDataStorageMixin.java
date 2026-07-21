@@ -12,9 +12,8 @@ import net.minecraft.world.level.storage.SavedDataStorage;
 import dev.mcbookshelf.ward.Ward;
 
 /**
- * Drops every saved-data write (scoreboard, chunk tickets, raids, world border, ...) in daemon
- * mode: daemon worlds only live in memory. Every save path — {@code saveAndJoin} and {@code close}
- * included — funnels through this method.
+ * Drops saved-data writes (scoreboard, raids, ...) in daemon mode. Every save path goes through
+ * this method.
  */
 @Mixin(SavedDataStorage.class)
 public class SavedDataStorageMixin {

@@ -9,9 +9,6 @@ import net.minecraft.commands.Commands;
 
 import dev.mcbookshelf.ward.TestExecutor;
 
-/**
- * The succeed command for explicitly succeeding a test early.
- */
 public final class SucceedCommand {
 	private SucceedCommand() {
 	}

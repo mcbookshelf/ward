@@ -13,7 +13,6 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
-import net.minecraft.advancements.triggers.CriteriaTriggers;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -28,21 +27,15 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 import dev.mcbookshelf.ward.TestExecutor;
-import dev.mcbookshelf.ward.accessor.EntitySelectorAccessor;
 import dev.mcbookshelf.ward.commands.arguments.DirectionArgument;
 import dev.mcbookshelf.ward.dummy.Dummy;
 
-/**
- * The dummy command for managing fake players in tests.
- */
 public final class DummyCommand {
 	private DummyCommand() {
 	}
@@ -82,46 +75,43 @@ public final class DummyCommand {
 	};
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
-		dispatcher.register(Commands.literal("dummy").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(Commands.argument("name", EntityArgument.player()).suggests(SUGGEST_NAME)
-				// dummy <name> spawn
-				.then(Commands.literal("spawn").executes(DummyCommand::spawn))
-				// dummy <name> leave
-				.then(Commands.literal("leave").executes(DummyCommand::leave))
-				// dummy <name> respawn
-				.then(Commands.literal("respawn").executes(DummyCommand::respawn))
-				// dummy <name> jump
-				.then(Commands.literal("jump").executes(DummyCommand::jump))
-				// dummy <name> swap
-				.then(Commands.literal("swap").executes(DummyCommand::swap))
-				// dummy <name> attack <entity>
-				.then(Commands.literal("attack").then(Commands.argument("entity", EntityArgument.entity()).executes(DummyCommand::attack)))
-				// dummy <name> mine <pos>
-				.then(Commands.literal("mine").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(DummyCommand::mine)))
-				// dummy <name> sneak <true|false>
-				.then(Commands.literal("sneak").then(Commands.argument("active", BoolArgumentType.bool()).executes(DummyCommand::sneak)))
-				// dummy <name> sprint <true|false>
-				.then(Commands.literal("sprint").then(Commands.argument("active", BoolArgumentType.bool()).executes(DummyCommand::sprint)))
-				// dummy <name> mainhand <slot>
-				.then(Commands.literal("mainhand").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(DummyCommand::setMainHand)))
-				// dummy <name> selectslot <slot>
-				.then(Commands.literal("selectslot").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(DummyCommand::setMainHand)))
-				// dummy <name> drop [from <slot>] [all]
-				.then(Commands.literal("drop").executes(ctx -> dropFromMainHand(ctx, false)).then(Commands.literal("all").executes(ctx -> dropFromMainHand(ctx, true))).then(Commands.literal("from").then(Commands.argument("slot", SlotArgument.slot()).executes(ctx -> dropFromInventory(ctx, false)).then(Commands.literal("all").executes(ctx -> dropFromInventory(ctx, true))))))
-				// dummy <name> use [...]
-				.then(Commands.literal("use").executes(DummyCommand::useItem)
-						// dummy <name> use item
-						.then(Commands.literal("item").executes(DummyCommand::useItem))
-						// dummy <name> use block <pos> [<direction>]
-						.then(Commands.literal("block").then(Commands.argument("pos", Vec3Argument.vec3(false)).executes(ctx -> useBlock(ctx, Direction.UP)).then(Commands.argument("direction", new DirectionArgument()).executes(ctx -> useBlock(ctx, ctx.getArgument("direction", Direction.class))))))
-						// dummy <name> use entity <entity> [<pos>]
-						.then(Commands.literal("entity").then(Commands.argument("entity", EntityArgument.entity()).executes(ctx -> useEntity(ctx, null)).then(Commands.argument("pos", Vec3Argument.vec3(false)).executes(ctx -> useEntity(ctx, Vec3Argument.getVec3(ctx, "pos")))))))));
+		dispatcher.register(Commands.literal("dummy")
+				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+				.then(Commands.argument("name", EntityArgument.player()).suggests(SUGGEST_NAME)
+						.then(Commands.literal("spawn").executes(DummyCommand::spawn))
+						.then(Commands.literal("leave").executes(DummyCommand::leave))
+						.then(Commands.literal("respawn").executes(DummyCommand::respawn))
+						.then(Commands.literal("jump").executes(DummyCommand::jump))
+						.then(Commands.literal("swap").executes(DummyCommand::swap))
+						.then(Commands.literal("attack").then(Commands.argument("entity", EntityArgument.entity()).executes(DummyCommand::attack)))
+						.then(Commands.literal("mine").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(DummyCommand::mine)))
+						.then(Commands.literal("sneak").then(Commands.argument("active", BoolArgumentType.bool()).executes(DummyCommand::sneak)))
+						.then(Commands.literal("sprint").then(Commands.argument("active", BoolArgumentType.bool()).executes(DummyCommand::sprint)))
+						.then(Commands.literal("mainhand").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(DummyCommand::setMainHand)))
+						.then(Commands.literal("selectslot").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(DummyCommand::setMainHand)))
+						.then(Commands.literal("drop")
+								.executes(ctx -> dropFromMainHand(ctx, false))
+								.then(Commands.literal("all").executes(ctx -> dropFromMainHand(ctx, true)))
+								.then(Commands.literal("from").then(Commands.argument("slot", SlotArgument.slot())
+										.executes(ctx -> dropFromInventory(ctx, false))
+										.then(Commands.literal("all").executes(ctx -> dropFromInventory(ctx, true))))))
+						.then(Commands.literal("use")
+								.executes(DummyCommand::useItem)
+								.then(Commands.literal("item").executes(DummyCommand::useItem))
+								.then(Commands.literal("block").then(Commands.argument("pos", Vec3Argument.vec3(false))
+										.executes(ctx -> useBlock(ctx, Direction.UP))
+										.then(Commands.argument("direction", new DirectionArgument())
+												.executes(ctx -> useBlock(ctx, ctx.getArgument("direction", Direction.class))))))
+								.then(Commands.literal("entity").then(Commands.argument("entity", EntityArgument.entity())
+										.executes(ctx -> useEntity(ctx, null))
+										.then(Commands.argument("pos", Vec3Argument.vec3(false))
+												.executes(ctx -> useEntity(ctx, Vec3Argument.getVec3(ctx, "pos")))))))));
 	}
 
 	private static int spawn(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		String name = getAvailableName(context);
 		CommandSourceStack source = context.getSource();
 		Dummy dummy = Dummy.create(name, source.getLevel(), source.getPosition(), source.getRotation());
-		// A dummy spawned by a test must not outlive it
 		TestExecutor.trackDummy(dummy);
 		return Command.SINGLE_SUCCESS;
 	}
@@ -132,21 +122,15 @@ public final class DummyCommand {
 	}
 
 	private static int respawn(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-		Dummy dummy = getDummy(context);
-		PlayerList players = context.getSource().getServer().getPlayerList();
-		players.respawn(dummy, false, Entity.RemovalReason.KILLED);
+		getDummy(context).respawn();
 		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int jump(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
-
-		if (dummy.onGround()) {
-			dummy.jumpFromGround();
-			return Command.SINGLE_SUCCESS;
-		}
-
-		throw NOT_ON_GROUND.create(dummy.getName());
+		if (!dummy.onGround()) throw NOT_ON_GROUND.create(dummy.getName());
+		dummy.jumpFromGround();
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int swap(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -168,48 +152,32 @@ public final class DummyCommand {
 	private static int mine(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
 		BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
-
-		if (dummy.gameMode.destroyBlock(pos)) {
-			return Command.SINGLE_SUCCESS;
-		}
-
-		throw MINE_BLOCK.create(dummy.getName());
+		if (!dummy.gameMode.destroyBlock(pos)) throw MINE_BLOCK.create(dummy.getName());
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int sneak(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
 		boolean active = BoolArgumentType.getBool(context, "active");
-
-		if (dummy.isShiftKeyDown() != active) {
-			dummy.setShiftKeyDown(active);
-			return Command.SINGLE_SUCCESS;
-		}
-
-		throw (active ? ALREADY_SNEAKING : NOT_SNEAKING).create(dummy.getName());
+		if (dummy.isShiftKeyDown() == active) throw (active ? ALREADY_SNEAKING : NOT_SNEAKING).create(dummy.getName());
+		dummy.setShiftKeyDown(active);
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int sprint(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
 		boolean active = BoolArgumentType.getBool(context, "active");
-
-		if (dummy.isSprinting() != active) {
-			dummy.setSprinting(active);
-			return Command.SINGLE_SUCCESS;
-		}
-
-		throw (active ? ALREADY_SPRINTING : NOT_SPRINTING).create(dummy.getName());
+		if (dummy.isSprinting() == active) throw (active ? ALREADY_SPRINTING : NOT_SPRINTING).create(dummy.getName());
+		dummy.setSprinting(active);
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int setMainHand(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
 		int slot = IntegerArgumentType.getInteger(context, "slot");
-
-		if (dummy.getInventory().getSelectedSlot() != slot) {
-			dummy.getInventory().setSelectedSlot(slot);
-			return Command.SINGLE_SUCCESS;
-		}
-
-		throw ALREADY_SELECTED.create(dummy.getName(), slot);
+		if (dummy.getInventory().getSelectedSlot() == slot) throw ALREADY_SELECTED.create(dummy.getName(), slot);
+		dummy.getInventory().setSelectedSlot(slot);
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int dropFromMainHand(CommandContext<CommandSourceStack> context, boolean stack) throws CommandSyntaxException {
@@ -232,84 +200,37 @@ public final class DummyCommand {
 
 	private static int useItem(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
-
-		for (InteractionHand hand : InteractionHand.values()) {
-			ItemStack handItem = dummy.getItemInHand(hand);
-
-			if (dummy.gameMode.useItem(dummy, dummy.level(), handItem, hand).consumesAction()) {
-				return Command.SINGLE_SUCCESS;
-			}
-		}
-
-		throw USE_ITEM.create(dummy.getName());
+		if (!dummy.useItem()) throw USE_ITEM.create(dummy.getName());
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int useBlock(CommandContext<CommandSourceStack> ctx, Direction direction) throws CommandSyntaxException {
 		Dummy dummy = getDummy(ctx);
 		Vec3 pos = Vec3Argument.getVec3(ctx, "pos");
-
-		for (InteractionHand hand : InteractionHand.values()) {
-			ItemStack handItem = dummy.getItemInHand(hand);
-			BlockHitResult blockHit = new BlockHitResult(pos, direction, BlockPos.containing(pos), false);
-			InteractionResult result = dummy.gameMode.useItemOn(dummy, dummy.level(), handItem, hand, blockHit);
-
-			if (result.consumesAction()) {
-				// The trigger normally fires from the network handler, which dummies bypass
-				CriteriaTriggers.ANY_BLOCK_USE.trigger(dummy, blockHit.getBlockPos(), handItem);
-				dummy.swing(hand);
-				return Command.SINGLE_SUCCESS;
-			}
-		}
-
-		throw USE_ON_BLOCK.create(dummy.getName());
+		if (!dummy.useOnBlock(pos, direction)) throw USE_ON_BLOCK.create(dummy.getName());
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int useEntity(CommandContext<CommandSourceStack> ctx, Vec3 pos) throws CommandSyntaxException {
 		Dummy dummy = getDummy(ctx);
 		Entity entity = EntityArgument.getEntity(ctx, "entity");
 		Vec3 location = Objects.requireNonNullElseGet(pos, entity::position);
-
-		for (InteractionHand hand : InteractionHand.values()) {
-			ItemStack used = dummy.getItemInHand(hand).copy();
-
-			if (dummy.interactOn(entity, hand, location) instanceof InteractionResult.Success success) {
-				// The trigger normally fires from the network handler, which dummies
-				// bypass; it awards the stack as it was before the interaction
-				CriteriaTriggers.PLAYER_INTERACTED_WITH_ENTITY.trigger(
-						dummy,
-						success.wasItemInteraction() ? used : ItemStack.EMPTY,
-						entity);
-				return Command.SINGLE_SUCCESS;
-			}
-		}
-
-		throw USE_ON_ENTITY.create(dummy.getName());
+		if (!dummy.useOnEntity(entity, location)) throw USE_ON_ENTITY.create(dummy.getName());
+		return Command.SINGLE_SUCCESS;
 	}
 
 	private static Dummy getDummy(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		ServerPlayer player = EntityArgument.getPlayer(context, "name");
-
-		if (player instanceof Dummy dummy) {
-			return dummy;
-		}
-
-		throw NOT_DUMMY.create(player.getName());
+		if (!(player instanceof Dummy dummy)) throw NOT_DUMMY.create(player.getName());
+		return dummy;
 	}
 
 	private static String getAvailableName(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		EntitySelector selector = context.getArgument("name", EntitySelector.class);
-		String name = ((EntitySelectorAccessor) selector).ward$getPlayerName();
-
-		if (name != null) {
-			PlayerList players = context.getSource().getServer().getPlayerList();
-
-			if (players.getPlayerByName(name) == null) {
-				return name;
-			}
-
-			throw NAME_TAKEN.create(name);
-		}
-
-		throw MISSING_NAME.create();
+		String name = selector.playerName;
+		if (name == null) throw MISSING_NAME.create();
+		PlayerList players = context.getSource().getServer().getPlayerList();
+		if (players.getPlayerByName(name) != null) throw NAME_TAKEN.create(name);
+		return name;
 	}
 }

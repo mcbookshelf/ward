@@ -7,22 +7,20 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 import net.minecraft.server.ServerAdvancementManager;
-import net.minecraft.util.ProblemReporter;
 
-import dev.mcbookshelf.ward.report.Diagnostic;
-import dev.mcbookshelf.ward.report.ReportManager;
+import dev.mcbookshelf.ward.LoadDiagnostic;
+import dev.mcbookshelf.ward.ReportManager;
 
 @Mixin(ServerAdvancementManager.class)
 public class ServerAdvancementManagerMixin {
 	@WrapOperation(method = "validate", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
-	private void catchAdvancementValidationError(
+	private static void catchAdvancementValidationError(
 			Logger logger,
 			String message,
 			Object id,
 			Object report,
 			Operation<Void> original) {
 		original.call(logger, message, id, report);
-		String error = ((ProblemReporter.Collector) report).getReport();
-		ReportManager.report(Diagnostic.warn("minecraft:advancement", id.toString(), error));
+		ReportManager.report(LoadDiagnostic.warn("minecraft:advancement", id.toString(), report.toString()));
 	}
 }

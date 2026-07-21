@@ -10,7 +10,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.ResourceOrIdArgument;
 import net.minecraft.core.Holder;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.storage.loot.LootContext;
@@ -20,20 +19,17 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 import net.minecraft.world.phys.Vec3;
 
-import dev.mcbookshelf.ward.TestExecutor;
+import dev.mcbookshelf.ward.AssertResult;
 
-/**
- * Asserts that a loot predicate passes when evaluated with the command context.
- */
 class PredicateAssertion implements Assertion {
 	@Override
 	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
 		root.then(Commands.literal("predicate")
 				.then(Commands.argument("predicate", ResourceOrIdArgument.lootPredicate(context.buildContext()))
-						.executes(ctx -> assertPredicate(ctx, context))));
+						.executes(ctx -> run(ctx, context))));
 	}
 
-	private static int assertPredicate(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
+	private static int run(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
 		ServerLevel level = context.getSource().getLevel();
 		Entity entity = context.getSource().getEntity();
 		Vec3 pos = context.getSource().getPosition();
@@ -45,10 +41,8 @@ class PredicateAssertion implements Assertion {
 			LootContext lootContext = new LootContext.Builder(lootParams).create(Optional.empty());
 			lootContext.pushVisitedElement(LootContext.createVisitedEntry(predicate.value()));
 
-			return new TestExecutor.AssertResult(predicate.value().test(lootContext) ? 1 : 0, negated -> {
-				String key = Assertions.getTranslationKey("predicate", negated);
-				return Component.translatable(key, predicate.getRegisteredName());
-			});
+			return AssertResult.of(predicate.value().test(lootContext) ? 1 : 0, "predicate",
+					predicate.getRegisteredName());
 		});
 	}
 }

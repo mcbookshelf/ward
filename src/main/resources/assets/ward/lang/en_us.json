@@ -12,7 +12,6 @@
   "ward.assert.entity": "Expected entity matching %s",
   "ward.assert.entity_inside": "Expected entity matching %s inside test bounds",
   "ward.assert.function": "Expected function %s to return nonzero, got %s",
-  "ward.assert.function_no_result": "Expected function %s to return a result",
   "ward.assert.invalid_pattern": "Invalid pattern '%s'",
   "ward.assert.items": "Expected items matching %s",
   "ward.assert.not_biome": "Did not expect biome %s at %s",

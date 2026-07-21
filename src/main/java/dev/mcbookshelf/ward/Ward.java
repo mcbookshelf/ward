@@ -17,12 +17,6 @@ import dev.mcbookshelf.ward.commands.FailCommand;
 import dev.mcbookshelf.ward.commands.SucceedCommand;
 import dev.mcbookshelf.ward.commands.arguments.DirectionArgument;
 
-/**
- * Main entrypoint for the Ward mod.
- *
- * <p>Ward is a testing framework for Minecraft data packs that integrates with the GameTest
- * framework to execute tests defined in .mcfunction files.
- */
 public class Ward implements ModInitializer {
 	public static final String MOD_ID = "ward";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
@@ -32,13 +26,11 @@ public class Ward implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		// Register Ward commands argument types
 		ArgumentTypeRegistry.registerArgumentType(
 				Identifier.fromNamespaceAndPath("ward", "direction"),
 				DirectionArgument.class,
 				SingletonArgumentInfo.contextFree(DirectionArgument::new));
 
-		// Register Ward commands (fail, succeed, etc.)
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, _) -> {
 			FailCommand.register(dispatcher, context);
 			SucceedCommand.register(dispatcher, context);

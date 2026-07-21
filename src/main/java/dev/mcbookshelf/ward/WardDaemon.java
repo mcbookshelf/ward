@@ -10,18 +10,10 @@ import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.packs.repository.ServerPacksSource;
 import net.minecraft.world.level.storage.LevelStorageSource;
 
-import dev.mcbookshelf.ward.report.Diagnostic;
-import dev.mcbookshelf.ward.report.ReportManager;
-
 /**
- * The persistent test daemon: keeps the JVM warm and serves test runs over the TCP bridge.
- *
- * <p>Dynamic registries (enchantments, damage types, worldgen, ...) are only read during world
- * load and cannot be reloaded on a live server, so each run boots a fresh {@link WardServer}
- * instead: a full world load picks up every datapack change, and the instance is discarded once
- * the run finishes. Sequential server instances within one JVM are the same lifecycle the
- * integrated server uses when switching worlds; the expensive startup work (mixin application,
- * class loading, vanilla bootstrap) is per-process and stays warm.
+ * The long-lived test daemon. It keeps the JVM warm and serves test runs over the TCP bridge.
+ * Each run boots a fresh {@link WardServer}, because dynamic registries are only read during
+ * world load and cannot be reloaded on a live server.
  */
 public final class WardDaemon {
 	private final WardBridge bridge;
@@ -34,14 +26,11 @@ public final class WardDaemon {
 	private WardDaemon(LevelStorageSource source, String levelId) {
 		this.source = source;
 		this.levelId = levelId;
-		// MainMixin only routes here when Ward.ENABLED, so ward.daemon is always set
 		this.bridge = new WardBridge(this, Path.of(Objects.requireNonNull(Ward.DAEMON)).toAbsolutePath());
 	}
 
 	/**
-	 * Creates and starts the daemon in place of the vanilla dedicated server. Worlds only load
-	 * once runs are requested, each with its own storage access; the one the vanilla main created
-	 * is released immediately.
+	 * Creates and starts the daemon in place of the vanilla dedicated server.
 	 */
 	public static void launch(LevelStorageSource source, LevelStorageSource.LevelStorageAccess storage) {
 		try {
@@ -53,7 +42,7 @@ public final class WardDaemon {
 			ReportManager.register(daemon.bridge);
 			Ward.LOGGER.info("Ward daemon started");
 		} catch (Exception e) {
-			// Propagates to Main.main whose error handling exits with a non-zero code
+			// Propagates to Main.main, whose error handling exits with a non-zero code
 			throw new RuntimeException("Failed to start Ward daemon", e);
 		}
 	}
@@ -66,8 +55,7 @@ public final class WardDaemon {
 	}
 
 	/**
-	 * Boots a fresh server and runs tests matching the given selection. Failures past this point
-	 * are asynchronous and broadcast to connected clients.
+	 * Boots a fresh server and runs tests matching the given selection.
 	 */
 	public synchronized void runTests(String selection) throws Exception {
 		if (this.busy) throw new Exception("Tests are already running");
@@ -80,7 +68,7 @@ public final class WardDaemon {
 	 */
 	public void reportFailure(Throwable failure) {
 		Ward.LOGGER.error("Failed to run tests", failure);
-		bridge.broadcastError("server_error", Diagnostic.describe(failure));
+		bridge.broadcastError("server_error", LoadDiagnostic.describe(failure));
 	}
 
 	/**
@@ -117,7 +105,7 @@ public final class WardDaemon {
 	}
 
 	/**
-	 * Loads the world and spins up a server for this run; the server starts the tests itself and
+	 * Loads the world and spins up a server for this run. The server starts the tests itself and
 	 * halts once they complete.
 	 */
 	private void boot(String selection) {
@@ -132,7 +120,7 @@ public final class WardDaemon {
 					this.server = started;
 				}
 			} catch (Exception e) {
-				// The server owns the storage lock once it spins; until then it is ours
+				// The server takes over the storage lock once it starts, until then we hold it
 				storage.close();
 				throw e;
 			}

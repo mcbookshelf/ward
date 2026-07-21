@@ -52,18 +52,17 @@ public final class WardBridge {
 					@Override
 					protected void initChannel(Channel ch) {
 						ch.pipeline()
-								.addLast(new LineBasedFrameDecoder(1 << 20)) // 1MB max line
+								.addLast(new LineBasedFrameDecoder(1 << 20))
 								.addLast(new StringDecoder(StandardCharsets.UTF_8))
 								.addLast(new StringEncoder(StandardCharsets.UTF_8))
 								.addLast(new WardHandler());
 					}
 				});
 
-		// Bind to port 0 to let OS choose available port
 		serverChannel = b.bind("127.0.0.1", 0).sync().channel();
 
-		// Write port to file for Python to discover; also clean it up when the
-		// JVM exits for any reason other than a bridge-initiated stop
+		// Write the port to a file so the Python client can find it. Also delete
+		// the file if the JVM exits for any reason other than a normal stop
 		int port = ((InetSocketAddress) serverChannel.localAddress()).getPort();
 		Files.writeString(portFile, String.valueOf(port), StandardCharsets.UTF_8);
 		portFile.toFile().deleteOnExit();
@@ -88,17 +87,14 @@ public final class WardBridge {
 	}
 
 	/**
-	 * Broadcasts an event to all connected clients. Note that the given data object is modified to
-	 * carry the event type.
+	 * Broadcasts an event to all connected clients. Note that {@code data} is modified to carry
+	 * the event type.
 	 */
 	public void broadcast(String type, JsonObject data) {
 		data.addProperty("type", type);
-		channels.writeAndFlush(GSON.toJson(data) + "\n");
+		channels.writeAndFlush(encode(data));
 	}
 
-	/**
-	 * Broadcasts an error event to all connected clients.
-	 */
 	public void broadcastError(String code, String message) {
 		broadcast("error", createError(code, message));
 	}
@@ -108,6 +104,10 @@ public final class WardBridge {
 		error.addProperty("code", code);
 		error.addProperty("message", message);
 		return error;
+	}
+
+	private static String encode(JsonObject data) {
+		return GSON.toJson(data) + "\n";
 	}
 
 	private final class WardHandler extends SimpleChannelInboundHandler<String> {
@@ -135,7 +135,6 @@ public final class WardBridge {
 			int protocol = msg.has("protocol") ? msg.get("protocol").getAsInt() : 0;
 			Channel ch = ctx.channel();
 
-			// Validate protocol version
 			if (protocol != 1) {
 				sendError(ch, "protocol_mismatch", "Expected protocol 1, got " + protocol);
 				return;
@@ -146,7 +145,6 @@ public final class WardBridge {
 				return;
 			}
 
-			// Daemon calls are quick: runs execute on their own threads
 			try {
 				switch (type) {
 					case "status" -> handleStatus(ch);
@@ -162,14 +160,14 @@ public final class WardBridge {
 		private void sendError(Channel ch, String code, String message) {
 			JsonObject error = createError(code, message);
 			error.addProperty("type", "error");
-			ch.writeAndFlush(GSON.toJson(error) + "\n");
+			ch.writeAndFlush(encode(error));
 		}
 
 		private void handleStatus(Channel ch) {
 			JsonObject response = new JsonObject();
 			response.addProperty("type", "status");
 			response.addProperty("ready", daemon.isIdle());
-			ch.writeAndFlush(GSON.toJson(response) + "\n");
+			ch.writeAndFlush(encode(response));
 		}
 
 		private void handleTest(Channel ch, JsonObject msg) throws Exception {

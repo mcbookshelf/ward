@@ -17,14 +17,8 @@ import net.minecraft.world.level.chunk.storage.IOWorker;
 import dev.mcbookshelf.ward.Ward;
 
 /**
- * Detaches region-format storage (chunks, POI, entities) from the disk in daemon mode.
- *
- * <p>Daemon worlds only live in memory: each run starts from a fresh world and nothing it does is
- * meant to persist. All three region storages funnel their I/O through these methods — writes
- * include the ones the vanilla shutdown path issues after force-resetting {@code noSave} while
- * draining the chunk maps, and blocking reads (loads and structure scans alike) both guarantees
- * the fresh world and keeps the read path from creating empty region files on the way (region
- * files open in rw mode).
+ * Cuts region storage (chunks, POI, entities) off from the disk in daemon mode, since worlds only
+ * live in memory. Reads are skipped too because they would create empty region files (opened rw).
  */
 @Mixin(IOWorker.class)
 public class IOWorkerMixin {
