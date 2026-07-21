@@ -17,12 +17,10 @@
 
 <br/>
 
-Ward lets you write automated tests for your datapacks as plain `.mcfunction`
-files in a `test/` folder.
+<p align="center">Ward lets you write automated tests for your datapacks as plain <code>.mcfunction</code> files in a <code>test/</code> folder.</p>
 
-![demo](./docs/assets/demo.gif)
-
-<p align="center"><i>A test run with <code>mcward test</code>: results stream in live.</i></p>
+<p align="center"><img src="./docs/assets/demo.gif" alt="demo"></p>
+<p align="center"><i>A test run with <code>ward</code>: results stream in live.</i></p>
 
 Ward comes in two parts:
 
@@ -56,25 +54,8 @@ await not entity @e[tag=target]
 ```
 
 Comment lines like `# @max_ticks` are [directives](docs/directives.md) that
-configure the test. Inside the test, these commands are available:
-
-| Command | Purpose |
-| --- | --- |
-| `assert [not] block/entity/data/score/chat/biome/predicate/items ...` | Assert immediately |
-| `await [not] ...` | Retry every tick until true or timeout |
-| `await delay <time>` | Pause the test |
-| `fail [message]` / `succeed` | End the test explicitly |
-| `dummy <player> spawn/leave/jump/use/attack/mine/...` | Control fake players |
-
-## CLI
-
-```sh
-ward test [-v <version>]... [-p <pack>]... [selector]   # run tests (default command)
-ward install [version]                                  # install a test server
-ward start / stop / status                              # manage the test daemon
-ward list [--remote]                                    # installed / available versions
-beet test                                                 # build the beet project and test it
-```
+configure the test, and `assert`/`await` are two of the
+[test commands](docs/commands.md).
 
 ## Documentation
 
