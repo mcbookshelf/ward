@@ -49,7 +49,6 @@ Write a test in your datapack under `data/<namespace>/test/`:
 # @max_ticks 100
 summon minecraft:armor_stand ~ ~ ~ {Tags: ["target"]}
 assert entity @e[tag=target]
-await not entity @e[tag=target]
 ```
 
 Run it:
@@ -59,7 +58,7 @@ ward   # discovers your packs, picks compatible versions, runs the tests
 ```
 
 Comment lines starting with `@` are [directives](docs/directives.md) that
-configure the test, and `assert`/`await` are [test commands](docs/commands.md).
+configure the test, and `assert` is one of the [test commands](docs/commands.md).
 
 ## Documentation
 
