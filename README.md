@@ -5,11 +5,13 @@
   </picture>
 </h1>
 
-<p align="center">
-  <a href="https://github.com/mcbookshelf/ward/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcbookshelf/ward/ci.yml?style=for-the-badge&label=ci" alt="CI"></a>
-  <a href="https://modrinth.com/mod/ward"><img src="https://img.shields.io/modrinth/v/ward?style=for-the-badge&logo=modrinth&label=modrinth" alt="Modrinth"></a>
-  <a href="https://pypi.org/project/mcward/"><img src="https://img.shields.io/pypi/v/mcward?style=for-the-badge&logo=python&logoColor=white&label=pypi" alt="PyPI"></a>
-</p>
+<div align="center">
+  <a href="https://github.com/mcbookshelf/ward/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mcbookshelf/ward/ci.yml?style=for-the-badge&label=ci&colorA=363a4f&colorB=a6da95&logo=githubactions&logoColor=cad3f5" alt="CI"></a>
+  &nbsp;
+  <a href="https://modrinth.com/mod/ward"><img src="https://img.shields.io/modrinth/v/ward?style=for-the-badge&label=modrinth&colorA=363a4f&colorB=926bd1&logo=modrinth&logoColor=cad3f5" alt="Modrinth"></a>
+  &nbsp;
+  <a href="https://pypi.org/project/mcward/"><img src="https://img.shields.io/pypi/v/mcward?style=for-the-badge&label=pypi&colorA=363a4f&colorB=b7bdf8&logo=python&logoColor=cad3f5" alt="PyPI"></a>
+</div>
 
 Ward lets you write automated tests for your datapacks as plain `.mcfunction`
 files in a `test/` folder.
@@ -20,15 +22,10 @@ files in a `test/` folder.
 
 Ward comes in two parts:
 
-- 🧩 **Mod** ([Modrinth](https://modrinth.com/mod/ward))
-
-  Adds the test commands (`/assert`, `/await`, `/fail`, `/succeed`, `/dummy`) and a
-  headless test server that streams results live.
-- 🐍 **CLI** ([PyPI](https://pypi.org/project/mcward/))
-
-  Installs test servers (Java and the mod are fetched for you) and runs your packs
-  on one or several Minecraft versions. Also ships a
-  [beet](https://github.com/mcbeet/beet) plugin that adds `beet test`.
+| | |
+| --- | --- |
+| 🧩 **Mod**<br>[Modrinth](https://modrinth.com/mod/ward) | Adds the test commands (`/assert`, `/await`, `/fail`, `/succeed`, `/dummy`) and a headless test server that streams results live. |
+| 🐍 **CLI**<br>[PyPI](https://pypi.org/project/mcward/) | Installs test servers (Java and the mod are fetched for you) and runs your packs on one or several Minecraft versions. Also ships a [beet](https://github.com/mcbeet/beet) plugin that adds `beet test`. |
 
 ## Quickstart
 
