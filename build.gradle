@@ -18,6 +18,14 @@ loom {
 	}
 
 	accessWidenerPath = file("src/main/resources/ward.accesswidener")
+
+	runs {
+		generateCommands {
+			server()
+			configName = "Generate command tree"
+			vmArg "-Dward.generate.commands=${rootDir}/packages/mcward-beet/src/mcward/mecha/resources"
+		}
+	}
 }
 
 checkstyle {

@@ -24,6 +24,11 @@ mcward-cli = { workspace = true }
 [project.entry-points.beet]
 commands = "mcward.beet.commands"
 
+[project.optional-dependencies]
+mecha = [
+    "mecha>=0.104.1",
+]
+
 [tool.hatch.version]
 path = "../../pyproject.toml"
 pattern = '^version = "(?P<version>[^"]+)"$'

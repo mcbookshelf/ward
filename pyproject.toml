@@ -15,6 +15,7 @@ dependencies = ["mcward-core"]
 [project.optional-dependencies]
 beet = ["mcward-beet"]
 cli = ["mcward-cli"]
+mecha = ["mcward-beet[mecha]"]
 
 [project.scripts]
 mcward = "mcward:cli"

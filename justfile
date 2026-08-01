@@ -1,7 +1,8 @@
 # Ward dev tasks — `just --list` shows everything
 
 # Windows runs recipes through PowerShell; keep recipes single commands
-set windows-shell := ["powershell.exe", "-NoProfile", "-Command"]
+[windows]
+set shell := ["powershell.exe", "-NoProfile", "-Command"]
 
 gradlew := if os() == "windows" { ".\\gradlew.bat" } else { "./gradlew" }
 

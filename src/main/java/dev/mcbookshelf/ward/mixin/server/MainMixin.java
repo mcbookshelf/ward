@@ -31,6 +31,17 @@ public class MainMixin {
 	}
 
 	/**
+	 * Export the command tree instead of starting the server.
+	 */
+	@Inject(method = "main", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/Eula;hasAgreedToEULA()Z"))
+	private static void exportCommandTree(CallbackInfo info) {
+		if (Ward.GENERATE_COMMANDS != null) {
+			Ward.exportCommandTree();
+			info.cancel();
+		}
+	}
+
+	/**
 	 * Start the test daemon instead of the normal dedicated server.
 	 */
 	@Inject(method = "main", cancellable = true, at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/packs/repository/ServerPacksSource;createPackRepository(Lnet/minecraft/world/level/storage/LevelStorageSource$LevelStorageAccess;)Lnet/minecraft/server/packs/repository/PackRepository;"))
