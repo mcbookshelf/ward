@@ -72,6 +72,29 @@ class TestRenderSession:
 
         assert any("✓ a:one (5ms)" in line for line in rendered_lines(session))
 
+    def test_batch_header_shows_dimension(self) -> None:
+        """The batch dimension is displayed next to the environment when known."""
+        session = Session([V1])
+        session._dispatch(V1, Started(total=1, pos=(0, -59, 0)))
+        session._dispatch(
+            V1, BatchStarted(environment="ward:default", dimension="minecraft:the_nether")
+        )
+        session._dispatch(V1, Passed(name="a:one", time=5))
+        finish_run(session, V1)
+
+        assert any(
+            "ward:default (minecraft:the_nether)" in line for line in rendered_lines(session)
+        )
+
+    def test_batch_header_without_dimension_is_plain(self) -> None:
+        session = Session([V1])
+        start_run(session, V1)
+        session._dispatch(V1, Passed(name="a:one", time=5))
+        finish_run(session, V1)
+
+        lines = rendered_lines(session)
+        assert any(line.strip() == "default" for line in lines)
+
     def test_single_version_failure_shows_error_only(self) -> None:
         """With one version the error is printed without a Failed on line."""
         session = Session([V1])

@@ -27,6 +27,14 @@ class TestParseEvent:
             ),
             ({"type": "batch_started", "environment": "e"}, BatchStarted(environment="e")),
             ({"type": "batch_finished", "environment": "e"}, BatchFinished(environment="e")),
+            (
+                {"type": "batch_started", "environment": "e", "dimension": "minecraft:the_nether"},
+                BatchStarted(environment="e", dimension="minecraft:the_nether"),
+            ),
+            (
+                {"type": "batch_finished", "environment": "e", "dimension": "minecraft:the_nether"},
+                BatchFinished(environment="e", dimension="minecraft:the_nether"),
+            ),
             ({"type": "test_passed", "name": "a:one", "time": 5}, Passed(name="a:one", time=5)),
             (
                 {"type": "test_failed", "name": "a:one", "time": 5, "error": "x", "required": True},

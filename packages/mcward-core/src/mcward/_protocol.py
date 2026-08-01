@@ -27,6 +27,7 @@ class BatchStarted:
     """Tests of the given game-test environment begin."""
 
     environment: str
+    dimension: str | None = None
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ class BatchFinished:
     """Tests of the given game-test environment are done."""
 
     environment: str
+    dimension: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,9 +119,15 @@ def parse_event(data: dict) -> Event | None:
                 x, y, z = data["pos"]
                 return TestsStarted(total=data["total"], pos=(x, y, z))
             case "batch_started":
-                return BatchStarted(environment=data["environment"])
+                return BatchStarted(
+                    environment=data["environment"],
+                    dimension=data.get("dimension"),
+                )
             case "batch_finished":
-                return BatchFinished(environment=data["environment"])
+                return BatchFinished(
+                    environment=data["environment"],
+                    dimension=data.get("dimension"),
+                )
             case "test_passed":
                 return TestPassed(name=data["name"], time=data["time"])
             case "test_failed":

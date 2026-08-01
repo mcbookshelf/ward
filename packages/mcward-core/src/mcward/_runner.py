@@ -42,10 +42,11 @@ class VersionOutcome:
 
 @dataclass(frozen=True)
 class TestBatch:
-    """A group of tests sharing the same game-test environment."""
+    """A group of tests sharing the same game-test environment and dimension."""
 
     name: str
     results: list[TestResult]
+    dimension: str | None = None
 
 
 @dataclass
@@ -56,6 +57,7 @@ class TestResult:
     batch: str
     versions: tuple[Version, ...]
     outcomes: dict[Version, VersionOutcome] = field(default_factory=dict)
+    dimension: str | None = None
 
     @property
     def failed_versions(self) -> list[Version]:
@@ -102,8 +104,8 @@ class TestSession:
         self.versions = tuple(versions)
         self._results: dict[str, TestResult] = {}
         self._diagnostics: dict[Diagnostic, list[Version]] = {}
-        self._batches: list[str] = []
-        self._current_batch: dict[Version, str] = {}
+        self._batches: list[tuple[str, str | None]] = []
+        self._current_batch: dict[Version, tuple[str, str | None]] = {}
         self._finished: dict[Version, TestsFinished] = {}
         self._aborted: dict[Version, str] = {}
         self._total = 0
@@ -135,8 +137,16 @@ class TestSession:
     def batches(self) -> list[TestBatch]:
         """Tests grouped by game-test environment, in discovery order."""
         return [
-            TestBatch(name, [result for result in self._results.values() if result.batch == name])
-            for name in self._batches
+            TestBatch(
+                name,
+                [
+                    result
+                    for result in self._results.values()
+                    if (result.batch, result.dimension) == (name, dimension)
+                ],
+                dimension,
+            )
+            for name, dimension in self._batches
         ]
 
     @property
@@ -171,8 +181,8 @@ class TestSession:
         match event:
             case TestsStarted(total=total):
                 self._total = max(self._total, total)
-            case BatchStarted(environment=environment):
-                self._current_batch[version] = environment
+            case BatchStarted(environment=environment, dimension=dimension):
+                self._current_batch[version] = (environment, dimension)
             case TestPassed(name=name, time=time):
                 self._record(version, name, VersionOutcome(TestStatus.PASSED, time))
             case TestFailed(
@@ -190,11 +200,11 @@ class TestSession:
                 self._aborted[version] = message
 
     def _record(self, version: Version, name: str, outcome: VersionOutcome) -> None:
-        batch = self._current_batch.get(version, "")
-        if batch and batch not in self._batches:
-            self._batches.append(batch)
+        batch, dimension = self._current_batch.get(version, ("", None))
+        if batch and (batch, dimension) not in self._batches:
+            self._batches.append((batch, dimension))
         if name not in self._results:
-            self._results[name] = TestResult(name, batch, self.versions)
+            self._results[name] = TestResult(name, batch, self.versions, dimension=dimension)
 
         self._results[name].outcomes[version] = outcome
 
