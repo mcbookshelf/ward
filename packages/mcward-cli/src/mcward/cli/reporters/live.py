@@ -88,7 +88,8 @@ def render_session(session: TestSession, resolve: FileResolver | None = None) ->
     text = Text()
     _render_diagnostics(text, session, resolve)
     for batch in session.batches:
-        text.append(f"\n {batch.name}\n", "dim")
+        label = f"{batch.name} ({batch.dimension})" if batch.dimension else batch.name
+        text.append(f"\n {label}\n", "dim")
         for result in batch.results:
             _render_result(text, result, resolve)
 

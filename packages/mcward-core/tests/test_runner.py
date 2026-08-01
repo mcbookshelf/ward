@@ -236,6 +236,27 @@ class TestRunTests:
         assert [b.name for b in batches] == ["second", "first"]
         assert [r.name for b in batches for r in b.results] == ["a:two", "a:one"]
 
+    def test_same_environment_split_by_dimension(self) -> None:
+        """The same environment in another dimension is a separate batch."""
+        env = FakeEnvironment(
+            V1,
+            [
+                BatchStarted(environment="default", dimension="minecraft:overworld"),
+                Passed(name="a:one", time=5),
+                BatchStarted(environment="default", dimension="minecraft:the_nether"),
+                Passed(name="a:two", time=5),
+                Finished(total=2, passed=2, failed=0, skipped=0, elapsed=1000),
+            ],
+        )
+        session = drain([env])
+
+        batches = session.batches
+        assert [(b.name, b.dimension) for b in batches] == [
+            ("default", "minecraft:overworld"),
+            ("default", "minecraft:the_nether"),
+        ]
+        assert [r.name for b in batches for r in b.results] == ["a:one", "a:two"]
+
     def test_stream_error_aborts_version(self) -> None:
         """An exception in one version's stream aborts it without killing the rest."""
         envs = [
