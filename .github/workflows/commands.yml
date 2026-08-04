@@ -64,7 +64,7 @@ jobs:
 
       - name: setup uv
         if: steps.tree.outputs.version
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v9.0.0
 
       - name: bump the python minor
         if: steps.tree.outputs.version

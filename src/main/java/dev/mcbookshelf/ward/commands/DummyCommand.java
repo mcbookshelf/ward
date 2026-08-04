@@ -26,10 +26,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.phys.Vec3;
 
 import dev.mcbookshelf.ward.TestExecutor;
@@ -145,7 +147,7 @@ public final class DummyCommand {
 		Dummy dummy = getDummy(context);
 		Entity entity = EntityArgument.getEntity(context, "entity");
 		dummy.attack(entity);
-		dummy.swing(InteractionHand.MAIN_HAND);
+		dummy.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
 		return Command.SINGLE_SUCCESS;
 	}
 
@@ -194,7 +196,7 @@ public final class DummyCommand {
 		int count = stack ? inventory.getItem(slot).count() : 1;
 		ItemStack removed = inventory.removeItem(slot, count);
 		dummy.containerMenu.findSlot(inventory, slot).ifPresent((i) -> dummy.containerMenu.setRemoteSlot(i, inventory.getItem(slot)));
-		dummy.drop(removed, false, false);
+		dummy.drop(removed, false, Prediction.PREDICTED);
 		return removed.count();
 	}
 
