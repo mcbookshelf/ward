@@ -35,7 +35,7 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@v7
       - name: setup uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
       - name: setup just
@@ -60,7 +60,7 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
       - name: setup uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
       - name: setup just

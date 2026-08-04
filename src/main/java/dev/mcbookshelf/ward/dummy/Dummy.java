@@ -28,6 +28,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.phys.BlockHitResult;
@@ -120,7 +121,7 @@ public class Dummy extends ServerPlayer {
 			if (gameMode.useItemOn(this, level(), handItem, hand, blockHit).consumesAction()) {
 				// The trigger normally fires from the network handler, which dummies bypass
 				CriteriaTriggers.ANY_BLOCK_USE.trigger(this, blockHit.getBlockPos(), handItem);
-				swing(hand);
+				swing(hand, SwingAnimation.DEFAULT, false);
 				return true;
 			}
 		}
