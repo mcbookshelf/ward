@@ -37,21 +37,27 @@ keeps an `await` polling.
 | --- | --- |
 | `biome <pos> <biome>` | the biome at `pos` matches a biome id or `#tag` |
 | `block <pos> <block>` | the block at `pos` matches a block predicate (`stone`, `chest[facing=north]`, `#minecraft:logs{...}`) |
+| `blocks <start> <end> <destination> all\|masked` | the source region matches the blocks at `destination` (`masked` skips air in the source) |
 | `chat <pattern>` | a chat message matching the regex was received |
 | `chat <pattern> <players>` | a matching message was received by one of `players` |
 | `data block <pos> <path>` | the NBT path exists in the block entity |
 | `data entity <target> <path>` | the NBT path exists on the entity |
 | `data storage <id> <path>` | the NBT path exists in command storage |
+| `dimension <dimension>` | the test is executing in the given dimension |
 | `entity <selector>` | the selector matches at least one entity |
 | `entity <selector> inside` | it matches at least one entity inside the test structure bounds |
 | `function <function>` | the function (id or `#tag`) returns a nonzero result, like `execute if function` |
 | `items entity <selector> <slots> <item>` | matching items exist in the given entity slots |
 | `items block <pos> <slots> <item>` | matching items exist in the given container slots |
+| `loaded <pos>` | the chunk at `pos` is fully loaded |
 | `predicate <predicate>` | the loot predicate (id or inline) passes at the source position |
 | `result <range> run <command>` | the command's result value is within the range |
 | `run <command>` | the command succeeds |
 | `score <target> <objective> <op> <source> <objective>` | the score comparison holds (`=`, `<`, `<=`, `>`, `>=`) |
 | `score <target> <objective> matches <range>` | the score is within the range (e.g. `3`, `5..10`, `..0`) |
+| `slots entity <selector> <slots>` | the given entity slots exist |
+| `slots block <pos> <slots>` | the given container slots exist |
+| `stopwatch <id> <range>` | the stopwatch's elapsed seconds are within the range |
 
 ## `/fail` and `/succeed`
 

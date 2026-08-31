@@ -1,7 +1,5 @@
 package dev.mcbookshelf.ward.commands.assertions;
 
-import java.util.function.Predicate;
-
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -11,28 +9,24 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.SlotSourceArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
-import net.minecraft.commands.arguments.item.ItemPredicateArgument;
 import net.minecraft.commands.arguments.selector.EntitySelector;
 import net.minecraft.server.commands.ExecuteCommand;
 import net.minecraft.server.commands.item.BlockItemAccessor;
 import net.minecraft.server.commands.item.EntityItemAccessor;
 import net.minecraft.server.commands.item.ItemAccessor;
-import net.minecraft.world.item.ItemStack;
 
 import dev.mcbookshelf.ward.AssertResult;
 
-class ItemsAssertion implements Assertion {
+class SlotsAssertion implements Assertion {
 	@Override
 	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
-		root.then(Commands.literal("items")
+		root.then(Commands.literal("slots")
 				.then(Commands.literal("entity").then(Commands.argument("entities", EntityArgument.entities())
 						.then(Commands.argument("slots", SlotSourceArgument.slotSource(assertion.buildContext()))
-								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(assertion.buildContext()))
-										.executes(ctx -> runForEntity(ctx, assertion))))))
+								.executes(ctx -> runForEntity(ctx, assertion)))))
 				.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
 						.then(Commands.argument("slots", SlotSourceArgument.slotSource(assertion.buildContext()))
-								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(assertion.buildContext()))
-										.executes(ctx -> runForBlock(ctx, assertion)))))));
+								.executes(ctx -> runForBlock(ctx, assertion))))));
 	}
 
 	private static int runForEntity(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
@@ -47,9 +41,8 @@ class ItemsAssertion implements Assertion {
 
 	private static AssertResult count(CommandContext<CommandSourceStack> context, ItemAccessor<?> accessor) throws CommandSyntaxException {
 		SlotSourceArgument.Result slots = SlotSourceArgument.getSlotSource(context, "slots");
-		Predicate<ItemStack> predicate = ItemPredicateArgument.getItemPredicate(context, "predicate");
-		int count = ExecuteCommand.countItems(context.getSource(), accessor, slots, predicate);
+		int count = ExecuteCommand.countSlots(context.getSource(), accessor, slots);
 
-		return AssertResult.of(count, "items", Assertion.getRawArgument(context, "predicate"), count);
+		return AssertResult.of(count, "slots", Assertion.getRawArgument(context, "slots"), count);
 	}
 }
