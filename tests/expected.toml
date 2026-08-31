@@ -2,6 +2,7 @@
 
 passed = [
   "ward:assert_block",
+  "ward:assert_blocks",
   "ward:assert_entity",
   "ward:assert_data",
   "ward:assert_score",
@@ -9,6 +10,9 @@ passed = [
   "ward:assert_predicate",
   "ward:assert_biome",
   "ward:assert_run",
+  "ward:assert_loaded",
+  "ward:assert_slots",
+  "ward:assert_stopwatch",
   "ward:chat_server",
   "ward:await_entity",
   "ward:await_delay",
