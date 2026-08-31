@@ -31,7 +31,7 @@ class EnvironmentManager:
         self.versions = VersionRegistry(self.directory)
 
     def get(self, name: str) -> Environment:
-        """Retrieve environment in its current state."""
+        """The environment for a version name or alias, in whatever state it is in."""
         version, listed = self._get_version(name)
         directory = self.environments / version.name
 
@@ -44,23 +44,23 @@ class EnvironmentManager:
         raise VersionNotFoundError(name)
 
     def list_available(self) -> list[Version]:
-        """List all available versions."""
+        """Every version in the registry, newest first."""
         return sorted(self.versions.list(), reverse=True)
 
     def list_installed(self) -> list[Version]:
-        """List installed environments."""
+        """Versions with a complete environment on disk, newest first."""
         return sorted(self._scan_directory(self._is_installed), reverse=True)
 
     def list_running(self) -> list[Version]:
-        """List running environments."""
+        """Versions whose daemon is alive, newest first."""
         return sorted(self._scan_directory(self._is_running), reverse=True)
 
     def list_compatible(self, min_fmt: int, max_fmt: int) -> list[Version]:
-        """List compatible versions within the given format range."""
+        """Versions whose pack format falls in the range, newest first."""
         return sorted(self.versions.list_in_range(min_fmt, max_fmt), reverse=True)
 
     def _get_version(self, name: str) -> tuple[Version, bool]:
-        """Get a version, indicating if it was found in the registry."""
+        """The version and whether the registry actually lists it."""
         if version := self.versions.get(name):
             return version, True
         if name == "dev":
@@ -71,11 +71,11 @@ class EnvironmentManager:
             raise VersionNotFoundError(name) from None
 
     def _is_installed(self, directory: Path) -> bool:
-        """Check whether the directory holds every asset of an installed environment."""
+        """Whether the directory holds every asset of an installed environment."""
         return directory.exists() and all((directory / f).exists() for f in INSTALLED_FILES)
 
     def _is_running(self, directory: Path) -> bool:
-        """Check whether the directory's recorded process is still our server."""
+        """Whether the recorded pid is still one of our servers, clearing it if not."""
         try:
             running = RunningProcess.load(directory)
         except OSError, ValueError:

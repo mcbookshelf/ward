@@ -2,12 +2,10 @@
 
     uv run tools/watch.py
 
-Prints nothing when up to date. Detection is stateless: a version is "new"
-when fabric-loader supports it (fabric meta is both the trigger and the
-first compatibility gate) but it is neither listed on any published
-Modrinth version nor the current gradle.properties target. The calling
-workflow additionally skips versions that already have a release PR open,
-and hands the version to the release-pr workflow (see tools/bump.py).
+Prints nothing when up to date. Stateless: a version is "new" when
+fabric-loader supports it but neither a published Modrinth version nor the
+current gradle.properties target covers it. The calling workflow hands the
+version to the release-pr workflow.
 """
 
 import sys
@@ -29,8 +27,8 @@ def main() -> int:
             for game_version in version["game_versions"]
         }
 
-    # The list is newest-first: everything above the first known version is
-    # a candidate; everything below has been processed in an earlier era
+    # The list is newest-first, so everything above the first known version is a candidate
+    # Everything below it was processed in an earlier era
     candidates = []
     for version in supported:
         if version == current or version in published:

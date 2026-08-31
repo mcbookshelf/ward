@@ -36,16 +36,14 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A fake server-side player with a no-op network connection. Dummies are never saved and keep
- * their stats and advancements in memory. Inspired by <a href="https://github.com/gnembon/fabric-carpet">Carpet</a>.
+ * A fake server-side player with a no-op network connection.
+ * Dummies are never saved and keep their stats and advancements in memory.
+ * Inspired by <a href="https://github.com/gnembon/fabric-carpet">Carpet</a>.
  */
 public class Dummy extends ServerPlayer {
 	public final Vec3 ward$originalSpawnPosition;
 	public final Vec2 ward$originalSpawnRotation;
 
-	/**
-	 * Creates and spawns a dummy with a randomly generated name.
-	 */
 	public static Dummy create(ServerLevel level, Vec3 position, Vec2 rotation) {
 		PlayerList players = level.getServer().getPlayerList();
 		String username;
@@ -56,9 +54,6 @@ public class Dummy extends ServerPlayer {
 		return Dummy.create(username, level, position, rotation);
 	}
 
-	/**
-	 * Creates and spawns a dummy standing on the bottom center of the block at the position.
-	 */
 	public static Dummy create(String username, ServerLevel level, Vec3 position, Vec2 rotation) {
 		position = Vec3.atBottomCenterOf(BlockPos.containing(position));
 		MinecraftServer server = level.getServer();
@@ -159,7 +154,7 @@ public class Dummy extends ServerPlayer {
 
 	@Override
 	public void onEquipItem(EquipmentSlot slot, ItemStack previous, ItemStack stack) {
-		// Suppress equipment change packets while consuming items.
+		// Suppress equipment change packets while consuming items
 		if (!isUsingItem()) {
 			super.onEquipItem(slot, previous, stack);
 		}

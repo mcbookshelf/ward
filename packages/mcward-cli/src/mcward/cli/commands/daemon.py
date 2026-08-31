@@ -1,4 +1,4 @@
-"""Daemon commands - start, stop, and status."""
+"""The start, stop and status commands."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import cast

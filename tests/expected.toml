@@ -1,4 +1,4 @@
-# Expected outcome of the integration fixture run, checked by tools/verify.py.
+# Expected outcome of the integration fixture run, checked by tools/verify.py
 
 passed = [
   "ward:assert_block",

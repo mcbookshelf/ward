@@ -15,10 +15,6 @@ import net.minecraft.server.players.NameAndId;
 import net.minecraft.server.players.ProfileResolver;
 import net.minecraft.server.players.UserNameToIdResolver;
 
-/**
- * Offline stand-ins for the account services a MinecraftServer requires. The test server never
- * talks to Mojang, so every profile resolves locally.
- */
 final class WardServices {
 	static final Services OFFLINE = new Services(
 			(SessionService) null,

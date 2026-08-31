@@ -206,16 +206,16 @@ public final class DummyCommand {
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static int useBlock(CommandContext<CommandSourceStack> ctx, Direction direction) throws CommandSyntaxException {
-		Dummy dummy = getDummy(ctx);
-		Vec3 pos = Vec3Argument.getVec3(ctx, "pos");
+	private static int useBlock(CommandContext<CommandSourceStack> context, Direction direction) throws CommandSyntaxException {
+		Dummy dummy = getDummy(context);
+		Vec3 pos = Vec3Argument.getVec3(context, "pos");
 		if (!dummy.useOnBlock(pos, direction)) throw USE_ON_BLOCK.create(dummy.getName());
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static int useEntity(CommandContext<CommandSourceStack> ctx, Vec3 pos) throws CommandSyntaxException {
-		Dummy dummy = getDummy(ctx);
-		Entity entity = EntityArgument.getEntity(ctx, "entity");
+	private static int useEntity(CommandContext<CommandSourceStack> context, Vec3 pos) throws CommandSyntaxException {
+		Dummy dummy = getDummy(context);
+		Entity entity = EntityArgument.getEntity(context, "entity");
 		Vec3 location = Objects.requireNonNullElseGet(pos, entity::position);
 		if (!dummy.useOnEntity(entity, location)) throw USE_ON_ENTITY.create(dummy.getName());
 		return Command.SINGLE_SUCCESS;

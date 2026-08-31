@@ -11,8 +11,8 @@ from beet import Project
 from beet.toolchain.cli import beet as beet_cli
 from click.testing import CliRunner
 
-# Importing registers the test command on the beet CLI group, independently
-# of the entry-point metadata of the installed distribution
+# Importing registers the test command on the beet CLI group,
+# independently of the entry-point metadata of the installed distribution
 import mcward.beet.commands  # noqa: F401
 from mcward.beet.commands import _build_pack
 
@@ -98,8 +98,7 @@ class TestBeetTestCommand:
         def fake_run_tests_live(datapacks, envs, selector, resolve=None):
             calls.packs = list(datapacks)
             calls.selector = selector
-            # Snapshot now: the built pack lives in a TemporaryDirectory that
-            # is cleaned up once the command returns
+            # Snapshot now: the built pack's TemporaryDirectory is gone once the command returns
             calls.shipped_files = pack_files(datapacks[0])
             return SimpleNamespace(failed=failed)
 

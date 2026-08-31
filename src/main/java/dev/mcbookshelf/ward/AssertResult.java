@@ -5,7 +5,7 @@ import java.util.function.Function;
 import net.minecraft.network.chat.Component;
 
 /**
- * Result of an assertion check. A {@code count > 0} means the condition is met.
+ * Result of an assertion check: {@code count > 0} means the condition is met.
  */
 public record AssertResult(int count, boolean errored, Function<Boolean, Component> message) {
 	public AssertResult(int count, Function<Boolean, Component> message) {

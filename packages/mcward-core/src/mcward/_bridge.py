@@ -4,6 +4,7 @@ import json
 import socket
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
+from typing import Any
 
 from ._constants import SOCKET_CONNECT_TIMEOUT
 from ._exceptions import ProcessConnectionError
@@ -29,8 +30,8 @@ def connect(
         sock.close()
 
 
-def send_message(sock: socket.socket, message: dict) -> None:
-    """Send a JSON message to the socket."""
+def send_message(sock: socket.socket, message: dict[str, Any]) -> None:
+    """Send one newline-terminated JSON message."""
     data = json.dumps(message) + "\n"
     try:
         sock.sendall(data.encode("utf-8"))
@@ -41,8 +42,8 @@ def send_message(sock: socket.socket, message: dict) -> None:
 def receive_messages(
     sock: socket.socket,
     timeout: float | None = None,
-) -> Iterator[dict]:
-    """Receive line-delimited JSON messages from socket.
+) -> Iterator[dict[str, Any]]:
+    """Yield each line-delimited JSON message the peer sends.
 
     A ``timeout`` of ``None`` blocks between messages indefinitely; the stream
     then only ends when the peer closes the connection.

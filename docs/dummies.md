@@ -20,10 +20,10 @@ A dummy is a full server-side player attached to a no-op network connection:
 
 Two ways:
 
-- **`/dummy <name> spawn`** — spawns a dummy with that exact name at the
+- **`/dummy <name> spawn`**: spawns a dummy with that exact name at the
   command source's position. The name must not collide with a connected
   player (or another dummy).
-- **[`# @dummy` directive](directives.md)** — spawns a dummy with a generated
+- **[`# @dummy` directive](directives.md)**: spawns a dummy with a generated
   name (`dummy-<number>`) when the test starts and makes it the executor of
   every command in the test, so it is simply `@s`:
 

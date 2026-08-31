@@ -21,7 +21,7 @@ public class MainMixin {
 	}
 
 	/**
-	 * Exit with a non-zero exit code when the server fails to start.
+	 * Exits with a non-zero code when the server fails to start.
 	 */
 	@Inject(method = "main", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Lorg/slf4j/Marker;Ljava/lang/String;Ljava/lang/Throwable;)V", shift = At.Shift.AFTER))
 	private static void exitOnError(CallbackInfo info) {
@@ -31,7 +31,7 @@ public class MainMixin {
 	}
 
 	/**
-	 * Export the command tree instead of starting the server.
+	 * Exports the command tree instead of starting the server.
 	 */
 	@Inject(method = "main", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/Eula;hasAgreedToEULA()Z"))
 	private static void exportCommandTree(CallbackInfo info) {
@@ -42,7 +42,7 @@ public class MainMixin {
 	}
 
 	/**
-	 * Start the test daemon instead of the normal dedicated server.
+	 * Starts the test daemon instead of the normal dedicated server.
 	 */
 	@Inject(method = "main", cancellable = true, at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/packs/repository/ServerPacksSource;createPackRepository(Lnet/minecraft/world/level/storage/LevelStorageSource$LevelStorageAccess;)Lnet/minecraft/server/packs/repository/PackRepository;"))
 	private static void runWardDaemon(

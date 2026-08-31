@@ -23,10 +23,10 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class PredicateAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("predicate")
-				.then(Commands.argument("predicate", ResourceOrIdArgument.lootPredicate(context.buildContext()))
-						.executes(ctx -> run(ctx, context))));
+				.then(Commands.argument("predicate", ResourceOrIdArgument.lootPredicate(assertion.buildContext()))
+						.executes(ctx -> run(ctx, assertion))));
 	}
 
 	private static int run(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
@@ -34,7 +34,7 @@ class PredicateAssertion implements Assertion {
 		Entity entity = context.getSource().getEntity();
 		Vec3 pos = context.getSource().getPosition();
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			Holder<LootItemCondition> predicate = ResourceOrIdArgument.getLootPredicate(context, "predicate");
 			LootParams lootParams = new LootParams.Builder(level).withOptionalParameter(LootContextParams.THIS_ENTITY, entity)
 					.withParameter(LootContextParams.ORIGIN, pos).create(LootContextParamSets.COMMAND);

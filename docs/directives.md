@@ -31,7 +31,7 @@ it.
 | `@rotation` | degrees: `-90` / `0` / `90` / `180` | `0` | Rotation applied to the test structure |
 | `@max_attempts` | positive int | `1` | Number of times the test may run before it is reported as failed |
 | `@required_successes` | positive int | `1` | Successful runs needed to pass (for flaky tests, with `@max_attempts`) |
-| `@padding` | int `0`–`128` | `0` | Empty space kept around the structure to isolate neighbouring tests |
+| `@padding` | int `0`-`128` | `0` | Empty space kept around the structure to isolate neighbouring tests |
 | `@skyaccess` / `@sky_access` | `true`/`false` (bare = `true`) | `false` | Keeps the space above the structure clear of the test barrier ceiling |
 | `@dummy` | position (bare = `~ ~ ~`) | none | Spawns a [dummy](dummies.md) and makes it the test's executor |
 

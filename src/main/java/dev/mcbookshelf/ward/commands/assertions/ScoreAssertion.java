@@ -21,30 +21,30 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class ScoreAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("score")
 				.then(Commands.argument("target", ScoreHolderArgument.scoreHolder())
 						.suggests(ScoreHolderArgument.SUGGEST_SCORE_HOLDERS)
 						.then(Commands.argument("target_objective", ObjectiveArgument.objective())
-								.then(buildScore(context, Integer::equals, "="))
-								.then(buildScore(context, (a, b) -> a < b, "<"))
-								.then(buildScore(context, (a, b) -> a <= b, "<="))
-								.then(buildScore(context, (a, b) -> a > b, ">"))
-								.then(buildScore(context, (a, b) -> a >= b, ">="))
+								.then(buildScore(assertion, Integer::equals, "="))
+								.then(buildScore(assertion, (a, b) -> a < b, "<"))
+								.then(buildScore(assertion, (a, b) -> a <= b, "<="))
+								.then(buildScore(assertion, (a, b) -> a > b, ">"))
+								.then(buildScore(assertion, (a, b) -> a >= b, ">="))
 								.then(Commands.literal("matches")
 										.then(Commands.argument("range", RangeArgument.intRange())
-												.executes(ctx -> runRange(ctx, context)))))));
+												.executes(ctx -> runRange(ctx, assertion)))))));
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> buildScore(
-			Context context,
+			Context assertion,
 			BiPredicate<Integer, Integer> predicate,
 			String op) {
 		return Commands.literal(op)
 				.then(Commands.argument("source", ScoreHolderArgument.scoreHolder())
 						.suggests(ScoreHolderArgument.SUGGEST_SCORE_HOLDERS)
 						.then(Commands.argument("source_objective", ObjectiveArgument.objective())
-								.executes(ctx -> run(ctx, context, predicate, op))));
+								.executes(ctx -> run(ctx, assertion, predicate, op))));
 	}
 
 	private static int run(
@@ -54,7 +54,7 @@ class ScoreAssertion implements Assertion {
 			String op) throws CommandSyntaxException {
 		Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			ScoreHolder target = ScoreHolderArgument.getName(context, "target");
 			ScoreHolder source = ScoreHolderArgument.getName(context, "source");
 			Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
@@ -79,7 +79,7 @@ class ScoreAssertion implements Assertion {
 		MinMaxBounds.Ints range = RangeArgument.Ints.getRange(context, "range");
 		Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			ScoreHolder target = ScoreHolderArgument.getName(context, "target");
 			Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
 			ReadOnlyScoreInfo scoreInfo = scoreboard.getPlayerScoreInfo(target, targetObjective);

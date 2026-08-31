@@ -37,7 +37,7 @@ class Version:
 
     @classmethod
     def parse(cls, name: str) -> Version:
-        """Parse version string into structured format."""
+        """Parse "26.1.2", "26.2-snapshot-6" or a "dev/" prefixed variant."""
         version = name.removeprefix("dev/")
         if match := re.match(r"^(\d+)\.(\d+)-snapshot-(\d+)$", version):
             return cls(name, version, int(match[1]), int(match[2]), 0, int(match[3]))
@@ -58,8 +58,8 @@ class Version:
 
     @property
     def _sort_key(self) -> tuple[bool, int, int, int, int]:
-        # Dev builds sort above everything; snapshots use patch -1 so they
-        # sort below the releases of their own (year, major) line
+        # Dev builds sort above everything
+        # Snapshots take patch -1 to sort below the releases of their own line
         return (
             self.is_dev,
             self.year,
@@ -69,18 +69,16 @@ class Version:
         )
 
 
-# Aliases used inside VersionRegistry: the `list` method shadows the builtin
-# in the class body, so annotations there cannot subscript `list` directly
+# Aliases used inside VersionRegistry
 type _VersionList = list[Version]
 type _VersionEntries = list[tuple[Version, int]]
 
 
 class VersionRegistry:
-    """Registry for managing Minecraft versions.
+    """The Minecraft versions Ward supports, with their pack formats.
 
-    The version list is loaded lazily on first access: constructing the
-    registry never touches the network, so commands that don't need version
-    data (help, status, ...) stay fast and work offline.
+    Loaded lazily on first access: constructing the registry never touches
+    the network, so commands that don't need version data work offline.
     """
 
     def __init__(self, cache_dir: Path, ttl_hours: int = 4):
@@ -89,12 +87,7 @@ class VersionRegistry:
         self._versions: list[tuple[Version, int]] | None = None
 
     def get(self, name: str) -> Version | None:
-        """Get a specific version by name or alias (dev, latest, snapshot).
-
-        Following the launcher's vocabulary, "latest" is the newest release
-        while "snapshot" is the newest version of all — which is the release
-        itself right after one comes out.
-        """
+        """Get a specific version by name or alias (dev, latest, snapshot)."""
         if name == "dev":
             return _get_gradle_version()
         versions = self._ensure_loaded()
@@ -105,11 +98,11 @@ class VersionRegistry:
         return next((v for v, _ in versions if v.name == name), None)
 
     def list(self) -> _VersionList:
-        """List all known versions."""
+        """Every version in the registry, in registry order."""
         return [v for v, _ in self._ensure_loaded()]
 
     def list_in_range(self, min_fmt: int, max_fmt: int) -> _VersionList:
-        """List versions within a specific pack format range."""
+        """Every version whose pack format falls inside the range."""
         return [v for v, fmt in self._ensure_loaded() if min_fmt <= fmt <= max_fmt]
 
     def refresh(self) -> VersionRegistry:
@@ -125,8 +118,8 @@ class VersionRegistry:
         """Refresh from remote if stale, falling back to the cached file."""
         if self._versions is None:
             if self._is_stale():
-                # ValueError covers a garbage response body: a broken API
-                # must fall back to the cached file just like a broken network
+                # ValueError covers a garbage response body
+                # A broken API falls back to the cached file, like a broken network
                 try:
                     return self.refresh()._versions or []
                 except (httpx.HTTPError, ValueError) as e:
@@ -162,28 +155,28 @@ async def _fetch() -> tuple[dict[str, int], list[Version]]:
 
 
 async def _fetch_formats(client: httpx.AsyncClient) -> dict[str, int]:
-    """Fetch data pack formats."""
+    """Map every Minecraft version id to its data pack format."""
     response = await client.get(PACK_FORMATS)
     response.raise_for_status()
     return {e["id"]: int(e["data_pack_version"]) for e in response.json()}
 
 
 async def _fetch_versions(client: httpx.AsyncClient) -> list[Version]:
-    """Fetch versions from the API."""
+    """Every Minecraft version a published Ward release supports."""
     response = await client.get(f"{MODRINTH_API}/project/ward/version")
     response.raise_for_status()
 
     versions = set()
     for release in response.json():
         for name in release["game_versions"]:
-            # One mispublished id must not brick the registry for everyone
+            # One mispublished id must not brick the registry
             with suppress(ValueError):
                 versions.add(Version.parse(name))
     return sorted(versions, reverse=True)
 
 
 def _get_gradle_version() -> Version | None:
-    """Get dev version from gradle.properties in current working directory."""
+    """The version targeted by the mod checkout in the working directory."""
     with suppress(FileNotFoundError, ValueError, IndexError):
         props = Path.cwd() / "gradle.properties"
         content = props.read_text(encoding="utf-8")

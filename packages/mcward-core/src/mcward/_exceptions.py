@@ -1,17 +1,4 @@
-"""Ward exception hierarchy.
-
-* WardError
-  x VersionError
-    - VersionNotFoundError
-  x InstallError
-    - AssetNotFoundError
-    - DownloadFailedError
-    - JavaNotFoundError
-  x DeployError
-  x ProcessError
-    - ProcessStartupError
-    - ProcessConnectionError
-"""
+"""Ward exception hierarchy."""
 
 
 class WardError(Exception):

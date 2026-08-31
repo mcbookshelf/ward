@@ -32,8 +32,8 @@ import net.minecraft.world.phys.Vec3;
 import dev.mcbookshelf.ward.dummy.Dummy;
 
 /**
- * Runs test commands in order, pausing while awaits are pending. The test succeeds once every
- * command and await has completed.
+ * Runs test commands in order, pausing while awaits are pending.
+ * The test succeeds once every command and await has completed.
  */
 public class TestExecutor {
 	private static final SimpleCommandExceptionType ERROR_NOT_IN_TEST = new SimpleCommandExceptionType(
@@ -117,50 +117,29 @@ public class TestExecutor {
 		AtomicInteger remaining = new AtomicInteger(delay);
 		this.awaits.add(() -> {
 			if (remaining.decrementAndGet() <= 0) return true;
-			// Fail early, with this delay's line, once the delay can no
-			// longer finish before the timeout
+			// Fail early, on this delay's line, once it can no longer finish before the timeout
 			if (this.helper.getTick() + remaining.get() <= this.timeout) return false;
 			throw failure(Component.translatable("ward.timeout", this.timeout));
 		});
 	}
 
-	/**
-	 * Asserts a condition immediately. The plain form expects at least one match, the negated
-	 * form expects none (and no error).
-	 */
 	public int assertThat(AssertResult result, boolean negated) {
 		if (satisfied(result, negated)) return negated ? 1 : result.count();
 		fail(result.message().apply(negated));
 		return 0;
 	}
 
-	public int assertThat(Supplier<AssertResult> check, boolean negated) {
-		return assertThat(check.get(), negated);
-	}
-
-	/**
-	 * Awaits a condition, retrying every tick until it is satisfied or the test times out. A check
-	 * that errors counts as unsatisfied and keeps polling.
-	 */
-	public void awaitThat(Supplier<AssertResult> check, boolean negated) {
-		awaitThat(check.get(), negated, check);
-	}
-
-	public void awaitThat(AssertResult first, boolean negated, Supplier<AssertResult> check) {
+	public void awaitThat(AssertResult first, Supplier<AssertResult> check, boolean negated) {
 		if (satisfied(first, negated)) return;
 		registerPoll(check, negated);
 	}
 
-	/**
-	 * A plain check passes with a positive count, a negated check with a clean zero count.
-	 */
 	private boolean satisfied(AssertResult result, boolean negated) {
 		return negated ? result.count() == 0 && !result.errored() : result.count() > 0;
 	}
 
 	/**
-	 * Registers a pending condition. It retries every tick and fails with the check's message on
-	 * the last tick before the timeout.
+	 * Retries every tick, failing with the check's own message on the last tick before the timeout.
 	 */
 	private void registerPoll(Supplier<AssertResult> check, boolean negated) {
 		this.awaits.add(() -> {
@@ -192,8 +171,7 @@ public class TestExecutor {
 	}
 
 	private CommandSourceStack createCommandSourceStack(TestFunction function) {
-		// The server source stack defaults to the respawn dimension (the
-		// overworld), so tests declaring @dimension must rebind their level
+		// The server source stack defaults to the respawn dimension; a test declaring @dimension has to rebind its level
 		CommandSourceStack source = this.helper.getLevel()
 				.getServer()
 				.createCommandSourceStack()

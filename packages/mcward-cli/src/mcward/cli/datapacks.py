@@ -19,15 +19,13 @@ MCFUNCTION_FOLDERS = ("test", "function")
 
 @dataclass(frozen=True)
 class DataPack:
-    """Datapack with its pack format range."""
-
     path: Path
     min_format: int
     max_format: int
 
 
 def discover_datapacks(patterns: Sequence[str]) -> list[DataPack]:
-    """Discover datapacks — directories or zips — from glob patterns."""
+    """Find the datapacks (directories or zips) matching the glob patterns."""
     cwd = Path.cwd()
     paths = set()
 

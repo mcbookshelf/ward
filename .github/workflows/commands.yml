@@ -110,7 +110,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.bot.outputs.token }}
         run: |
-          # The release decision was made by the tree diffing on main; the
-          # required CI checks gate the merge, so a red PR waits for a human
+          # The release decision was made by the tree diffing on main; the required CI checks gate the merge, so a red PR waits for a human
           gh pr merge "${{ steps.pr.outputs.pull-request-number }}" \
             --squash --auto --repo "$GITHUB_REPOSITORY"

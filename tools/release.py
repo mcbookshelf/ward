@@ -1,27 +1,12 @@
-"""Release automation for Ward, driven by the versions committed to the tree.
+"""Release automation, driven by the versions committed to the tree.
 
-    uv run tools/release.py python [--dry-run]   # the mcward packages
-    uv run tools/release.py java [--dry-run]     # the ward mod
+    uv run tools/release.py python [--dry-run]   # the mcward packages, to PyPI
+    uv run tools/release.py java [--dry-run]     # the ward mod, to Modrinth
 
-No commit parsing: bumping a version file *is* the release request, and a
-release happens when the tag for the version in the tree does not exist yet.
-
-- python: the root pyproject.toml is the single source of truth (bump it
-  with `just bump python 1.2.0`); workspace members declare a dynamic version
-  that resolves from it at build time, so all mcward packages version in
-  lockstep. Publishes to PyPI and tags v1.2.0 (no build metadata: python
-  releases target every Minecraft version at once).
-- java: gradle.properties carries mod_version and minecraft_version; the
-  tag is fabric-api style with the full version (v1.4.1+26.1.2). Bumping
-  either property releases: a new minecraft_version alone is a
-  compatibility build (same feature set, new build metadata). Builds the
-  jar and publishes to Modrinth (as beta when targeting a snapshot).
-
-Nothing is committed: a release publishes the artifacts first and ends by
-creating the GitHub release — notes generated from the merged PRs since
-the previous tag of the same stream, built artifacts attached. The tag
-marks completion, so a partially failed run is simply re-run: publishing
-steps skip what already exists.
+A release happens when the version in the tree has no tag yet (see the
+versioning section of CONTRIBUTING.md). Artifacts publish first and the tag
+comes last with the GitHub release, so a partially failed run is simply
+re-run: steps skip what already exists.
 """
 
 import argparse
@@ -71,10 +56,9 @@ def release_python(dry_run: bool) -> int:
     # Stale artifacts of older versions must never reach `uv publish dist/*`
     shutil.rmtree(ROOT / "dist", ignore_errors=True)
     subprocess.run(["uv", "build", "--all-packages"], check=True)
-    # Trusted publishing via OIDC: PyPI mints one token covering every project
-    # with a matching publisher, so the dist/* default uploads all packages in
-    # one go. --check-url tolerates re-runs after a partial upload by skipping
-    # files already on the index
+    # Trusted publishing via OIDC mints one token covering every matching project
+    # The dist/* default therefore uploads all packages in one go
+    # --check-url tolerates a re-run by skipping files already on the index
     subprocess.run(["uv", "publish", "--check-url", "https://pypi.org/simple/"], check=True)
 
     notes = generate_notes(tag, previous)

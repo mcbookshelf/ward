@@ -1,12 +1,10 @@
 """The WardBridge protocol: every event the server sends, as a type.
 
-Unknown event types parse to ``None`` and are skipped: the protocol field
-gates real incompatibilities, and informational messages added by a newer
-mod must not break older tooling. A *known* event missing a field, however,
-is protocol corruption and fails loudly.
+Unknown event types parse to ``None`` and are skipped.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from ._exceptions import ProcessConnectionError
 
@@ -110,7 +108,7 @@ type Event = (
 )
 
 
-def parse_event(data: dict) -> Event | None:
+def parse_event(data: dict[str, Any]) -> Event | None:
     """Parse a wire message into an event, or None for unknown types."""
     kind = data.get("type")
     try:

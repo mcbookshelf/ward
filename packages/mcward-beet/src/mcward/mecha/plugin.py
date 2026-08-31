@@ -1,4 +1,5 @@
-"""Inspired by a beet packtest plugin https://github.com/CarbonSmasher/packtest-beet/blob/main/packtest_beet/nesting.py"""
+"""Mecha integration: parse test functions with the ward command tree.
+The nesting approach follows CarbonSmasher's packtest-beet plugin."""
 
 import math
 import re
@@ -26,16 +27,16 @@ _VERSION = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class AstTestRoot(AstRoot):
-    """Ast test root node.
+    """Root node of a test function.
 
-    Technically not required but it's good practice to have custom root nodes for custom
-    file types. Makes it easier to target with @rule and bolt won't treat it as a plain module.
+    A dedicated root type is what @rule targets, and it keeps bolt from treating
+    the file as a plain module.
     """
 
 
 @dataclass
 class TestRootParser:
-    """Parser for test root."""
+    """Wraps the root parser to tag test functions with their own root node."""
 
     database: CompilationDatabase
     root_parser: Parser

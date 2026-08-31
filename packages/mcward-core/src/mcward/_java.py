@@ -1,11 +1,5 @@
-"""Java runtime resolution for Ward servers.
-
-Resolution order, first match wins:
-
-1. java on the PATH, when it is recent enough to run the servers;
-2. the runtime in the mcward cache, provisioned by ``_assets`` while
-   installing an environment when nothing else resolves.
-"""
+"""Java runtime resolution: a recent enough java on the PATH wins, then the
+runtime in the mcward cache (provisioned by ``_assets`` during installs)."""
 
 import re
 import shutil
@@ -32,14 +26,14 @@ class Java:
 
 
 def find() -> Java:
-    """Return a Java runtime able to run Ward servers."""
+    """The resolved runtime; raises JavaNotFoundError when none is usable."""
     if java := resolve():
         return java
     raise JavaNotFoundError(f"no Java {JAVA_VERSION}+ found")
 
 
 def resolve() -> Java | None:
-    """Locate a usable Java runtime, or None when provisioning is needed."""
+    """The first usable runtime, or None when one has to be provisioned."""
     if java := shutil.which("java"):
         major = _probe_major(java)
         if major is not None and major >= JAVA_VERSION:

@@ -1,4 +1,4 @@
-# Ward dev tasks — `just --list` shows everything
+# Ward dev tasks. `just --list` shows everything
 
 # Windows runs recipes through PowerShell; keep recipes single commands
 [windows]

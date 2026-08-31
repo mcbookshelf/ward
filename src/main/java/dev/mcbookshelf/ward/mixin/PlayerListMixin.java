@@ -41,9 +41,7 @@ import dev.mcbookshelf.ward.dummy.Dummy;
 import dev.mcbookshelf.ward.dummy.FakeGamePacketListener;
 
 /**
- * Keeps dummies out of persistent state (saves, stats, advancements) and records broadcasts for
- * chat assertions. These are mixins rather than {@code WardServer} overrides on purpose, because
- * dummies must also work on a standard server.
+ * Keeps dummies out of persistent state (saves, stats, advancements) and records broadcasts for chat assertions.
  */
 @Mixin(PlayerList.class)
 public abstract class PlayerListMixin {
@@ -84,8 +82,7 @@ public abstract class PlayerListMixin {
 	}
 
 	/**
-	 * Records the server-side copy of a broadcast so chat assertions can see it even when no
-	 * player is online to receive it.
+	 * Records the server-side copy of a broadcast so chat assertions can see it even when no player is online to receive it.
 	 */
 	@Unique
 	private void ward$recordServerCopy(Component message) {
@@ -98,8 +95,6 @@ public abstract class PlayerListMixin {
 
 	@Inject(method = "remove", at = @At("RETURN"))
 	private void removeDummyData(ServerPlayer player, CallbackInfo ci) {
-		// Vanilla evicts its own stats/advancements caches in remove(), so mirror that.
-		// Respawn does not go through here, so respawned dummies keep their data
 		if (player instanceof Dummy) {
 			this.ward$stats.remove(player.getUUID());
 			this.ward$advancements.remove(player.getUUID());
@@ -124,7 +119,7 @@ public abstract class PlayerListMixin {
 					this.server.getAdvancements(),
 					this.server.getWorldPath(ADVANCEMENTS_DIR).resolve(uuid + ".json"),
 					player));
-			// Update player reference because respawn creates new Dummy instance
+			// Respawn creates a new Dummy instance, so rebind the reference
 			result.setPlayer(player);
 			ci.setReturnValue(result);
 		}

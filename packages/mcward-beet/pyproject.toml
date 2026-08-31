@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mcward-beet"
 dynamic = ["version"]
-description = "Beet plugin for Ward - A testing framework for Minecraft datapacks using mcfunction."
+description = "Beet plugin for Ward, a testing framework for Minecraft datapacks using mcfunction."
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MPL-2.0" }

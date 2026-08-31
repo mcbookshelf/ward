@@ -15,18 +15,12 @@ class DefaultCommandGroup(click.RichGroup):
     """Click group that routes to the test command by default."""
 
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
-        """Parse args, routing to the test command if no subcommand is specified."""
         if not args or self._is_test_invocation(args[0]):
             return super().parse_args(ctx, ["test"] + args)
         return super().parse_args(ctx, args)
 
     def _is_test_invocation(self, arg: str) -> bool:
-        """Check whether the first arg is meant for test rather than a subcommand.
-
-        Only selectors (namespaced ids, wildcards) and options default to test;
-        a bare word that matches no command is left to click so typos produce
-        "No such command" instead of silently running zero tests.
-        """
+        """Whether the first argument is meant for test rather than a subcommand."""
         if arg in self.commands or arg in ("-h", "--help"):
             return False
         return arg.startswith("-") or ":" in arg or "*" in arg
@@ -52,10 +46,9 @@ cli.add_command(test)
 
 
 def main() -> None:
-    """Entry point for the CLI."""
     try:
-        # Click's Windows glob pre-expansion would resolve -p patterns before
-        # discover_datapacks gets them; patterns are resolved by ward itself
+        # Click expands globs itself on Windows, which would consume -p patterns
+        # discover_datapacks resolves them instead
         cli(windows_expand_args=False)
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted[/yellow]")

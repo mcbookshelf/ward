@@ -39,10 +39,10 @@ fails to load.
 
 `--reporter` (also on `beet test`) selects how results are presented:
 
-- **`live`** (default) — the interactive display. Failures and load
+- **`live`** (default): the interactive display. Failures and load
   diagnostics point at the file as `path:line`, relative to the project
   root.
-- **`github`** — plain logs plus [GitHub Actions annotations](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions).
+- **`github`**: plain logs plus [GitHub Actions annotations](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions).
   Each failed test becomes an `::error` pointing at the failing line of its
   `.mcfunction` file, and datapack load problems annotate the broken file.
   Failures are merged across versions into a single annotation.

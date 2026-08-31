@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mcward-cli"
 dynamic = ["version"]
-description = "Command-line interface for Ward - A testing framework for Minecraft datapacks using mcfunction."
+description = "Command-line interface for Ward, a testing framework for Minecraft datapacks using mcfunction."
 readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MPL-2.0" }

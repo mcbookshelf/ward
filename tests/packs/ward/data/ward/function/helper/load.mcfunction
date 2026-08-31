@@ -1,5 +1,5 @@
-# Simulates a datapack keeping a machine chunk alive: far outside the area
-# tests can be placed in, checked by the ward:forceload_* tests
+# Simulates a datapack keeping a machine chunk alive, far outside the test area
+# The ward:forceload_* tests check that it survives
 forceload add 15000000 15000000
 
 # The forceload test flags persist with the world; each run starts clean

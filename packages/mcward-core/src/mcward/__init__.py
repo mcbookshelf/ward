@@ -1,10 +1,4 @@
-"""Ward - A testing framework for Minecraft datapacks.
-
-Two concurrency models coexist on purpose: installs use asyncio internally
-(one gather per install, behind a synchronous facade), while test streaming
-uses reader threads feeding a queue (see _runner). Neither is exposed:
-the public API is synchronous, and callers parallelize with threads.
-"""
+"""Ward, a testing framework for Minecraft datapacks."""
 
 import sys
 from pkgutil import extend_path
@@ -73,10 +67,9 @@ __path__ = extend_path(__path__, __name__)
 
 
 def cli() -> None:
-    """Entry point that requires CLI to be installed."""
+    """Console script entry point, guarded so a missing CLI extra explains itself."""
     try:
-        # Provided by the optional mcward-cli distribution, merged into this
-        # package at runtime through extend_path
+        # From the optional mcward-cli distribution, merged into this package via extend_path
         from mcward.cli import main as run  # ty: ignore[unresolved-import]
     except ImportError:
         print("Error: CLI dependencies not installed.", file=sys.stderr)

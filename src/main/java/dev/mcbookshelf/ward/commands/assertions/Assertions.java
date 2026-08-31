@@ -27,9 +27,9 @@ public final class Assertions {
 	 */
 	public static LiteralArgumentBuilder<CommandSourceStack> build(
 			LiteralArgumentBuilder<CommandSourceStack> root,
-			Assertion.Context context) {
+			Assertion.Context assertion) {
 		for (Assertion condition : CONDITIONS) {
-			condition.attach(root, context);
+			condition.attach(root, assertion);
 		}
 
 		return root;

@@ -1,9 +1,7 @@
 """The beet test command: build the current project and run its tests with Ward.
 
-Loaded by the beet toolchain through the ``beet``/``commands`` entry point;
-importing this module registers the command on the beet CLI group. Custom
-toolchains built on beet can reuse either layer: add the ``test`` command to
-their own click group, or call ``test_project`` directly.
+Importing this module (beet does it through the ``beet``/``commands`` entry
+point) registers the command on the beet CLI group.
 """
 
 import sys
@@ -60,8 +58,8 @@ def test_project(
 ) -> TestSession:
     """Build the beet project and run its tests, returning the session.
 
-    The programmatic counterpart of the ``beet test`` command: same build,
-    same version selection, same reporters — without the CLI exit semantics.
+    The programmatic counterpart of the ``beet test`` command. It shares the
+    build, the version selection and the reporters, but never exits the process.
     """
     with TemporaryDirectory() as directory:
         pack, sources = _build_pack(project, Path(directory))
@@ -75,8 +73,8 @@ def _build_pack(project: Project, directory: Path) -> tuple[Path, dict[str, Path
     original files the tests came from; beet records them as source paths
     (plugin-generated tests have none).
     """
-    # Requiring the plugin makes the test/ folder load without the project
-    # having to require it itself (the plugin is idempotent)
+    # Requiring the plugin here loads the test/ folder even when the project does not
+    # The plugin is idempotent, so requiring it twice is harmless
     with project.override("require[] = mcward.beet.plugin"):
         with ProjectBuilder(project, root=True).build() as ctx:
             sources = {

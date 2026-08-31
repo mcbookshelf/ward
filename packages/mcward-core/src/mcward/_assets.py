@@ -1,10 +1,4 @@
-"""Environment installation: every asset a Ward test server needs.
-
-An install gathers three concurrent tasks over one shared HTTP client — the
-Fabric server launcher, the fabric-api mod, and the Ward mod (downloaded
-from Modrinth, or built with gradle for dev versions) — plus a Java runtime
-when no usable runtime resolves.
-"""
+"""Environment installation: every asset a Ward test server needs."""
 
 import asyncio
 import platform

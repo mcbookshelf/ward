@@ -17,8 +17,8 @@ import net.minecraft.world.level.chunk.storage.IOWorker;
 import dev.mcbookshelf.ward.Ward;
 
 /**
- * Cuts region storage (chunks, POI, entities) off from the disk in daemon mode, since worlds only
- * live in memory. Reads are skipped too because they would create empty region files (opened rw).
+ * Cuts region storage (chunks, POI, entities) off from the disk in daemon mode, since worlds only live in memory.
+ * Reads are skipped too because they would create empty region files (opened rw).
  */
 @Mixin(IOWorker.class)
 public class IOWorkerMixin {

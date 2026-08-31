@@ -9,8 +9,8 @@ from questionary import Style
 from questionary.prompts.common import Choice
 from rich.console import Console
 
-# Windows consoles are not always UTF-8 (cp1252 when piped): symbols like ✓
-# must degrade to "?" there instead of crashing every print with them
+# Windows consoles are not always UTF-8 (cp1252 when piped)
+# Symbols like ✓ must degrade to "?" there instead of crashing the print
 for _stream in (sys.stdout, sys.stderr):
     if isinstance(_stream, io.TextIOWrapper):
         _stream.reconfigure(errors="replace")
@@ -31,22 +31,19 @@ STYLE = Style(
 
 
 def print_note(message: str) -> None:
-    """Print a note message."""
     console.print(f"[dim]{message}[/]", highlight=False)
 
 
 def print_success(message: str) -> None:
-    """Print a success message."""
     console.print(f"[green]✓ {message}[/]", highlight=False)
 
 
 def print_warning(message: str) -> None:
-    """Print a warning message."""
     console.print(f"[yellow]{message}[/]", highlight=False)
 
 
 def confirm(message: str, default: bool = False) -> bool:
-    """Show a yes/no confirmation prompt."""
+    """Ask for a yes/no answer, treating a cancelled prompt as no."""
     result = questionary.confirm(message, default=default, style=STYLE).ask()
     return result if result is not None else False
 

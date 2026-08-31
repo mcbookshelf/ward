@@ -6,8 +6,8 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
- * Records system messages sent to players so chat assertions can check them. Each test remembers
- * the last sequence number it has seen, so concurrent tests do not consume each other's messages.
+ * Records system messages sent to players so chat assertions can check them.
+ * Each test remembers the last sequence number it has seen, so concurrent tests do not consume each other's messages.
  */
 public final class ChatRecorder {
 	private static final int RETENTION_TICKS = 2;

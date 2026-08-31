@@ -24,17 +24,17 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class BlockAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
-				.then(Commands.argument("block", BlockPredicateArgument.blockPredicate(context.buildContext()))
-						.executes(ctx -> run(ctx, context)))));
+				.then(Commands.argument("block", BlockPredicateArgument.blockPredicate(assertion.buildContext()))
+						.executes(ctx -> run(ctx, assertion)))));
 	}
 
 	private static int run(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
 		ServerLevel level = context.getSource().getLevel();
 		Predicate<BlockInWorld> expect = BlockPredicateArgument.getBlockPredicate(context, "block");
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
 			BlockInWorld blockInWorld = new BlockInWorld(level, pos, true);
 

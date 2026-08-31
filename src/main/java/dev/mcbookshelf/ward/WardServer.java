@@ -69,8 +69,7 @@ import net.minecraft.world.level.storage.LevelStorageSource;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 
 /**
- * Headless game test server for a single run. It boots a fresh world, runs the selected tests
- * and halts. The {@link WardDaemon} creates one instance per run.
+ * Headless game test server for a single run.
  */
 public class WardServer extends MinecraftServer {
 	private static final FeatureFlagSet ENABLED_FEATURES = FeatureFlags.REGISTRY.allFlags().subtract(FeatureFlagSet.of(FeatureFlags.REDSTONE_EXPERIMENTS, FeatureFlags.MINECART_IMPROVEMENTS));
@@ -179,11 +178,7 @@ public class WardServer extends MinecraftServer {
 		Gizmos.withCollector(GizmoCollector.NOOP);
 		this.loadLevel();
 
-		// The world only lives in memory. The vanilla shutdown path resets this flag and
-		// still tries to save, but IOWorkerMixin and SavedDataStorageMixin drop the writes
-		for (ServerLevel level : this.getAllLevels()) {
-			level.noSave = true;
-		}
+		this.setAutoSave(false);
 
 		Ward.LOGGER.info("Ward test server started");
 		return true;
@@ -191,8 +186,7 @@ public class WardServer extends MinecraftServer {
 
 	@Override
 	public boolean saveAllChunks(boolean silent, boolean flush, boolean force) {
-		// Nothing is persisted. This skips chunks, level.dat, scoreboard and
-		// saved data, for autosaves and the shutdown save alike
+		// Skips chunks, level.dat, scoreboard and saved data, for autosaves and the shutdown save alike
 		return true;
 	}
 
@@ -224,8 +218,7 @@ public class WardServer extends MinecraftServer {
 	}
 
 	/**
-	 * Runs the tests matching the selection pattern. The run only finishes once every test has
-	 * reported a final result, so flaky reruns settle before the server halts.
+	 * Runs the tests matching the selection pattern.
 	 */
 	private void startTests(ServerLevel level) throws Exception {
 		GameTestTicker.SINGLETON.clear();
@@ -296,8 +289,8 @@ public class WardServer extends MinecraftServer {
 	}
 
 	/**
-	 * Anchors a dimension's test grid at the shared {@code x}/{@code z}, just above that
-	 * dimension's floor. Dimensions are separate levels, so they cannot overlap.
+	 * Anchors a dimension's test grid at the shared {@code x}/{@code z}, just above that dimension's floor.
+	 * Dimensions are separate levels, so they cannot overlap.
 	 */
 	private BlockPos startPositionFor(ResourceKey<Level> dimension, BlockPos startPos) {
 		ServerLevel level = this.getLevel(dimension);
@@ -391,8 +384,7 @@ public class WardServer extends MinecraftServer {
 
 	@Override
 	public <T> T getOrThrow(Key<T> key) {
-		// Fabric API injects this method into MinecraftServer and implements it at runtime,
-		// but javac still demands an override. Data resources are never used on this server
+		// Fabric API injects and implements this method at runtime, but javac requires the override
 		throw new UnsupportedOperationException("Data resources are unsupported on the ward server");
 	}
 

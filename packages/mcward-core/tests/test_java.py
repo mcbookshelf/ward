@@ -31,8 +31,6 @@ def fake_runtime(root: Path) -> Path:
 
 
 class TestProbeMajor:
-    """Test java executable version probing."""
-
     def test_modern_version(self) -> None:
         output = f'openjdk version "{JAVA_VERSION}.0.1" 2025-10-21'
         with patch("subprocess.run", return_value=probe_result(output)):
@@ -60,8 +58,6 @@ class TestProbeMajor:
 
 
 class TestFindBinary:
-    """Test locating the java executable in a provisioned runtime."""
-
     def test_finds_binary_under_bin(self, tmp_path: Path) -> None:
         binary = fake_runtime(tmp_path)
         assert find_binary(tmp_path) == binary
@@ -77,8 +73,6 @@ class TestFindBinary:
 
 
 class TestResolveJava:
-    """Test the resolution order."""
-
     def test_path_java_recent_enough(self) -> None:
         with (
             patch("shutil.which", return_value="/usr/bin/java"),
@@ -112,8 +106,6 @@ class TestResolveJava:
 
 
 class TestJavaCommand:
-    """Test the server launch command."""
-
     def test_command_shape(self) -> None:
         java = Java(Path("/jre/bin/java"))
         command = java.command(Path("server.jar"), "-Xmx2G", "-Dward.daemon=ward.port")

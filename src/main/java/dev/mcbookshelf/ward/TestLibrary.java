@@ -24,8 +24,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.permissions.PermissionSet;
 
 /**
- * Discovers test .mcfunction files on every /reload, parses them into {@link TestFunction}s and
- * hands them to {@link WardRegistries} for registration.
+ * Discovers test .mcfunction files on every /reload, parses them into {@link TestFunction}s and hands them to {@link WardRegistries} for registration.
  */
 public class TestLibrary implements PreparableReloadListener {
 	private static final FileToIdConverter TEST_FUNCTION_LISTER = new FileToIdConverter("test", ".mcfunction");
@@ -51,14 +50,12 @@ public class TestLibrary implements PreparableReloadListener {
 			Executor reloadExecutor) {
 		ResourceManager manager = currentReload.resourceManager();
 
-		// Prepare phase: load the test registries and parse every test .mcfunction in parallel
 		CompletableFuture<RegistryAccess.Frozen> registryLoad = this.registries.load(manager, taskExecutor);
 
 		CompletableFuture<Map<Identifier, CompletableFuture<TestFunction>>> testFunctions = CompletableFuture.supplyAsync(() ->
 				TEST_FUNCTION_LISTER.listMatchingResources(manager), taskExecutor)
 				.thenCompose(resources -> prepareTestFunctions(resources, taskExecutor));
 
-		// Apply phase: register the freshly parsed tests on the reload thread
 		return CompletableFuture.allOf(registryLoad, testFunctions)
 				.thenCompose(preparationBarrier::wait)
 				.thenAcceptAsync((_) ->
@@ -66,9 +63,6 @@ public class TestLibrary implements PreparableReloadListener {
 						reloadExecutor);
 	}
 
-	/**
-	 * Parses each test .mcfunction file into a {@link TestFunction} asynchronously.
-	 */
 	private CompletableFuture<Map<Identifier, CompletableFuture<TestFunction>>> prepareTestFunctions(
 			Map<Identifier, Resource> resources,
 			Executor taskExecutor) {

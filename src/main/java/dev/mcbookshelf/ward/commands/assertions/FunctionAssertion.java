@@ -32,13 +32,17 @@ import net.minecraft.server.commands.FunctionCommand;
 import dev.mcbookshelf.ward.AssertResult;
 import dev.mcbookshelf.ward.TestExecutor;
 
+/**
+ * Asserts that a function (or function tag) returns non-zero.
+ * The first call runs through the command engine; an await that has to retry calls the functions itself, which is why every step exists in a queued and a polled form.
+ */
 class FunctionAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("function")
 				.then(Commands.argument("function", FunctionArgument.functions())
 						.suggests(FunctionCommand.SUGGEST_FUNCTION)
-						.executes(new AssertFunction(context))));
+						.executes(new AssertFunction(assertion))));
 	}
 
 	private record AssertFunction(Context assertion) implements CustomCommandExecutor.CommandAdapter<CommandSourceStack> {
@@ -67,9 +71,12 @@ class FunctionAssertion implements Assertion {
 			List<InstantiatedFunction<CommandSourceStack>> functions = instantiate(context, this.assertion.dispatcher());
 
 			queueFunctions(output, functionContext, functions, name, result ->
-					this.assertion.deliver(test, result, () -> pollFunctions(functionContext, functions, name)));
+					this.assertion.check(test, result, () -> pollFunctions(functionContext, functions, name)));
 		}
 
+		/**
+		 * Hands the functions to the command engine, then reports the outcome once they have run.
+		 */
 		private static void queueFunctions(
 				ExecutionControl<CommandSourceStack> output,
 				CommandSourceStack functionContext,
@@ -99,6 +106,9 @@ class FunctionAssertion implements Assertion {
 			}, CommandResultCallback.EMPTY));
 		}
 
+		/**
+		 * Calls the functions again on a later tick, for an await that did not pass the first time.
+		 */
 		private static AssertResult pollFunctions(
 				CommandSourceStack functionContext,
 				List<InstantiatedFunction<CommandSourceStack>> functions,
