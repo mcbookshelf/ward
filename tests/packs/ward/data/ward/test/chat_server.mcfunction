@@ -1,5 +1,5 @@
-# Broadcasts are observable without any dummy online: the server copy of the
-# message is recorded even when there is no player recipient
+# Broadcasts are observable without any dummy online
+# The server copy of the message is recorded even with no player recipient
 say ward server broadcast
 assert chat "ward server broadcast"
 assert not chat "never said anywhere"

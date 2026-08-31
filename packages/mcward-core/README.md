@@ -3,8 +3,8 @@
 Core library for [Ward](https://github.com/mcbookshelf/ward), a testing framework
 for Minecraft datapacks using mcfunction.
 
-This package provides the environment management, server process control, and
-test orchestration used by the Ward tooling. Most users want the
+Provides the environment management, server process control, and test
+orchestration used by the Ward tooling. Most users want the
 [`mcward`](https://pypi.org/project/mcward/) package instead:
 
 ```

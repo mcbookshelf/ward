@@ -12,8 +12,7 @@ import net.minecraft.gametest.framework.GlobalTestReporter;
 import net.minecraft.gametest.framework.TestReporter;
 
 /**
- * Broadcasts load diagnostics, test results and run lifecycle events over the bridge. Reports
- * come from the server thread as well as reload workers, so every dispatch is synchronized.
+ * Broadcasts load diagnostics, test results and run lifecycle events over the bridge.
  */
 public class ReportManager {
 	private static @Nullable WardBridge bridge;
@@ -80,7 +79,6 @@ public class ReportManager {
 	private static synchronized void reportTest(GameTestInfo info, boolean passed) {
 		JsonObject data = new JsonObject();
 		data.addProperty("name", info.getTestHolder().key().identifier().toString());
-		// Durations cross the wire as milliseconds and consumers format them
 		data.addProperty("time", info.getRunTime());
 
 		if (passed) {

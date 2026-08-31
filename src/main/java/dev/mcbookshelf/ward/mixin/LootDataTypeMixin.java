@@ -16,9 +16,8 @@ import dev.mcbookshelf.ward.ReportManager;
 import dev.mcbookshelf.ward.Ward;
 
 /**
- * Turns a crash during loot element validation into a diagnostic for that element. Validation
- * calls {@code Holder.value()}, which throws on references left unbound by
- * {@code MappedRegistryMixin}.
+ * Turns a crash during loot element validation into a diagnostic for that element.
+ * Validation calls {@code Holder.value()}, which throws on references left unbound by {@code MappedRegistryMixin}.
  */
 @Mixin(LootDataType.class)
 public class LootDataTypeMixin {

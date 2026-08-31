@@ -18,16 +18,16 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class BiomeAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("biome").then(Commands.argument("pos", BlockPosArgument.blockPos())
-				.then(Commands.argument("biome", ResourceOrTagArgument.resourceOrTag(context.buildContext(), Registries.BIOME))
-						.executes(ctx -> run(ctx, context)))));
+				.then(Commands.argument("biome", ResourceOrTagArgument.resourceOrTag(assertion.buildContext(), Registries.BIOME))
+						.executes(ctx -> run(ctx, assertion)))));
 	}
 
 	private static int run(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
 		ServerLevel level = context.getSource().getLevel();
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
 			ResourceOrTagArgument.Result<Biome> expect = ResourceOrTagArgument.getResourceOrTag(context, "biome", Registries.BIOME);
 			Holder<Biome> found = level.getBiome(pos);

@@ -30,16 +30,16 @@ class ItemsAssertion implements Assertion {
 			(x, y, z) -> Component.translatableEscape("commands.item.source.not_a_container", x, y, z));
 
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("items")
 				.then(Commands.literal("entity").then(Commands.argument("entities", EntityArgument.entities())
 						.then(Commands.argument("slots", SlotsArgument.slots())
-								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(context.buildContext()))
-										.executes(ctx -> runForEntity(ctx, context))))))
+								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(assertion.buildContext()))
+										.executes(ctx -> runForEntity(ctx, assertion))))))
 				.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
 						.then(Commands.argument("slots", SlotsArgument.slots())
-								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(context.buildContext()))
-										.executes(ctx -> runForBlock(ctx, context)))))));
+								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(assertion.buildContext()))
+										.executes(ctx -> runForBlock(ctx, assertion)))))));
 	}
 
 	private static int runForEntity(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
@@ -47,7 +47,7 @@ class ItemsAssertion implements Assertion {
 		SlotRange slots = SlotsArgument.getSlots(context, "slots");
 		Predicate<ItemStack> predicate = ItemPredicateArgument.getItemPredicate(context, "predicate");
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			int count = countEntityItems(selector.findEntities(context.getSource()), slots, predicate);
 			return AssertResult.of(count, "items", Assertion.getRawArgument(context, "predicate"), count);
 		});
@@ -57,7 +57,7 @@ class ItemsAssertion implements Assertion {
 		SlotRange slots = SlotsArgument.getSlots(context, "slots");
 		Predicate<ItemStack> predicate = ItemPredicateArgument.getItemPredicate(context, "predicate");
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
 			int count = countBlockItems(context.getSource(), pos, slots, predicate);
 			return AssertResult.of(count, "items", Assertion.getRawArgument(context, "predicate"), count);

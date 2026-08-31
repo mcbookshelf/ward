@@ -1,4 +1,4 @@
-"""Install and clean commands - version management."""
+"""The install and clean commands."""
 
 import rich_click as click
 

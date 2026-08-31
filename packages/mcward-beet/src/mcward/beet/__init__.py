@@ -1,8 +1,4 @@
-"""Beet integration for Ward.
-
-The plugin is required by its module path (``require: mcward.beet.plugin``);
-this package exports the Python-facing API for custom toolchains.
-"""
+"""Beet integration for Ward."""
 
 from .commands import test, test_project
 from .plugin import TestFunction, beet_default

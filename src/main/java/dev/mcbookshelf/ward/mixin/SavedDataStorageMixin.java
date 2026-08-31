@@ -12,8 +12,7 @@ import net.minecraft.world.level.storage.SavedDataStorage;
 import dev.mcbookshelf.ward.Ward;
 
 /**
- * Drops saved-data writes (scoreboard, raids, ...) in daemon mode. Every save path goes through
- * this method.
+ * Drops saved-data writes (scoreboard, raids, ...) in daemon mode.
  */
 @Mixin(SavedDataStorage.class)
 public class SavedDataStorageMixin {

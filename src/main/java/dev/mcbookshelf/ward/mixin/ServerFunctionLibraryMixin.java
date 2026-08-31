@@ -14,8 +14,7 @@ import dev.mcbookshelf.ward.ReportManager;
 @Mixin(ServerFunctionLibrary.class)
 public class ServerFunctionLibraryMixin {
 	/**
-	 * Reports functions that fail to compile, from the "Failed to load function" handler lambda
-	 * in {@code reload}.
+	 * Reports functions that fail to compile, from the "Failed to load function" handler lambda in {@code reload}.
 	 */
 	@WrapOperation(method = "lambda$reload$7", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
 	private static void catchFunctionError(

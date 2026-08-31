@@ -87,8 +87,6 @@ def zip_archive(tmp_path: Path, *, empty: bool = False) -> bytes:
 
 
 class TestInstallServer:
-    """Test the Fabric server launcher installation."""
-
     @pytest.mark.anyio
     async def test_prefers_newest_stable_loader(self, tmp_path: Path) -> None:
         client = json_client(
@@ -125,8 +123,6 @@ class TestInstallServer:
 
 
 class TestInstallMod:
-    """Test Modrinth mod installation."""
-
     @pytest.mark.anyio
     async def test_downloads_newest_compatible_release(self, tmp_path: Path) -> None:
         client = json_client(
@@ -202,8 +198,6 @@ class TestInstallMod:
 
 
 class TestGetJson:
-    """Test the JSON fetching helper."""
-
     @pytest.mark.anyio
     async def test_returns_document(self) -> None:
         assert await _get_json(json_client({"ok": True}), "https://api/x") == {"ok": True}
@@ -216,8 +210,6 @@ class TestGetJson:
 
 
 class TestDownloadFile:
-    """Test single file streaming download."""
-
     @pytest.mark.anyio
     async def test_writes_file(self, tmp_path: Path) -> None:
         client = stream_client(b"fake jar content")
@@ -260,12 +252,9 @@ class TestDownloadFile:
 
 
 class TestBuildWard:
-    """Test gradle build for dev mode."""
-
     @pytest.mark.anyio
     async def test_build_ward_success(self, tmp_path: Path) -> None:
-        """Test successful ward.jar build."""
-        # Create fake gradle script and build output
+        """A successful build copies the produced jar into the mods directory."""
         gradle_script = tmp_path / "gradlew.bat"
         gradle_script.write_text("@echo off")
 
@@ -287,7 +276,6 @@ class TestBuildWard:
         ):
             await _build_ward(target_dir)
 
-            # Should copy jar to target directory
             assert (target_dir / "ward.jar").exists()
 
     @pytest.mark.anyio
@@ -306,8 +294,7 @@ class TestBuildWard:
 
     @pytest.mark.anyio
     async def test_build_ward_no_jar_raises(self, tmp_path: Path) -> None:
-        """Test that missing jar file raises InstallError."""
-        # Build succeeds but no jar is produced
+        """A build that produces no jar fails instead of installing nothing."""
         build_libs = tmp_path / "build" / "libs"
         build_libs.mkdir(parents=True)
 
@@ -324,11 +311,10 @@ class TestBuildWard:
 
     @pytest.mark.anyio
     async def test_build_ward_skips_sources_and_dev_jars(self, tmp_path: Path) -> None:
-        """Test that -sources and -dev jars are ignored."""
+        """The release jar wins over the -sources and -dev variants beside it."""
         build_libs = tmp_path / "build" / "libs"
         build_libs.mkdir(parents=True)
 
-        # Create various jars
         (build_libs / "ward-1.0.0-sources.jar").write_text("sources")
         (build_libs / "ward-1.0.0-dev.jar").write_text("dev")
         (build_libs / "ward-1.0.0.jar").write_text("release")
@@ -346,14 +332,11 @@ class TestBuildWard:
         ):
             await _build_ward(target_dir)
 
-            # Should copy the release jar, not sources or dev
             copied_content = (target_dir / "ward.jar").read_text()
             assert copied_content == "release"
 
 
 class TestInstall:
-    """Test the install orchestrator."""
-
     @pytest.mark.anyio
     async def test_regular_version_installs_three_assets(self, tmp_path: Path) -> None:
         version = Version.parse("26.1.2")
@@ -441,8 +424,6 @@ class TestInstall:
 
 
 class TestInstallJava:
-    """Test Java runtime provisioning."""
-
     def fake_download(self, archive: bytes):
         async def download(client, url, file: Path) -> None:
             file.write_bytes(archive)
@@ -491,7 +472,6 @@ class TestInstallJava:
 
         _unpack_runtime(archive, runtime)
 
-        # The winner's runtime is untouched; the loser's copy stays in its
-        # staging directory, which the caller removes
+        # The winner's runtime survives; the loser's copy stays in staging for the caller to remove
         assert winner.exists()
         assert (staging / "runtime" / "jdk-jre").exists()

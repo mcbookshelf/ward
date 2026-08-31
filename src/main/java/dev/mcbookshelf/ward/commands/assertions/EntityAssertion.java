@@ -18,12 +18,12 @@ import dev.mcbookshelf.ward.TestExecutor;
 
 class EntityAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("entity")
 				.then(Commands.argument("entities", EntityArgument.entities())
-						.executes(ctx -> run(ctx, context, false))
+						.executes(ctx -> run(ctx, assertion, false))
 						.then(Commands.literal("inside")
-								.executes(ctx -> run(ctx, context, true)))));
+								.executes(ctx -> run(ctx, assertion, true)))));
 	}
 
 	private static int run(CommandContext<CommandSourceStack> context, Context assertion, boolean inside) throws CommandSyntaxException {
@@ -31,7 +31,7 @@ class EntityAssertion implements Assertion {
 		TestExecutor executor = TestExecutor.current();
 		AABB bounds = executor.getBounds().inflate(1);
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			Collection<? extends Entity> entities = selector.findEntities(context.getSource());
 			int count = inside
 					? (int) entities.stream().filter(e -> bounds.contains(e.position())).count()

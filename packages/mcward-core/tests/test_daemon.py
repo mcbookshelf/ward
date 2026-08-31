@@ -35,20 +35,15 @@ from mcward._protocol import (
 
 
 class TestRunningProcess:
-    """Test RunningProcess dataclass."""
-
     def test_address_property(self) -> None:
-        """Test that address property returns correct tuple."""
         proc = RunningProcess(Path("/tmp/env"), 12345, 25565)
         assert proc.address == (WARD_HOST, 25565)
         assert proc.address == ("127.0.0.1", 25565)
 
     def test_load_success(self, tmp_path: Path) -> None:
-        """Test loading process metadata from files."""
         directory = tmp_path / "env"
         directory.mkdir()
 
-        # Create PID and port files
         (directory / PID_FILE).write_text("12345")
         (directory / PORT_FILE).write_text("25565")
 
@@ -61,8 +56,6 @@ class TestRunningProcess:
 
 
 class TestStart:
-    """Test process start function."""
-
     @pytest.fixture(autouse=True)
     def mock_find_java(self) -> Iterator[Mock]:
         """Resolve java statically so tests never probe or provision a JVM."""
@@ -71,14 +64,12 @@ class TestStart:
 
     @pytest.fixture
     def mock_process(self) -> Mock:
-        """Create a mock Popen process."""
         proc = Mock(spec=subprocess.Popen)
         proc.pid = 12345
         proc.poll.return_value = None  # Process is running
         return proc
 
     def test_start_success(self, tmp_path: Path, mock_process: Mock) -> None:
-        """Test successful process start."""
         directory = tmp_path / "env"
         directory.mkdir()
 
@@ -88,20 +79,16 @@ class TestStart:
         ):
             running = start(directory)
 
-            # Should write PID file
             assert (directory / PID_FILE).exists()
             assert (directory / PID_FILE).read_text() == "12345"
 
-            # Should call _wait_ready
             mock_wait.assert_called_once_with(mock_process, directory, STARTUP_TIMEOUT)
 
-            # Should return RunningProcess
             assert running.directory == directory
             assert running.pid == 12345
             assert running.port == 25565
 
     def test_start_creates_correct_command(self, tmp_path: Path, mock_process: Mock) -> None:
-        """Test that start creates correct Java command."""
         directory = tmp_path / "env"
         directory.mkdir()
 
@@ -111,7 +98,6 @@ class TestStart:
         ):
             start(directory)
 
-            # Verify Popen was called with correct arguments
             mock_popen.assert_called_once()
             args = mock_popen.call_args
             cmd = args[0][0]
@@ -154,11 +140,9 @@ class TestStart:
         assert not (directory / PID_FILE).exists()
 
     def test_start_wait_ready_failure_cleans_up(self, tmp_path: Path, mock_process: Mock) -> None:
-        """Test that startup failure cleans up PID/port files."""
         directory = tmp_path / "env"
         directory.mkdir()
 
-        # Create port file that will be cleaned up
         (directory / PORT_FILE).write_text("25565")
 
         with (
@@ -168,20 +152,16 @@ class TestStart:
             with pytest.raises(ProcessStartupError):
                 start(directory)
 
-            # Should terminate process
             mock_process.terminate.assert_called_once()
             mock_process.wait.assert_called()
 
-            # Should clean up files
             assert not (directory / PID_FILE).exists()
             assert not (directory / PORT_FILE).exists()
 
     def test_start_process_timeout_kills_process(self, tmp_path: Path, mock_process: Mock) -> None:
-        """Test that process is killed if it doesn't terminate in time."""
         directory = tmp_path / "env"
         directory.mkdir()
 
-        # Make wait() raise timeout
         mock_process.wait.side_effect = [subprocess.TimeoutExpired("cmd", 30), None]
 
         with (
@@ -191,12 +171,10 @@ class TestStart:
             with pytest.raises(ProcessStartupError):
                 start(directory)
 
-            # Should try terminate, then kill
             mock_process.terminate.assert_called_once()
             mock_process.kill.assert_called_once()
 
     def test_start_custom_timeout(self, tmp_path: Path, mock_process: Mock) -> None:
-        """Test start with custom timeout."""
         directory = tmp_path / "env"
         directory.mkdir()
 
@@ -206,16 +184,12 @@ class TestStart:
         ):
             start(directory, timeout=60.0)
 
-            # Should pass custom timeout to _wait_ready
             mock_wait.assert_called_once_with(mock_process, directory, 60.0)
 
 
 class TestStop:
-    """Test process stop function."""
-
     @pytest.fixture
     def running(self, tmp_path: Path) -> RunningProcess:
-        """Create a RunningProcess for testing."""
         directory = tmp_path / "env"
         directory.mkdir()
         (directory / PID_FILE).write_text("12345")
@@ -223,7 +197,6 @@ class TestStop:
         return RunningProcess(directory, 12345, 25565)
 
     def test_stop_graceful_shutdown(self, running: RunningProcess) -> None:
-        """Test graceful process shutdown."""
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
         mock_psutil.wait.return_value = None  # Exits gracefully
@@ -235,15 +208,12 @@ class TestStop:
         ):
             stop(running)
 
-            # Should wait for graceful exit
             mock_psutil.wait.assert_called_once_with(SHUTDOWN_TIMEOUT)
 
-            # Should clean up files
             assert not (running.directory / PID_FILE).exists()
             assert not (running.directory / PORT_FILE).exists()
 
     def test_stop_sends_stop_command(self, running: RunningProcess) -> None:
-        """Test that stop command is sent via socket."""
         mock_socket = MagicMock()
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
@@ -255,14 +225,12 @@ class TestStop:
         ):
             stop(running)
 
-            # Should connect and send stop command
             mock_connect.assert_called_once_with(running.address)
             mock_send.assert_called_once()
             args = mock_send.call_args[0]
             assert args[1] == {"type": "stop", "protocol": PROTOCOL_VERSION}
 
     def test_stop_terminates_if_not_graceful(self, running: RunningProcess) -> None:
-        """Test that process is terminated if it doesn't exit gracefully."""
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
         mock_psutil.wait.side_effect = [psutil.TimeoutExpired(30), None]
@@ -274,12 +242,10 @@ class TestStop:
         ):
             stop(running)
 
-            # Should call wait, then terminate, then wait again
             assert mock_psutil.wait.call_count == 2
             mock_psutil.terminate.assert_called_once()
 
     def test_stop_kills_if_terminate_fails(self, running: RunningProcess) -> None:
-        """Test that process is killed if terminate fails."""
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
         # Timeout on wait, timeout after terminate, then succeeds after kill
@@ -292,26 +258,22 @@ class TestStop:
         ):
             stop(running)
 
-            # Should try wait, terminate, wait, kill, wait
             assert mock_psutil.wait.call_count == 3
             mock_psutil.terminate.assert_called_once()
             mock_psutil.kill.assert_called_once()
 
     def test_stop_handles_no_such_process(self, running: RunningProcess) -> None:
-        """Test that NoSuchProcess exception is handled."""
         with (
             patch("mcward._daemon._bridge.connect"),
             patch("mcward._daemon._bridge.send_message"),
             patch("psutil.Process", side_effect=psutil.NoSuchProcess(12345)),
         ):
-            # Should not raise - just clean up files
             stop(running)
 
             assert not (running.directory / PID_FILE).exists()
             assert not (running.directory / PORT_FILE).exists()
 
     def test_stop_handles_connection_error(self, running: RunningProcess) -> None:
-        """Test that connection errors are handled gracefully."""
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
 
@@ -319,14 +281,11 @@ class TestStop:
             patch("mcward._daemon._bridge.connect", side_effect=ProcessConnectionError("Failed")),
             patch("psutil.Process", return_value=mock_psutil),
         ):
-            # Should not raise - continues with force stop
             stop(running)
 
-            # Should still try psutil operations
             mock_psutil.wait.assert_called()
 
     def test_stop_custom_timeout(self, running: RunningProcess) -> None:
-        """Test stop with custom timeout."""
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
 
@@ -337,11 +296,10 @@ class TestStop:
         ):
             stop(running, timeout=5.0)
 
-            # Should pass custom timeout to wait
             mock_psutil.wait.assert_called_once_with(5.0)
 
     def test_stop_skips_recycled_pid(self, running: RunningProcess) -> None:
-        """Test that an unrelated process reusing the pid is never touched."""
+        """An unrelated process reusing the pid is never touched."""
         mock_psutil = Mock(spec=psutil.Process)
         mock_psutil.cmdline.return_value = ["python", "unrelated.py"]
 
@@ -355,16 +313,12 @@ class TestStop:
             mock_psutil.wait.assert_not_called()
             mock_psutil.terminate.assert_not_called()
 
-            # Files are still cleaned up
             assert not (running.directory / PID_FILE).exists()
             assert not (running.directory / PORT_FILE).exists()
 
 
 class TestStatus:
-    """Test status command."""
-
     def test_status_success(self) -> None:
-        """Test successful status request."""
         address = ("127.0.0.1", 25565)
         response = {"type": "status", "ready": True}
         expected = Status(ready=True)
@@ -379,7 +333,6 @@ class TestStatus:
         ):
             result = status(address)
 
-            # Should connect, send status command, receive response
             mock_connect.assert_called_once_with(address)
             mock_send.assert_called_once()
             assert mock_send.call_args[0][1] == {"type": "status", "protocol": PROTOCOL_VERSION}
@@ -387,7 +340,6 @@ class TestStatus:
             assert result == expected
 
     def test_status_error_response_raises(self) -> None:
-        """Test that error response raises ProcessConnectionError."""
         address = ("127.0.0.1", 25565)
         error = {"type": "error", "message": "Protocol mismatch"}
 
@@ -403,7 +355,6 @@ class TestStatus:
                 status(address)
 
     def test_status_no_response_raises(self) -> None:
-        """Test that no response raises ProcessConnectionError."""
         address = ("127.0.0.1", 25565)
 
         mock_socket = MagicMock()
@@ -419,10 +370,7 @@ class TestStatus:
 
 
 class TestStreamTests:
-    """Test the test command's event streaming."""
-
     def test_streams_events(self) -> None:
-        """Test that the test command streams events."""
         address = ("127.0.0.1", 25565)
         events = [
             {"type": "tests_started", "total": 2, "pos": [40, -59, -128]},
@@ -448,7 +396,6 @@ class TestStreamTests:
         ):
             result = list(stream_tests(address))
 
-            # Should connect and send test command
             mock_connect.assert_called_once_with(address)
             mock_send.assert_called_once()
             cmd = mock_send.call_args[0][1]
@@ -456,7 +403,6 @@ class TestStreamTests:
             assert cmd["protocol"] == PROTOCOL_VERSION
             assert cmd["selector"] == "*:*"
 
-            # Should yield all events, parsed
             assert result == [
                 Started(total=2, pos=(40, -59, -128)),
                 Passed(name="test1", time=5),
@@ -465,7 +411,6 @@ class TestStreamTests:
             ]
 
     def test_custom_selector(self) -> None:
-        """Test test command with custom selector."""
         address = ("127.0.0.1", 25565)
         events = [
             {
@@ -488,12 +433,10 @@ class TestStreamTests:
         ):
             list(stream_tests(address, selector="mypack:test_*"))
 
-            # Should send custom selector
             cmd = mock_send.call_args[0][1]
             assert cmd["selector"] == "mypack:test_*"
 
     def test_stops_on_tests_finished(self) -> None:
-        """Test that iteration stops when tests_finished is received."""
         address = ("127.0.0.1", 25565)
         events = [
             {"type": "test_passed", "name": "test1", "time": 5},
@@ -518,13 +461,11 @@ class TestStreamTests:
         ):
             result = list(stream_tests(address))
 
-            # Should stop after tests_finished (only first 2 events)
             assert len(result) == 2
             assert isinstance(result[0], Passed)
             assert isinstance(result[1], Finished)
 
     def test_stops_on_error(self) -> None:
-        """Test that iteration stops when error is received."""
         address = ("127.0.0.1", 25565)
         events = [
             {"type": "test_passed", "name": "test1", "time": 5},
@@ -542,12 +483,11 @@ class TestStreamTests:
         ):
             result = list(stream_tests(address))
 
-            # Should stop after error (only first 2 events)
             assert len(result) == 2
             assert result[1] == StreamError(message="Something failed")
 
     def test_stream_ending_without_terminal_event_raises(self) -> None:
-        """Test that a dead server (socket EOF mid-run) surfaces as an error."""
+        """A dead server (socket EOF mid-run) surfaces as an error."""
         address = ("127.0.0.1", 25565)
         events = [{"type": "test_passed", "name": "test1", "time": 5}]
 
@@ -564,8 +504,6 @@ class TestStreamTests:
 
 
 class TestWaitReady:
-    """Test the startup readiness polling."""
-
     @pytest.fixture
     def directory(self, tmp_path: Path) -> Path:
         directory = tmp_path / "env"
@@ -579,7 +517,6 @@ class TestWaitReady:
         return proc
 
     def test_returns_port_once_responsive(self, directory: Path, running_process: Mock) -> None:
-        """Test that the port is returned as soon as the server responds."""
         (directory / PORT_FILE).write_text("25565")
 
         with patch("mcward._daemon.status", return_value=Status(ready=True)):
@@ -588,7 +525,7 @@ class TestWaitReady:
         assert port == 25565
 
     def test_process_death_raises(self, directory: Path, running_process: Mock) -> None:
-        """Test that a crashed process fails startup immediately."""
+        """A crashed process fails startup immediately."""
         running_process.poll.return_value = 1
         running_process.returncode = 1
 
@@ -596,14 +533,13 @@ class TestWaitReady:
             _wait_ready(running_process, directory, timeout=5)
 
     def test_deadline_exceeded_raises(self, directory: Path, running_process: Mock) -> None:
-        """Test that startup fails once the deadline passes without a port file."""
+        """Startup fails once the deadline passes without a port file."""
         with pytest.raises(ProcessStartupError, match="did not become ready"):
             _wait_ready(running_process, directory, timeout=0)
 
     def test_keeps_polling_while_server_unresponsive(
         self, directory: Path, running_process: Mock
     ) -> None:
-        """Test that an unresponsive server is retried until it answers."""
         (directory / PORT_FILE).write_text("25565")
         responses = [ProcessConnectionError("not yet"), {"ready": True}]
 

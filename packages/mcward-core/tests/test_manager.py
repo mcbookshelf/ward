@@ -24,23 +24,18 @@ def write_process_files(directory: Path) -> None:
 
 
 class TestEnvironmentManager:
-    """Test EnvironmentManager functionality."""
-
     def test_initialization(self, temp_dir: Path) -> None:
-        """Test EnvironmentManager initialization."""
         manager = EnvironmentManager(temp_dir)
         assert manager.directory == temp_dir
         assert manager.versions is not None
 
     def test_initialization_default_directory(self) -> None:
-        """Test EnvironmentManager uses default cache directory when none provided."""
         manager = EnvironmentManager()
         assert manager.directory is not None
 
     def test_get_uninstalled_environment(
         self, manager: EnvironmentManager, mock_version: Version
     ) -> None:
-        """Test getting an uninstalled environment."""
         with patch.object(manager.versions, "get", return_value=mock_version):
             env = manager.get("26.1.2")
             assert isinstance(env, UninstalledEnvironment)
@@ -54,7 +49,6 @@ class TestEnvironmentManager:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test getting an installed environment."""
         env_dir = install_environment(temp_dir / "environments" / "26.1.2")
 
         with patch.object(manager.versions, "get", return_value=mock_version):
@@ -70,7 +64,6 @@ class TestEnvironmentManager:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test getting a running environment."""
         env_dir = install_environment(temp_dir / "environments" / "26.1.2")
         write_process_files(env_dir)
 
@@ -92,7 +85,7 @@ class TestEnvironmentManager:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that leftover pid/port files from a dead process fall back to installed."""
+        """Leftover pid/port files from a dead process fall back to installed."""
         env_dir = install_environment(temp_dir / "environments" / "26.1.2")
         write_process_files(env_dir)
 
@@ -104,14 +97,12 @@ class TestEnvironmentManager:
             assert isinstance(env, InstalledEnvironment)
 
     def test_get_version_not_found(self, manager: EnvironmentManager) -> None:
-        """Test getting a version that doesn't exist."""
         with patch.object(manager.versions, "get", return_value=None):
             with pytest.raises(VersionNotFoundError) as exc_info:
                 manager.get("99.99.99")
             assert exc_info.value.version == "99.99.99"
 
     def test_list_available_cached(self, manager: EnvironmentManager) -> None:
-        """Test listing available versions from cache."""
         mock_versions = [
             Version.parse("26.1.2"),
             Version.parse("26.1.1"),
@@ -122,7 +113,6 @@ class TestEnvironmentManager:
             assert versions == mock_versions
 
     def test_list_installed_empty(self, manager: EnvironmentManager) -> None:
-        """Test listing installed environments when none exist."""
         assert manager.list_installed() == []
 
     def test_list_installed_with_environments(
@@ -131,7 +121,6 @@ class TestEnvironmentManager:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test listing installed environments."""
         install_environment(temp_dir / "environments" / "26.1.2")
         install_environment(temp_dir / "environments" / "26.1.1")
 
@@ -141,7 +130,6 @@ class TestEnvironmentManager:
     def test_list_installed_ignores_incomplete(
         self, manager: EnvironmentManager, temp_dir: Path
     ) -> None:
-        """Test that incomplete installations are not listed."""
         env_dir = temp_dir / "environments" / "26.1.2"
         env_dir.mkdir(parents=True)
         (env_dir / "server.jar").write_text("fake server")
@@ -155,7 +143,6 @@ class TestEnvironmentManager:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that directories with invalid version names are ignored."""
         install_environment(temp_dir / "not-a-version")
 
         assert manager.list_installed() == []
@@ -167,7 +154,6 @@ class TestEnvironmentManager:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that uninstalling an installed environment removes its directory."""
         env_dir = install_environment(temp_dir / "environments" / "26.1.2")
 
         with patch.object(manager.versions, "get", return_value=mock_version):
@@ -180,7 +166,6 @@ class TestEnvironmentManager:
     def test_is_installed_checks_all_required_files(
         self, manager: EnvironmentManager, temp_dir: Path
     ) -> None:
-        """Test that _is_installed checks all required files."""
         env_dir = temp_dir / "environments" / "26.1.2"
         env_dir.mkdir(parents=True)
 
@@ -202,8 +187,6 @@ class TestEnvironmentManager:
 
 
 class TestEnvironmentStatePriority:
-    """Test that manager correctly prioritizes environment states."""
-
     def test_running_takes_precedence_over_installed(
         self,
         manager: EnvironmentManager,
@@ -211,7 +194,6 @@ class TestEnvironmentStatePriority:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that running state is returned even when fully installed."""
         env_dir = install_environment(temp_dir / "environments" / "26.1.2")
         write_process_files(env_dir)
 
@@ -230,7 +212,6 @@ class TestEnvironmentStatePriority:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that installed state is returned when files exist."""
         install_environment(temp_dir / "environments" / "26.1.2")
 
         with patch.object(manager.versions, "get", return_value=mock_version):
@@ -241,7 +222,6 @@ class TestEnvironmentStatePriority:
     def test_incomplete_installation_returns_uninstalled(
         self, manager: EnvironmentManager, mock_version: Version, temp_dir: Path
     ) -> None:
-        """Test that incomplete installation is treated as uninstalled."""
         env_dir = temp_dir / "environments" / "26.1.2"
         env_dir.mkdir(parents=True)
         (env_dir / "server.jar").write_text("fake server")
@@ -253,19 +233,15 @@ class TestEnvironmentStatePriority:
 
 
 class TestGetVersionHelper:
-    """Test _get_version helper method."""
-
     def test_get_version_from_registry(
         self, manager: EnvironmentManager, mock_version: Version
     ) -> None:
-        """Test getting version that exists in registry."""
         with patch.object(manager.versions, "get", return_value=mock_version):
             version, listed = manager._get_version("26.1.2")
             assert version == mock_version
             assert listed is True
 
     def test_get_version_parse_literal(self, manager: EnvironmentManager) -> None:
-        """Test parsing version that's not in registry."""
         with patch.object(manager.versions, "get", return_value=None):
             version, listed = manager._get_version("dev/26.1.2")
             assert version.name == "dev/26.1.2"
@@ -275,7 +251,6 @@ class TestGetVersionHelper:
             assert listed is False
 
     def test_get_version_invalid_raises(self, manager: EnvironmentManager) -> None:
-        """Test that invalid version raises VersionNotFoundError."""
         with patch.object(manager.versions, "get", return_value=None):
             with pytest.raises(VersionNotFoundError) as exc_info:
                 manager._get_version("not-a-version")
@@ -283,12 +258,11 @@ class TestGetVersionHelper:
 
 
 class TestDevDirectoryStructure:
-    """Test dev version directory structure (dev/<mc_version>/)."""
+    """Dev environments live under dev/<mc_version>/."""
 
     def test_get_dev_uses_dev_subdirectory(
         self, manager: EnvironmentManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test that get('dev') uses dev/<mc_version>/ directory."""
         (tmp_path / "gradle.properties").write_text("minecraft_version=26.1.2\n")
         monkeypatch.chdir(tmp_path)
 
@@ -305,7 +279,6 @@ class TestDevDirectoryStructure:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that get('dev/26.1.2') works for already installed dev versions."""
         dev_dir = install_environment(temp_dir / "environments" / "dev" / "26.1.2")
 
         # Not in the registry: resolved by parsing the literal name
@@ -321,7 +294,6 @@ class TestDevDirectoryStructure:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that list_installed includes dev versions with dev/ prefix."""
         install_environment(temp_dir / "environments" / "26.1.2")
         install_environment(temp_dir / "environments" / "dev" / "26.1.1")
 
@@ -332,7 +304,6 @@ class TestDevDirectoryStructure:
     def test_list_installed_ignores_dev_directory_itself(
         self, manager: EnvironmentManager, temp_dir: Path
     ) -> None:
-        """Test that list_installed ignores the dev/ directory itself."""
         dev_dir = temp_dir / "environments" / "dev"
         dev_dir.mkdir(parents=True)
         (dev_dir / "some-file.txt").write_text("not a real installation")
@@ -345,7 +316,7 @@ class TestDevDirectoryStructure:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that uninstalling one dev build leaves the others untouched."""
+        """Uninstalling one dev build leaves the others untouched."""
         install_environment(temp_dir / "environments" / "dev" / "26.1.2")
         install_environment(temp_dir / "environments" / "dev" / "26.1.1")
 
@@ -363,7 +334,6 @@ class TestDevDirectoryStructure:
         temp_dir: Path,
         install_environment: Callable[[Path], Path],
     ) -> None:
-        """Test that multiple dev builds for different MC versions can coexist."""
         install_environment(temp_dir / "environments" / "dev" / "26.1.2")
         install_environment(temp_dir / "environments" / "dev" / "26.2-snapshot-6")
 

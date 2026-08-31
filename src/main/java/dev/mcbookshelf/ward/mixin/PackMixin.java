@@ -27,8 +27,7 @@ public class PackMixin {
 	}
 
 	/**
-	 * Reports pack.mcmeta validation errors. The {@code Object} params match the wrapped log
-	 * call: pack location, then the exception.
+	 * Reports pack.mcmeta validation errors.
 	 */
 	@WrapOperation(method = "readPackMetadata", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
 	private static void catchPackValidationError(

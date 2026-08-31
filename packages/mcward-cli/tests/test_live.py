@@ -53,7 +53,7 @@ class TestRenderSession:
     """Test the aggregated results view."""
 
     def test_pending_result_uses_spinner_and_dash(self) -> None:
-        """A test still awaiting a version shows a spinner and — for the missing cell."""
+        """A test still awaiting a version shows a spinner and a dash for that cell."""
         session = Session([V1, V2])
         start_run(session, V1, V2)
         session._dispatch(V1, Passed(name="a:one", time=5))

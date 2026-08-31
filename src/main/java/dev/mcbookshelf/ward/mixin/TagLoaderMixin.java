@@ -44,7 +44,7 @@ public class TagLoaderMixin {
 	}
 
 	/**
-	 * Reports tag files that fail to read. The log args carry the id first and the exception last.
+	 * Reports tag files that fail to read.
 	 */
 	@WrapOperation(method = "load", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;[Ljava/lang/Object;)V"))
 	private void catchLoadError(
@@ -61,9 +61,7 @@ public class TagLoaderMixin {
 	}
 
 	/**
-	 * Reports tags with missing references, from the static "Couldn't load tag" lambda in
-	 * {@code build}. The lambda only captures the id, which is why {@link #directory} goes
-	 * through a ThreadLocal.
+	 * Reports tags with missing references, from the static "Couldn't load tag" lambda in {@code build}.
 	 */
 	@WrapOperation(method = "lambda$build$2", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
 	private static void catchBuildError(

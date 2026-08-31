@@ -39,8 +39,7 @@ public class GameTestRunnerMixin {
 
 		ForceloadGuard.reset(level.getServer());
 
-		// Batch listeners run before the cleanup, so this is the last chance
-		// to see which chunks stayed forced
+		// Batch listeners run before the cleanup, the last chance to see which chunks stayed forced
 		((GameTestRunner) (Object) this).addListener(new GameTestBatchListener() {
 			@Override
 			public void testBatchStarting(GameTestBatch batch) {

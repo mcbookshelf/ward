@@ -20,14 +20,14 @@ public final class AwaitCommand {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
-		Assertion.Context root = new Assertion.Context(dispatcher, context, false, false);
+		Assertion.Context plain = new Assertion.Context(dispatcher, context, false, false);
 		Assertion.Context not = new Assertion.Context(dispatcher, context, false, true);
 
 		dispatcher.register(Assertions.build(Commands.literal("await")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Assertions.build(Commands.literal("not"), not))
 				.then(Commands.literal("delay").then(Commands.argument("time", TimeArgument.time())
-						.executes(AwaitCommand::delay))), root));
+						.executes(AwaitCommand::delay))), plain));
 	}
 
 	private static int delay(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

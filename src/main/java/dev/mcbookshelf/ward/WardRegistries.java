@@ -30,9 +30,8 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import dev.mcbookshelf.ward.accessor.MappedRegistryAccessor;
 
 /**
- * Owns the contents of the {@code test_*} registries across reloads. Vanilla loads them once at
- * world load and keeps frozen references everywhere, so a reload has to refresh them in place.
- * All the unfreeze/clear/freeze mutation lives here.
+ * Owns the contents of the {@code test_*} registries across reloads.
+ * Vanilla loads them once at world load and keeps frozen references everywhere, so a reload has to refresh them in place.
  */
 public class WardRegistries {
 	private static final List<RegistryDataLoader.RegistryData<?>> TEST_REGISTRIES = List.of(
@@ -58,16 +57,14 @@ public class WardRegistries {
 	}
 
 	/**
-	 * Loads TEST_ENVIRONMENT and TEST_INSTANCE into a throwaway access via vanilla's own
-	 * {@link RegistryDataLoader}, so parsing and error reporting match a normal datapack load.
+	 * Loads TEST_ENVIRONMENT and TEST_INSTANCE into a throwaway access via vanilla's own {@link RegistryDataLoader}.
 	 */
 	public CompletableFuture<RegistryAccess.Frozen> load(ResourceManager manager, Executor executor) {
 		return RegistryDataLoader.load(manager, this.registries.listRegistries().toList(), TEST_REGISTRIES, executor);
 	}
 
 	/**
-	 * Copies the loaded environments and instances into the live registries, registers a
-	 * TEST_FUNCTION per test (plus a TEST_INSTANCE for tests without JSON), and freezes all three.
+	 * Reloads registries and registers a TEST_FUNCTION per test (plus a TEST_INSTANCE for tests without JSON).
 	 */
 	public void register(RegistryAccess.Frozen loaded, Map<Identifier, TestFunction> tests) {
 		MappedRegistry<TestEnvironmentDefinition<?>> environments = replace(Registries.TEST_ENVIRONMENT, loaded);
@@ -118,9 +115,7 @@ public class WardRegistries {
 	}
 
 	/**
-	 * Unfreezes a live registry, clears it, and copies in every element freshly loaded into
-	 * {@code source}. The registry is returned still unfrozen and the caller decides when to
-	 * freeze it.
+	 * Unfreezes a live registry, clears it, and copies in every element freshly loaded into {@code source}.
 	 */
 	private <T> MappedRegistry<T> replace(ResourceKey<Registry<T>> registryKey, RegistryAccess.Frozen source) {
 		MappedRegistry<T> registry = (MappedRegistry<T>) registries.lookupOrThrow(registryKey);
@@ -133,9 +128,6 @@ public class WardRegistries {
 		return registry;
 	}
 
-	/**
-	 * Unfreezes a registry and returns it as its mutation accessor.
-	 */
 	@SuppressWarnings("unchecked")
 	private static <T> MappedRegistryAccessor<T> unfrozen(MappedRegistry<T> registry) {
 		MappedRegistryAccessor<T> accessor = (MappedRegistryAccessor<T>) registry;

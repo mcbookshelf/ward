@@ -22,8 +22,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Rotation;
 
 /**
- * Parsed {@code # @directive value} headers from a test file. The ids stay strings and are
- * resolved in {@link #createTestData} against the registries of the run that loaded the test.
+ * Parsed {@code # @directive value} headers from a test file.
  */
 public record TestDirectives(
 		String environment,

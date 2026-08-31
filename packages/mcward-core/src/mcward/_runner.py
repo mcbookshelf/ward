@@ -169,7 +169,6 @@ class TestSession:
         )
 
     def _passed_per_version(self) -> dict[Version, int]:
-        """Count passed tests for each version."""
         counts = dict.fromkeys(self.versions, 0)
         for result in self._results.values():
             for version, outcome in result.outcomes.items():
@@ -218,8 +217,7 @@ def run_tests(
     """Stream tests across already-running environments, aggregating results.
 
     Yields the same (mutating) session after every event; consumers that need
-    snapshots must copy what they read. ``timeout`` bounds the wait between
-    consecutive events of one version; exceeding it aborts that stream.
+    snapshots must copy what they read.
     """
     session = TestSession([env.version for env in environments])
     events: Queue[tuple[Version, Event | None]] = Queue()
@@ -233,9 +231,7 @@ def run_tests(
         finally:
             events.put((env.version, None))  # stream exhausted
 
-    # Daemon threads: if the consumer abandons this generator mid-run (render
-    # failure, Ctrl+C), the readers may be blocked on their sockets and must
-    # not keep the process alive or be joined on
+    # A consumer can abandon this generator mid-run (render failure, Ctrl+C)
     for env in environments:
         threading.Thread(target=stream_events, args=(env,), daemon=True).start()
 

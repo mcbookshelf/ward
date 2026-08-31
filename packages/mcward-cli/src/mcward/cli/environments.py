@@ -36,21 +36,15 @@ def curate_versions(versions: Iterable[Version]) -> list[Version]:
     return curated
 
 
-def get_environment(version: Version | str) -> Environment:
-    """Get the environment for the given version."""
-    return get_environments([version])[0]
-
-
-def get_environments(versions: Sequence[Version | str]) -> list[Environment]:
-    """Get environments for the given versions."""
+def get_environment(version: str) -> Environment:
     try:
-        return [manager.get(v if isinstance(v, str) else v.name) for v in versions]
+        return manager.get(version)
     except VersionNotFoundError as e:
         raise click.ClickException(str(e)) from e
 
 
 def select_installed(message: str) -> str:
-    """Select an installed version."""
+    """Prompt for an installed version, skipping the prompt when only one fits."""
     versions = manager.list_installed()
     if not versions:
         raise click.ClickException("No versions installed")
@@ -58,7 +52,7 @@ def select_installed(message: str) -> str:
 
 
 def select_running(message: str) -> str:
-    """Select a running version."""
+    """Prompt for a running version, skipping the prompt when only one fits."""
     versions = manager.list_running()
     if not versions:
         raise click.ClickException("No versions running")
@@ -66,7 +60,7 @@ def select_running(message: str) -> str:
 
 
 def select_available(message: str) -> str:
-    """Select an available version."""
+    """Prompt for a version to install, flagging the latest and the snapshot."""
     curated = curate_versions(manager.list_available())
     if not curated:
         raise click.ClickException("No versions available")
@@ -86,7 +80,7 @@ def select_available(message: str) -> str:
 
 
 def select_compatible(min_format: int, max_format: int) -> list[str]:
-    """Resolve which versions to test based on pack format range."""
+    """The versions to test, one per major line, asking when several qualify."""
     compatible = manager.list_compatible(min_format, max_format)
     if not compatible:
         err = f"No compatible versions found for pack format range {min_format}..{max_format}"

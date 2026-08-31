@@ -8,7 +8,7 @@ on:
         type: choice
         options: [python, java, minecraft]
       version:
-        description: The new version (1.2.0 — or 26.2 for minecraft)
+        description: The new version (1.2.0, or 26.2 for minecraft)
         required: true
         type: string
   workflow_call:
@@ -111,7 +111,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.bot.outputs.token }}
         run: |
-          # The release decision was made by dispatching (or detecting); the
-          # required CI checks gate the merge, so a red PR waits for a human
+          # The release decision was made by dispatching (or detecting); the required CI checks gate the merge, so a red PR waits for a human
           gh pr merge "${{ steps.pr.outputs.pull-request-number }}" \
             --squash --auto --repo "$GITHUB_REPOSITORY"

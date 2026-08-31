@@ -12,8 +12,7 @@ import net.minecraft.world.level.storage.LevelStorageSource;
 
 /**
  * The long-lived test daemon. It keeps the JVM warm and serves test runs over the TCP bridge.
- * Each run boots a fresh {@link WardServer}, because dynamic registries are only read during
- * world load and cannot be reloaded on a live server.
+ * Each run boots a fresh {@link WardServer}, because dynamic registries are only read during world load.
  */
 public final class WardDaemon {
 	private final WardBridge bridge;
@@ -47,9 +46,6 @@ public final class WardDaemon {
 		}
 	}
 
-	/**
-	 * Returns true when no test run is active.
-	 */
 	public boolean isIdle() {
 		return !this.busy;
 	}
@@ -105,8 +101,7 @@ public final class WardDaemon {
 	}
 
 	/**
-	 * Loads the world and spins up a server for this run. The server starts the tests itself and
-	 * halts once they complete.
+	 * Loads the world and spins up a server for this run.
 	 */
 	private void boot(String selection) {
 		try {

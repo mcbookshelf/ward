@@ -1,10 +1,4 @@
-"""Environment state management.
-
-States are snapshots, not live handles: obtain them from the manager, and
-discard an instance after calling a transition on it — the old object still
-exists but no longer reflects reality (a stopped RunningEnvironment fails
-with connection errors, not with "already stopped").
-"""
+"""Environment states."""
 
 import asyncio
 import shutil
@@ -21,30 +15,26 @@ from ._versions import Version
 
 @dataclass(frozen=True)
 class UninstalledEnvironment:
-    """Represents an environment that has not yet been installed."""
-
     directory: Path
     version: Version
 
     def install(self) -> InstalledEnvironment:
-        """Download and prepare the environment for use."""
+        """Download every asset the environment needs."""
         asyncio.run(_assets.install(self.directory, self.version))
         return InstalledEnvironment(self.directory, self.version)
 
 
 @dataclass(frozen=True)
 class InstalledEnvironment:
-    """Represents an environment that has been installed but not running."""
-
     directory: Path
     version: Version
 
     def start(self) -> RunningEnvironment:
-        """Start process for this environment."""
+        """Spawn the daemon process and wait until it answers."""
         return RunningEnvironment(self.directory, self.version, _daemon.start(self.directory))
 
     def uninstall(self) -> UninstalledEnvironment:
-        """Uninstall the environment by removing its directory."""
+        """Remove the environment directory and everything in it."""
         try:
             if self.directory.exists():
                 shutil.rmtree(self.directory)
@@ -55,18 +45,16 @@ class InstalledEnvironment:
 
 @dataclass(frozen=True)
 class RunningEnvironment:
-    """Represents an environment with process running."""
-
     directory: Path
     version: Version
     process: RunningProcess
 
     def status(self) -> Status:
-        """Get process status."""
+        """Ask the daemon whether it is ready to serve a run."""
         return _daemon.status(self.process.address)
 
     def stop(self) -> InstalledEnvironment:
-        """Stop process and transition back to installed state."""
+        """Shut the daemon down, escalating to a kill if it hangs."""
         _daemon.stop(self.process)
         return InstalledEnvironment(self.directory, self.version)
 
@@ -103,11 +91,7 @@ class RunningEnvironment:
 
 
 def _unique_names(datapacks: list[Path]) -> list[str]:
-    """Deployment names for the packs, suffixing duplicates (pack, pack-2, ...).
-
-    The suffix goes before any extension (pack-2.zip): the server only reads
-    zipped datapacks whose file name ends in .zip.
-    """
+    """Deployment names for the packs, suffixing duplicates (pack, pack-2, ...)."""
     reserved = {datapack.name for datapack in datapacks}
     names: list[str] = []
     for datapack in datapacks:

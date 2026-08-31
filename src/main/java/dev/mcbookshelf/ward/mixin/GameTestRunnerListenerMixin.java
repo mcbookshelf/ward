@@ -11,8 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import dev.mcbookshelf.ward.ForceloadGuard;
 
 /**
- * Keeps {@link ForceloadGuard} chunks out of the runner's cleanup, which otherwise clears every
- * forced chunk of the level. The target class is the runner's anonymous batch listener.
+ * Keeps {@link ForceloadGuard} chunks out of the runner's cleanup, which otherwise clears every forced chunk of the level.
  */
 @Mixin(targets = "net.minecraft.gametest.framework.GameTestRunner$1")
 public class GameTestRunnerListenerMixin {

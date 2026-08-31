@@ -1,18 +1,12 @@
 """Bump the version of a Ward release stream.
 
-    uv run tools/bump.py python 1.2.0        # the mcward packages
-    uv run tools/bump.py java 1.2.0          # the ward mod
+    uv run tools/bump.py python 1.2.0        # pyproject.toml + lockfile
+    uv run tools/bump.py java 1.2.0          # mod_version in gradle.properties
     uv run tools/bump.py minecraft 26.2      # retarget the mod's Minecraft
 
-python rewrites the root pyproject.toml (the single source of truth for
-every mcward package) and refreshes the lockfile; java rewrites
-mod_version in gradle.properties. minecraft retargets the whole toolchain:
-it also resolves the newest stable fabric-loader and the latest fabric-api
-build for that version, and exits 2 when the toolchain has no build for
-it yet (retry later).
-
-Bumping a version is the release request: once the change lands,
-release.py tags and publishes it (see tools/release.py).
+minecraft also resolves the fabric-loader and fabric-api builds for that
+version, and exits 2 when the toolchain has no build for it yet (retry later).
+Bumping is the release request: once the change lands, release.py publishes it.
 """
 
 import argparse
@@ -69,7 +63,7 @@ def bump_minecraft(minecraft: str) -> int:
         if not loaders:
             print(f"bump: fabric loader does not support {minecraft} yet", file=sys.stderr)
             return 2
-        # Loaders come newest-first, betas included: prefer the newest stable one
+        # Loaders come newest-first, betas included, so prefer the newest stable one
         entry = next((x for x in loaders if x["loader"]["stable"]), loaders[0])
         loader = entry["loader"]["version"]
 

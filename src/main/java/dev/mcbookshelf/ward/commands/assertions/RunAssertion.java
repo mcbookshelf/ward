@@ -25,17 +25,21 @@ import net.minecraft.commands.execution.tasks.IsolatedCall;
 import dev.mcbookshelf.ward.AssertResult;
 import dev.mcbookshelf.ward.TestExecutor;
 
+/**
+ * Asserts on a command's own outcome, optionally against a result range.
+ * The first execution runs through the command engine as a forked tail; an await that has to retry replays that tail itself, which is why every step exists in a queued and a polled form.
+ */
 class RunAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
-		root.then(buildRun(context, false));
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
+		root.then(buildRun(assertion, false));
 		root.then(Commands.literal("result")
 				.then(Commands.argument("range", RangeArgument.intRange())
-						.then(buildRun(context, true))));
+						.then(buildRun(assertion, true))));
 	}
 
-	private static LiteralArgumentBuilder<CommandSourceStack> buildRun(Context context, boolean ranged) {
-		return Commands.literal("run").fork(context.dispatcher().getRoot(), new AssertRun(context, ranged));
+	private static LiteralArgumentBuilder<CommandSourceStack> buildRun(Context assertion, boolean ranged) {
+		return Commands.literal("run").fork(assertion.dispatcher().getRoot(), new AssertRun(assertion, ranged));
 	}
 
 	private record AssertRun(Context assertion, boolean ranged) implements CustomModifierExecutor.ModifierAdapter<CommandSourceStack> {
@@ -60,12 +64,15 @@ class RunAssertion implements Assertion {
 				List<CommandSourceStack> captured = List.copyOf(sources);
 
 				queueTail(output, input, tail, modifiers, originalSource, captured, range, rawRange, result ->
-						this.assertion.deliver(test, result, () -> pollTail(input, tail, captured, range, rawRange)));
+						this.assertion.check(test, result, () -> pollTail(input, tail, captured, range, rawRange)));
 			} catch (CommandSyntaxException e) {
 				originalSource.handleError(e, modifiers.isForked(), output.tracer());
 			}
 		}
 
+		/**
+		 * Hands the tail to the command engine, then reports its outcome once it has run.
+		 */
 		private static void queueTail(
 				ExecutionControl<CommandSourceStack> output,
 				String input,
@@ -94,6 +101,9 @@ class RunAssertion implements Assertion {
 			}, CommandResultCallback.EMPTY));
 		}
 
+		/**
+		 * Replays the tail on a later tick, for an await that did not pass the first time.
+		 */
 		private static AssertResult pollTail(
 				String input,
 				ContextChain<CommandSourceStack> tail,
@@ -113,6 +123,10 @@ class RunAssertion implements Assertion {
 			return runResult(rawRange, fires[0], misses[0], found[0]);
 		}
 
+		/**
+		 * Wraps a source so its callback tallies fires, misses and the last result.
+		 * The counters are arrays because the callback outlives this frame.
+		 */
 		private static CommandSourceStack counting(
 				CommandSourceStack source,
 				MinMaxBounds.@Nullable Ints range,

@@ -1,4 +1,4 @@
-"""List command - show available and installed versions."""
+"""The list command."""
 
 import rich_click as click
 
@@ -21,7 +21,6 @@ def list_versions(ctx: click.Context, remote: bool) -> None:
 
 
 def _print_installed(installed: list[Version], command_path: str) -> None:
-    """Print the locally installed versions."""
     console.print("\n[bold]Installed Versions[/]:")
     if not installed:
         console.print("  [dim]No versions installed[/dim]")
@@ -71,6 +70,5 @@ def _print_version(
     color: str = "green",
     label: str = "",
 ) -> None:
-    """Print a version entry to the console."""
     label = f" [dim]({label})[/]" if label else ""
     console.print(f"  [bold {color}]{marker}[/] {version.name}{label}", highlight=False)

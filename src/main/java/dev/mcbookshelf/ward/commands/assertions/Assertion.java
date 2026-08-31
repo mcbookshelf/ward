@@ -19,10 +19,7 @@ import dev.mcbookshelf.ward.AssertResult;
 import dev.mcbookshelf.ward.TestExecutor;
 
 public interface Assertion {
-	/**
-	 * Attaches this assertion's command nodes to the root literal.
-	 */
-	void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context);
+	void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion);
 
 	/**
 	 * Returns the raw text the user typed for an argument.
@@ -46,23 +43,17 @@ public interface Assertion {
 		/**
 		 * Runs the check now (assert) or every tick (await), depending on the mode.
 		 */
-		int apply(ResultSupplier check) throws CommandSyntaxException {
-			TestExecutor test = TestExecutor.current();
-
-			if (this.immediate) return test.assertThat(check::get, this.negated);
-			test.awaitThat(check::get, this.negated);
-			return Command.SINGLE_SUCCESS;
+		int check(ResultSupplier check) throws CommandSyntaxException {
+			return check(TestExecutor.current(), check.get(), check::get);
 		}
 
 		/**
-		 * Like {@link #apply}, for a first result computed by the command engine.
+		 * Like {@link #check(ResultSupplier)}, for a first result already computed by the command engine.
 		 */
-		void deliver(TestExecutor test, AssertResult first, Supplier<AssertResult> poll) {
-			if (this.immediate) {
-				test.assertThat(first, this.negated);
-			} else {
-				test.awaitThat(first, this.negated, poll);
-			}
+		int check(TestExecutor test, AssertResult first, Supplier<AssertResult> poll) {
+			if (this.immediate) return test.assertThat(first, this.negated);
+			test.awaitThat(first, poll, this.negated);
+			return Command.SINGLE_SUCCESS;
 		}
 	}
 

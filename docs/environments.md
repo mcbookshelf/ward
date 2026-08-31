@@ -14,7 +14,7 @@ They live in your datapack at:
 data/<namespace>/test_environment/<name>.json
 ```
 
-and referenced as `<namespace>:<name>`. The built-in `minecraft:default`
+and are referenced as `<namespace>:<name>`. The built-in `minecraft:default`
 environment (no setup at all) is used when a test declares nothing.
 
 Ward changes one thing: vanilla only loads the `test_environment` registry at

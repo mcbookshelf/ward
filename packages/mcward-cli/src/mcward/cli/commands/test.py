@@ -1,4 +1,4 @@
-"""Test command - run datapack tests."""
+"""The test command."""
 
 import sys
 

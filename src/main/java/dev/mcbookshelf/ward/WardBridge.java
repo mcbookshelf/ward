@@ -61,8 +61,7 @@ public final class WardBridge {
 
 		serverChannel = b.bind("127.0.0.1", 0).sync().channel();
 
-		// Write the port to a file so the Python client can find it. Also delete
-		// the file if the JVM exits for any reason other than a normal stop
+		// Clients find the daemon through this file; deleteOnExit is here in case the JVM goes down
 		int port = ((InetSocketAddress) serverChannel.localAddress()).getPort();
 		Files.writeString(portFile, String.valueOf(port), StandardCharsets.UTF_8);
 		portFile.toFile().deleteOnExit();
@@ -87,8 +86,7 @@ public final class WardBridge {
 	}
 
 	/**
-	 * Broadcasts an event to all connected clients. Note that {@code data} is modified to carry
-	 * the event type.
+	 * Broadcasts an event to all connected clients, mutating {@code data} to carry the event type.
 	 */
 	public void broadcast(String type, JsonObject data) {
 		data.addProperty("type", type);
@@ -148,7 +146,7 @@ public final class WardBridge {
 			try {
 				switch (type) {
 					case "status" -> handleStatus(ch);
-					case "test" -> handleTest(ch, msg);
+					case "test" -> handleTest(msg);
 					case "stop" -> daemon.shutdown();
 					default -> sendError(ch, "unknown_command", "Unknown command: " + type);
 				}
@@ -170,7 +168,7 @@ public final class WardBridge {
 			ch.writeAndFlush(encode(response));
 		}
 
-		private void handleTest(Channel ch, JsonObject msg) throws Exception {
+		private void handleTest(JsonObject msg) throws Exception {
 			String selector = msg.has("selector") ? msg.get("selector").getAsString() : "*:*";
 			daemon.runTests(selector);
 		}

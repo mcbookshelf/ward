@@ -23,12 +23,12 @@ class ChatAssertion implements Assertion {
 			pattern -> Component.translatableEscape("ward.assert.invalid_pattern", pattern));
 
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		root.then(Commands.literal("chat")
 				.then(Commands.argument("pattern", StringArgumentType.string())
-						.executes(ctx -> run(ctx, context, false))
+						.executes(ctx -> run(ctx, assertion, false))
 						.then(Commands.argument("players", EntityArgument.players())
-								.executes(ctx -> run(ctx, context, true)))));
+								.executes(ctx -> run(ctx, assertion, true)))));
 	}
 
 	private static int run(CommandContext<CommandSourceStack> context, Context assertion, boolean players) throws CommandSyntaxException {
@@ -36,7 +36,7 @@ class ChatAssertion implements Assertion {
 		String patternString = StringArgumentType.getString(context, "pattern");
 		Pattern pattern = compilePattern(patternString);
 
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			Stream<String> messages = players
 					? EntityArgument.getPlayers(context, "players").stream().flatMap(player -> executor.chatMessages(player.getUUID()))
 					: executor.chatMessages();

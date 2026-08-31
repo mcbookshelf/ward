@@ -16,16 +16,16 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class DataAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context context) {
+	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
 		for (ArgProvider<DataAccessor> provider : DataCommands.SOURCE_PROVIDERS) {
 			root.then(provider.wrap(Commands.literal("data"), p -> p
 					.then(Commands.argument("path", NbtPathArgument.nbtPath())
-							.executes(ctx -> run(ctx, context, provider)))));
+							.executes(ctx -> run(ctx, assertion, provider)))));
 		}
 	}
 
 	private static int run(CommandContext<CommandSourceStack> context, Context assertion, ArgProvider<DataAccessor> provider) throws CommandSyntaxException {
-		return assertion.apply(() -> {
+		return assertion.check(() -> {
 			NbtPathArgument.NbtPath path = NbtPathArgument.getPath(context, "path");
 			DataAccessor accessor = provider.access(context);
 			CompoundTag data = accessor.getData();

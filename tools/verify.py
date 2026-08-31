@@ -1,10 +1,8 @@
 """Run the Ward integration suite.
 
-Uses mcward itself end to end, exercising the same code paths as the CLI:
-the dev environment is installed like `mcward install dev --force`, started
-in daemon mode, and the fixture packs are tested over the bridge like
-`mcward test`. The aggregated session is compared against
-tests/expected.toml.
+Installs and starts the dev environment through mcward itself (the same code
+paths as the CLI), tests the fixture packs over the bridge, and compares the
+aggregated session against tests/expected.toml.
 """
 
 import os
@@ -77,8 +75,7 @@ def stream_run(running: RunningEnvironment) -> TestSession:
     reported: set[str] = set()
     session = TestSession([running.version])
 
-    # The default selector also pins that vanilla built-in tests (e.g.
-    # minecraft:always_pass) are excluded from daemon runs
+    # The default selector also proves vanilla built-ins stay out of daemon runs
     for session in run_tests(
         [TESTS / "packs" / "ward", TESTS / "packs" / "broken", TESTS / "packs" / "overlay"],
         [running],

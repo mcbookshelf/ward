@@ -22,8 +22,7 @@ public class ReloadableServerRegistriesMixin {
 			Operation<Void> original) {
 		original.call(collector, consumer);
 		collector.forEach((id, problem) -> {
-			// Problem paths render as "{<element id>@<registry>}<path>", e.g.
-			// "{blocks/stone@minecraft:loot_table}.pools[0]" (ProblemReporter.RootElementPathElement)
+			// Problem paths render as "{<element id>@<registry>}<path>", e.g. "{blocks/stone@minecraft:loot_table}.pools[0]" (RootElementPathElement)
 			int end = id.indexOf('}');
 			String path = id.substring(end + 2);
 			String[] parts = id.substring(id.indexOf('{') + 1, end).split("@");

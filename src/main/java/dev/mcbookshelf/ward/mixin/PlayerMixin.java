@@ -14,8 +14,7 @@ import dev.mcbookshelf.ward.dummy.Dummy;
 @Mixin(Player.class)
 public abstract class PlayerMixin {
 	/**
-	 * Makes attacks knock back dummies. For players, vanilla undoes the server-side knockback
-	 * and lets the client apply it from a packet. A dummy has no client, so it would never move.
+	 * Makes attacks knockback dummies who have no client.
 	 */
 	@WrapOperation(method = "causeExtraKnockback", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/Entity;syncVelocity:Z", opcode = Opcodes.GETFIELD))
 	private boolean velocityModifiedAndNotDummy(Entity target, Operation<Boolean> original) {

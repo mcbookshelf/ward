@@ -2,7 +2,7 @@
 
 Ward is a single repository with two deliverables: the Fabric mod (`src/`,
 released to Modrinth) and the Python tooling (`packages/`, released to PyPI).
-Releases are fully automated from the versions committed to the tree — see
+Releases are fully automated from the versions committed to the tree, see
 [Releases and versioning](#releases-and-versioning).
 
 ## Development setup
@@ -32,9 +32,10 @@ Dev tasks (run with `just <task>`; `just --list` shows everything):
 
 `just verify` builds the mod, installs a real Fabric server through the
 mcward library, starts it in daemon mode, and tests the fixture packs from
-`tests/packs/` (`ward`, the test pack, and `broken`, an intentionally
-invalid one) over the bridge — the same code paths as `mcward test`. The
-aggregated results are compared against `tests/expected.toml`.
+`tests/packs/` (`ward`, the test pack, plus `broken` and `overlay`, two
+intentionally invalid ones) over the bridge, through the same code paths as
+`mcward test`. The aggregated results are compared against
+`tests/expected.toml`.
 
 If you add or change mod behavior, extend the fixture: add a test function
 under `tests/packs/ward/data/ward/test/` and its expected result in
@@ -56,30 +57,30 @@ docs/                 User documentation
 ## Code style
 
 Python follows ruff's defaults (`just lint`, `just format`). Java follows the
-Fabric conventions — tabs,
-same-line braces, no line-length limit — enforced by the root `checkstyle.xml`
-as part of every `just build`. `just format` handles the mechanical parts
-(import order, whitespace); layout fixes are guided by the checkstyle output.
+Fabric conventions (tabs, same-line braces, no line-length limit), enforced
+by the root `checkstyle.xml` as part of every `just build`. `just format`
+handles the mechanical parts (import order, whitespace); layout fixes are
+guided by the checkstyle output.
 
 ## Releases and versioning
 
 Releases are driven by the versions committed to the tree: bumping a version
-file *is* the release request. On every push, `tools/release.py` tags and
-publishes whatever version has no tag yet — nothing else decides. There are
+file is the release request. On every push, `tools/release.py` tags and
+publishes whatever version has no tag yet. Nothing else decides. There are
 two independent streams:
 
-- **Python packages** — the root `pyproject.toml` is the source of truth and
+- **Python packages**: the root `pyproject.toml` is the source of truth and
   all `mcward*` packages derive their version from it at build time. Bump it
   in your PR with `just bump python 1.2.0`; merging to `main` tags `v1.2.0`
   and publishes every package to PyPI.
 
-- **The mod** — versioned by `gradle.properties`: `mod_version` plus the
+- **The mod**: versioned by `gradle.properties`, with `mod_version` plus the
   targeted `minecraft_version`, tagged fabric-api style with the full version
   (`v1.2.3+26.1.2`) and published to Modrinth. Bump with
   `just bump java 1.2.3` when the mod changes; a new `minecraft_version`
-  alone releases a *compatibility build* — same mod version, new build
-  metadata — so `1.2.3+26.1.2` and `1.2.3+26.2` carry the exact same
-  feature set. The mod releases from `main` and from maintenance branches.
+  alone releases a compatibility build (same mod version, new build
+  metadata), so `1.2.3+26.1.2` and `1.2.3+26.2` carry the exact same feature
+  set. The mod releases from `main` and from maintenance branches.
 
 Follow semver when picking a version: new functionality bumps minor,
 bugfixes bump patch, breaking changes bump major.
@@ -89,4 +90,4 @@ bugfixes bump patch, breaking changes bump major.
 - CI must be green: it runs the Java build, `just check`, packaging checks and
   the full integration suite on every push and PR.
 - If the PR should ship, include the version bump; if it should wait for a
-  batch, leave the version untouched — it releases with the next bump.
+  batch, leave the version untouched and it releases with the next bump.

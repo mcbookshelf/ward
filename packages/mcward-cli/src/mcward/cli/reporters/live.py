@@ -60,9 +60,7 @@ def format_millis(millis: int) -> str:
 def describe_failure(outcome: VersionOutcome, file: str | None = None) -> str:
     """The failure message, with the position suffix when the test carries one.
 
-    With a resolved source file the position is a ``path:line`` relative to
-    the project root, which terminals can detect and open; without one (e.g.
-    a zipped pack) it falls back to the bare line number.
+    With a ``path:line`` relative to the project root when applicable.
     """
     if outcome.line is None:
         return outcome.error
@@ -113,8 +111,7 @@ def _render_diagnostics(
         text.append(f"{symbol} ", style)
         text.append(f"[{diagnostic.kind}] ")
 
-        # The path carries the id (data/<ns>/<folder>/<id-path>): show it
-        # in place of the id when it resolves
+        # The path already carries the id (data/<ns>/<folder>/<id-path>)
         file = resolve(diagnostic.kind.split(":", 1)[-1], diagnostic.id) if resolve else None
         if file:
             text.append(f"{file}", "dim")
