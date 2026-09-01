@@ -15,6 +15,10 @@ from ._constants import MODRINTH_API, PACK_FORMATS, USER_AGENT
 from ._exceptions import VersionError
 
 
+# Release ("") sorts above every pre-release stage of its own version
+_STAGES = {"snapshot": 0, "pre": 1, "rc": 2, "": 3}
+
+
 @total_ordering
 @dataclass(frozen=True)
 class Version:
@@ -24,8 +28,9 @@ class Version:
     minecraft: str  # "26.1.2" or "26.2-snapshot-6", without the dev/ prefix
     year: int  # 26
     major: int  # 1 or 2
-    patch: int  # 2 (0 for snapshots or base release)
-    snapshot: int  # 6 (0 for releases)
+    patch: int  # 2 (0 for pre-releases or base release)
+    stage: str  # "snapshot", "pre", "rc" or "" for releases
+    build: int  # 6 (0 for releases)
 
     @property
     def is_dev(self) -> bool:
@@ -33,16 +38,23 @@ class Version:
 
     @property
     def is_snapshot(self) -> bool:
-        return self.snapshot > 0
+        return self.stage != ""
 
     @classmethod
     def parse(cls, name: str) -> Version:
-        """Parse "26.1.2", "26.2-snapshot-6" or a "dev/" prefixed variant."""
+        """Parse "26.1.2", "26.2-snapshot-6", "26.3-pre-1", "26.3-rc-1"
+        or a "dev/" prefixed variant."""
         version = name.removeprefix("dev/")
-        if match := re.match(r"^(\d+)\.(\d+)-snapshot-(\d+)$", version):
-            return cls(name, version, int(match[1]), int(match[2]), 0, int(match[3]))
-        if match := re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?$", version):
-            return cls(name, version, int(match[1]), int(match[2]), int(match[3] or 0), 0)
+        if match := re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:-(snapshot|pre|rc)-(\d+))?$", version):
+            return cls(
+                name,
+                version,
+                int(match[1]),
+                int(match[2]),
+                int(match[3] or 0),
+                match[4] or "",
+                int(match[5] or 0),
+            )
         raise ValueError(f"Invalid version format: {version}")
 
     def __str__(self) -> str:
@@ -57,15 +69,15 @@ class Version:
         return self._sort_key < other._sort_key
 
     @property
-    def _sort_key(self) -> tuple[bool, int, int, int, int]:
+    def _sort_key(self) -> tuple[bool, int, int, int, int, int]:
         # Dev builds sort above everything
-        # Snapshots take patch -1 to sort below the releases of their own line
         return (
             self.is_dev,
             self.year,
             self.major,
-            -1 if self.is_snapshot else self.patch,
-            self.snapshot,
+            self.patch,
+            _STAGES[self.stage],
+            self.build,
         )
 
 
