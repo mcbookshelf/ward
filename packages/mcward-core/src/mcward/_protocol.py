@@ -3,7 +3,7 @@
 Unknown event types parse to ``None`` and are skipped.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ._exceptions import ProcessConnectionError
@@ -22,10 +22,15 @@ class TestsStarted:
 
 @dataclass(frozen=True)
 class BatchStarted:
-    """Tests of the given game-test environment begin."""
+    """Tests of the given game-test environment begin.
+
+    ``total`` is the number of tests the batch will run, when the server
+    reports it.
+    """
 
     environment: str
     dimension: str | None = None
+    total: int | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +76,34 @@ class Diagnostic:
 
 
 @dataclass(frozen=True)
+class FunctionCoverage:
+    """Hit counts for one function, indexed by command order in the file."""
+
+    reached: tuple[int, ...]
+    executed: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Coverage:
+    """Coverage recorded during the run.
+
+    A command is *reached* when it starts executing and *executed* when its
+    final command dispatches with at least one source: an ``execute`` line
+    whose fork or condition dropped every source is reached but not executed.
+
+    ``conditions`` counts data-driven conditionals: registry id, then element
+    id, then the condition's path within the element's JSON to its
+    ``(times_true, times_false)`` outcomes. ``runs`` counts the gated blocks
+    themselves (loot entries, item modifier functions) with the same keys,
+    holding ``(times_reached, times_ran)``.
+    """
+
+    functions: dict[str, FunctionCoverage]
+    conditions: dict[str, dict[str, dict[str, tuple[int, int]]]] = field(default_factory=dict)
+    runs: dict[str, dict[str, dict[str, tuple[int, int]]]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class TestsFinished:
     """The run completed, with its aggregate counts."""
 
@@ -102,10 +135,22 @@ type Event = (
     | TestPassed
     | TestFailed
     | Diagnostic
+    | Coverage
     | TestsFinished
     | Status
     | StreamError
 )
+
+
+def _node_counts(data: dict[str, Any]) -> dict[str, dict[str, dict[str, tuple[int, int]]]]:
+    """Nested per-node count pairs: registry, then element, then path."""
+    return {
+        registry: {
+            element: {path: (first, second) for path, (first, second) in nodes.items()}
+            for element, nodes in elements.items()
+        }
+        for registry, elements in data.items()
+    }
 
 
 def parse_event(data: dict[str, Any]) -> Event | None:
@@ -120,6 +165,7 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                 return BatchStarted(
                     environment=data["environment"],
                     dimension=data.get("dimension"),
+                    total=data.get("total"),
                 )
             case "batch_finished":
                 return BatchFinished(
@@ -143,6 +189,15 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                     kind=data["kind"],
                     id=data["id"],
                     message=data["message"],
+                )
+            case "coverage":
+                return Coverage(
+                    functions={
+                        name: FunctionCoverage(tuple(counts["reached"]), tuple(counts["executed"]))
+                        for name, counts in data["functions"].items()
+                    },
+                    conditions=_node_counts(data.get("conditions", {})),
+                    runs=_node_counts(data.get("runs", {})),
                 )
             case "tests_finished":
                 return TestsFinished(

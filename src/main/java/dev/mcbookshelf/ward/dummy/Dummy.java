@@ -41,8 +41,8 @@ import net.minecraft.world.phys.Vec3;
  * Inspired by <a href="https://github.com/gnembon/fabric-carpet">Carpet</a>.
  */
 public class Dummy extends ServerPlayer {
-	public final Vec3 ward$originalSpawnPosition;
-	public final Vec2 ward$originalSpawnRotation;
+	public final Vec3 spawnPosition;
+	public final Vec2 spawnRotation;
 
 	public static Dummy create(ServerLevel level, Vec3 position, Vec2 rotation) {
 		PlayerList players = level.getServer().getPlayerList();
@@ -78,11 +78,11 @@ public class Dummy extends ServerPlayer {
 			ServerLevel level,
 			GameProfile gameProfile,
 			ClientInformation clientInformation,
-			Vec3 originalSpawnPosition,
-			Vec2 originalSpawnRotation) {
+			Vec3 spawnPosition,
+			Vec2 spawnRotation) {
 		super(server, level, gameProfile, clientInformation);
-		this.ward$originalSpawnPosition = originalSpawnPosition;
-		this.ward$originalSpawnRotation = originalSpawnRotation;
+		this.spawnPosition = spawnPosition;
+		this.spawnRotation = spawnRotation;
 	}
 
 	public void leave(Component reason) {
@@ -148,8 +148,8 @@ public class Dummy extends ServerPlayer {
 
 	@Override
 	public BlockPos adjustSpawnLocation(ServerLevel level, BlockPos spawnSuggestion) {
-		// Return exact spawn position without searching for safe spots
-		return BlockPos.containing(this.ward$originalSpawnPosition);
+		// No safe-spot search: the test placed the dummy on purpose
+		return BlockPos.containing(this.spawnPosition);
 	}
 
 	@Override

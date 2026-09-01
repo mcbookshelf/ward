@@ -15,6 +15,6 @@ public class ServerPlayerMixin {
 	@Inject(method = "sendSystemMessage(Lnet/minecraft/network/chat/Component;Z)V", at = @At("HEAD"))
 	private void sendSystemMessage(Component message, boolean overlay, CallbackInfo ci) {
 		ServerPlayer player = (ServerPlayer) (Object) this;
-		ChatRecorder.record(player.getUUID(), player.level().getGameTime(), message.getString());
+		ChatRecorder.record(player.getUUID(), message.getString());
 	}
 }

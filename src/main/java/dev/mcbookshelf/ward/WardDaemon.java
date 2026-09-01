@@ -25,12 +25,9 @@ public final class WardDaemon {
 	private WardDaemon(LevelStorageSource source, String levelId) {
 		this.source = source;
 		this.levelId = levelId;
-		this.bridge = new WardBridge(this, Path.of(Objects.requireNonNull(Ward.DAEMON)).toAbsolutePath());
+		this.bridge = new WardBridge(this, Path.of(Objects.requireNonNull(Ward.PORT_FILE)).toAbsolutePath());
 	}
 
-	/**
-	 * Creates and starts the daemon in place of the vanilla dedicated server.
-	 */
 	public static void launch(LevelStorageSource source, LevelStorageSource.LevelStorageAccess storage) {
 		try {
 			String levelId = storage.getLevelId();
@@ -50,26 +47,17 @@ public final class WardDaemon {
 		return !this.busy;
 	}
 
-	/**
-	 * Boots a fresh server and runs tests matching the given selection.
-	 */
-	public synchronized void runTests(String selection) throws Exception {
+	public synchronized void runTests(String selection, boolean coverage) throws Exception {
 		if (this.busy) throw new Exception("Tests are already running");
 		this.busy = true;
-		new Thread(() -> boot(selection), "Ward bootstrap").start();
+		new Thread(() -> boot(selection, coverage), "Ward bootstrap").start();
 	}
 
-	/**
-	 * Broadcasts an asynchronous failure to connected clients.
-	 */
 	public void reportFailure(Throwable failure) {
 		Ward.LOGGER.error("Failed to run tests", failure);
 		bridge.broadcastError("server_error", LoadDiagnostic.describe(failure));
 	}
 
-	/**
-	 * Stops the daemon: closes the bridge, halts any active server and exits the process.
-	 */
 	public void shutdown() {
 		new Thread(() -> {
 			try {
@@ -100,16 +88,13 @@ public final class WardDaemon {
 		this.busy = false;
 	}
 
-	/**
-	 * Loads the world and spins up a server for this run.
-	 */
-	private void boot(String selection) {
+	private void boot(String selection, boolean coverage) {
 		try {
 			LevelStorageSource.LevelStorageAccess storage = this.source.validateAndCreateAccess(this.levelId);
 
 			try {
 				PackRepository packs = ServerPacksSource.createPackRepository(storage);
-				WardServer started = MinecraftServer.spin(thread -> WardServer.create(this, thread, storage, packs, selection));
+				WardServer started = MinecraftServer.spin(thread -> WardServer.create(this, thread, storage, packs, selection, coverage));
 
 				synchronized (this) {
 					this.server = started;

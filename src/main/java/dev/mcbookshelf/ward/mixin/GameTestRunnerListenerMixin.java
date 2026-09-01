@@ -10,13 +10,13 @@ import net.minecraft.server.level.ServerLevel;
 
 import dev.mcbookshelf.ward.ForceloadGuard;
 
-/**
- * Keeps {@link ForceloadGuard} chunks out of the runner's cleanup, which otherwise clears every forced chunk of the level.
- */
 @Mixin(targets = "net.minecraft.gametest.framework.GameTestRunner$1")
 public class GameTestRunnerListenerMixin {
+	/**
+	 * Keeps {@link ForceloadGuard} chunks out of the runner's cleanup, which otherwise clears every forced chunk of the level.
+	 */
 	@WrapOperation(method = {"testCompleted", "testFailed"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;getForceLoadedChunks()Lit/unimi/dsi/fastutil/longs/LongSet;"))
-	private LongSet ward$excludeUserForceloads(ServerLevel level, Operation<LongSet> original) {
+	private LongSet excludeGuardedChunks(ServerLevel level, Operation<LongSet> original) {
 		return ForceloadGuard.exclude(level, original.call(level));
 	}
 }

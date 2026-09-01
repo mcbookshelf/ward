@@ -51,7 +51,7 @@ def stop(version: str | None, all: bool = False) -> None:
         print_warning(f"Version {env.version.name} is not running")
         return
 
-    envs = [cast(RunningEnvironment, manager.get(v.name)) for v in manager.list_running()]
+    envs = _running_environments()
     if not envs:
         print_note("No versions running")
         return
@@ -78,7 +78,7 @@ def stop(version: str | None, all: bool = False) -> None:
 @click.command()
 def status() -> None:
     """Show status of running daemons."""
-    envs = [cast(RunningEnvironment, manager.get(v.name)) for v in manager.list_running()]
+    envs = _running_environments()
     if not envs:
         print_note("No versions running")
         return
@@ -98,3 +98,7 @@ def status() -> None:
         table.add_row(env.version.name, str(env.process.pid), str(env.process.port), state)
 
     console.print("", table)
+
+
+def _running_environments() -> list[RunningEnvironment]:
+    return [cast(RunningEnvironment, manager.get(v.name)) for v in manager.list_running()]

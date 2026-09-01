@@ -9,7 +9,9 @@ from queue import Queue
 
 from ._environments import RunningEnvironment
 from ._protocol import (
+    BatchFinished,
     BatchStarted,
+    Coverage,
     Diagnostic,
     Event,
     StreamError,
@@ -42,11 +44,15 @@ class VersionOutcome:
 
 @dataclass(frozen=True)
 class TestBatch:
-    """A group of tests sharing the same game-test environment and dimension."""
+    """A group of tests sharing the same game-test environment and dimension.
+
+    ``total`` is the announced test count, known before results arrive.
+    """
 
     name: str
     results: list[TestResult]
     dimension: str | None = None
+    total: int | None = None
 
 
 @dataclass
@@ -106,14 +112,26 @@ class TestSession:
         self._diagnostics: dict[Diagnostic, list[Version]] = {}
         self._batches: list[tuple[str, str | None]] = []
         self._current_batch: dict[Version, tuple[str, str | None]] = {}
+        self._batch_totals: dict[tuple[str, str | None], int] = {}
         self._finished: dict[Version, TestsFinished] = {}
         self._aborted: dict[Version, str] = {}
+        self._coverage: dict[Version, Coverage] = {}
         self._total = 0
 
     @property
     def aborted(self) -> dict[Version, str]:
         """Versions whose whole test stream died, mapped to the fatal error."""
         return self._aborted
+
+    @property
+    def active_batches(self) -> set[tuple[str, str | None]]:
+        """Batches some version has started and not yet finished."""
+        return set(self._current_batch.values())
+
+    @property
+    def coverage(self) -> dict[Version, Coverage]:
+        """Function coverage per version, for runs that requested it."""
+        return self._coverage
 
     @property
     def diagnostics(self) -> dict[Diagnostic, list[Version]]:
@@ -136,17 +154,13 @@ class TestSession:
     @property
     def batches(self) -> list[TestBatch]:
         """Tests grouped by game-test environment, in discovery order."""
+        grouped: dict[tuple[str, str | None], list[TestResult]] = {key: [] for key in self._batches}
+        for result in self._results.values():
+            if (key := (result.batch, result.dimension)) in grouped:
+                grouped[key].append(result)
         return [
-            TestBatch(
-                name,
-                [
-                    result
-                    for result in self._results.values()
-                    if (result.batch, result.dimension) == (name, dimension)
-                ],
-                dimension,
-            )
-            for name, dimension in self._batches
+            TestBatch(name, results, dimension, self._batch_totals.get((name, dimension)))
+            for (name, dimension), results in grouped.items()
         ]
 
     @property
@@ -180,8 +194,13 @@ class TestSession:
         match event:
             case TestsStarted(total=total):
                 self._total = max(self._total, total)
-            case BatchStarted(environment=environment, dimension=dimension):
+            case BatchStarted(environment=environment, dimension=dimension, total=total):
                 self._current_batch[version] = (environment, dimension)
+                if total is not None:
+                    self._batch_totals[(environment, dimension)] = total
+            case BatchFinished(environment=environment, dimension=dimension):
+                if self._current_batch.get(version) == (environment, dimension):
+                    del self._current_batch[version]
             case TestPassed(name=name, time=time):
                 self._record(version, name, VersionOutcome(TestStatus.PASSED, time))
             case TestFailed(
@@ -193,6 +212,8 @@ class TestSession:
                 versions = self._diagnostics.setdefault(diagnostic, [])
                 if version not in versions:
                     versions.append(version)
+            case Coverage() as coverage:
+                self._coverage[version] = coverage
             case TestsFinished() as finished:
                 self._finished[version] = finished
             case StreamError(message=message):
@@ -212,6 +233,7 @@ def run_tests(
     datapacks: Sequence[Path],
     environments: Sequence[RunningEnvironment],
     selector: str = "*:*",
+    coverage: bool = False,
     timeout: float | None = None,
 ) -> Iterator[TestSession]:
     """Stream tests across already-running environments, aggregating results.
@@ -224,7 +246,7 @@ def run_tests(
 
     def stream_events(env: RunningEnvironment) -> None:
         try:
-            for event in env.test(list(datapacks), selector, timeout=timeout):
+            for event in env.test(list(datapacks), selector, coverage=coverage, timeout=timeout):
                 events.put((env.version, event))
         except Exception as error:
             events.put((env.version, StreamError(str(error))))

@@ -5,7 +5,7 @@ import java.util.function.Predicate;
 import net.minecraft.resources.ResourceKey;
 
 /**
- * Duck interface implemented by {@code MappedRegistryMixin} to mutate frozen registries.
+ * Implemented by {@code MappedRegistryMixin}.
  */
 public interface MappedRegistryAccessor<T> {
 	void ward$unfreeze();

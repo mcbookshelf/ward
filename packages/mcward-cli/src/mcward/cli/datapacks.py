@@ -1,5 +1,6 @@
 """Datapack discovery, pack.mcmeta parsing and resource-to-file resolution."""
 
+import glob
 import json
 import os
 import zipfile
@@ -26,14 +27,14 @@ class DataPack:
 
 def discover_datapacks(patterns: Sequence[str]) -> list[DataPack]:
     """Find the datapacks (directories or zips) matching the glob patterns."""
-    cwd = Path.cwd()
     paths = set()
 
     for pattern in patterns:
         if (p := Path(pattern)).exists():
             paths.add(p.resolve())
         else:
-            paths.update(p.resolve() for p in cwd.glob(pattern))
+            matches = glob.glob(pattern, recursive=True, include_hidden=True)
+            paths.update(Path(m).resolve() for m in matches)
 
     return [parse_datapack(p) for p in paths if _is_datapack(p)]
 

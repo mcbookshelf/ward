@@ -47,8 +47,7 @@ cli.add_command(test)
 
 def main() -> None:
     try:
-        # Click expands globs itself on Windows, which would consume -p patterns
-        # discover_datapacks resolves them instead
+        # discover_datapacks expands -p globs itself; Click's Windows expansion would eat them
         cli(windows_expand_args=False)
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted[/yellow]")

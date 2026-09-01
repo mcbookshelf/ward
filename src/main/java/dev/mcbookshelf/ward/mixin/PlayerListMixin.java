@@ -10,6 +10,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.authlib.GameProfile;
+import net.fabricmc.fabric.impl.networking.PacketListenerExtensions;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -41,7 +42,7 @@ import dev.mcbookshelf.ward.dummy.Dummy;
 import dev.mcbookshelf.ward.dummy.FakeGamePacketListener;
 
 /**
- * Keeps dummies out of persistent state (saves, stats, advancements) and records broadcasts for chat assertions.
+ * Dummies never touch the disk: their stats and advancements live here, in memory, and saves are skipped.
  */
 @Mixin(PlayerList.class)
 public abstract class PlayerListMixin {
@@ -82,15 +83,11 @@ public abstract class PlayerListMixin {
 	}
 
 	/**
-	 * Records the server-side copy of a broadcast so chat assertions can see it even when no player is online to receive it.
+	 * Chat assertions see broadcasts even when no player is online to receive them.
 	 */
 	@Unique
 	private void ward$recordServerCopy(Component message) {
-		ServerLevel overworld = this.server.overworld();
-
-		if (overworld != null) {
-			ChatRecorder.record(Util.NIL_UUID, overworld.getGameTime(), message.getString());
-		}
+		ChatRecorder.record(Util.NIL_UUID, message.getString());
 	}
 
 	@Inject(method = "remove", at = @At("RETURN"))
@@ -98,6 +95,13 @@ public abstract class PlayerListMixin {
 		if (player instanceof Dummy) {
 			this.ward$stats.remove(player.getUUID());
 			this.ward$advancements.remove(player.getUUID());
+
+			// Fabric untracks its per-player network addon from a global registry when the netty
+			// channel goes inactive, which a fake connection never does: without this, every dummy
+			// pins its whole server in the daemon until the JVM runs out of memory
+			if (player.connection instanceof PacketListenerExtensions extensions) {
+				extensions.getAddon().handleDisconnect();
+			}
 		}
 	}
 
@@ -146,7 +150,7 @@ public abstract class PlayerListMixin {
 			Operation<ServerPlayer> original,
 			@Local(argsOnly = true) ServerPlayer player) {
 		return player instanceof Dummy dummy
-				? new Dummy(server, level, profile, cli, dummy.ward$originalSpawnPosition, dummy.ward$originalSpawnRotation)
+				? new Dummy(server, level, profile, cli, dummy.spawnPosition, dummy.spawnRotation)
 				: original.call(server, level, profile, cli);
 	}
 }

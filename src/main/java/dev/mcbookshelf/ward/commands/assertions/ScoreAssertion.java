@@ -2,11 +2,13 @@ package dev.mcbookshelf.ward.commands.assertions;
 
 import java.util.function.BiPredicate;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.minecraft.advancements.predicates.MinMaxBounds;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.ObjectiveArgument;
@@ -21,40 +23,44 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class ScoreAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
+	public void attach(
+			LiteralArgumentBuilder<CommandSourceStack> root,
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext context,
+			Mode mode) {
 		root.then(Commands.literal("score")
 				.then(Commands.argument("target", ScoreHolderArgument.scoreHolder())
 						.suggests(ScoreHolderArgument.SUGGEST_SCORE_HOLDERS)
 						.then(Commands.argument("target_objective", ObjectiveArgument.objective())
-								.then(buildScore(assertion, Integer::equals, "="))
-								.then(buildScore(assertion, (a, b) -> a < b, "<"))
-								.then(buildScore(assertion, (a, b) -> a <= b, "<="))
-								.then(buildScore(assertion, (a, b) -> a > b, ">"))
-								.then(buildScore(assertion, (a, b) -> a >= b, ">="))
+								.then(buildScore(mode, Integer::equals, "="))
+								.then(buildScore(mode, (a, b) -> a < b, "<"))
+								.then(buildScore(mode, (a, b) -> a <= b, "<="))
+								.then(buildScore(mode, (a, b) -> a > b, ">"))
+								.then(buildScore(mode, (a, b) -> a >= b, ">="))
 								.then(Commands.literal("matches")
 										.then(Commands.argument("range", RangeArgument.intRange())
-												.executes(ctx -> runRange(ctx, assertion)))))));
+												.executes(ctx -> runRange(ctx, mode)))))));
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> buildScore(
-			Context assertion,
+			Mode mode,
 			BiPredicate<Integer, Integer> predicate,
 			String op) {
 		return Commands.literal(op)
 				.then(Commands.argument("source", ScoreHolderArgument.scoreHolder())
 						.suggests(ScoreHolderArgument.SUGGEST_SCORE_HOLDERS)
 						.then(Commands.argument("source_objective", ObjectiveArgument.objective())
-								.executes(ctx -> run(ctx, assertion, predicate, op))));
+								.executes(ctx -> run(ctx, mode, predicate, op))));
 	}
 
 	private static int run(
 			CommandContext<CommandSourceStack> context,
-			Context assertion,
+			Mode mode,
 			BiPredicate<Integer, Integer> operation,
 			String op) throws CommandSyntaxException {
 		Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
 
-		return assertion.check(() -> {
+		return mode.check(() -> {
 			ScoreHolder target = ScoreHolderArgument.getName(context, "target");
 			ScoreHolder source = ScoreHolderArgument.getName(context, "source");
 			Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
@@ -75,11 +81,11 @@ class ScoreAssertion implements Assertion {
 		});
 	}
 
-	private static int runRange(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
+	private static int runRange(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
 		MinMaxBounds.Ints range = RangeArgument.Ints.getRange(context, "range");
 		Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
 
-		return assertion.check(() -> {
+		return mode.check(() -> {
 			ScoreHolder target = ScoreHolderArgument.getName(context, "target");
 			Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
 			ReadOnlyScoreInfo scoreInfo = scoreboard.getPlayerScoreInfo(target, targetObjective);

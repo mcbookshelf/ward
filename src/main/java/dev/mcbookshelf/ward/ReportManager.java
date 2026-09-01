@@ -34,7 +34,7 @@ public class ReportManager {
 	public static synchronized void report(LoadDiagnostic diagnostic) {
 		JsonObject data = new JsonObject();
 		data.addProperty("severity", diagnostic.severity().name().toLowerCase(Locale.ROOT));
-		data.addProperty("kind", diagnostic.type());
+		data.addProperty("kind", diagnostic.kind());
 		data.addProperty("id", diagnostic.id());
 		data.addProperty("message", diagnostic.message());
 		broadcast("load_diagnostic", data);
@@ -58,12 +58,18 @@ public class ReportManager {
 		broadcast("tests_started", data);
 	}
 
-	public static synchronized void batchStarted(int index, String environment, String dimension) {
-		broadcast("batch_started", createBatchData(index, environment, dimension));
+	public static synchronized void batchStarted(int index, String environment, String dimension, int total) {
+		JsonObject data = createBatchData(index, environment, dimension);
+		data.addProperty("total", total);
+		broadcast("batch_started", data);
 	}
 
 	public static synchronized void batchFinished(int index, String environment, String dimension) {
 		broadcast("batch_finished", createBatchData(index, environment, dimension));
+	}
+
+	public static synchronized void reportCoverage(JsonObject report) {
+		broadcast("coverage", report);
 	}
 
 	public static synchronized void runFinished(long elapsedMs) {

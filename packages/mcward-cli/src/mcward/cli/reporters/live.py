@@ -2,12 +2,14 @@
 
 from collections.abc import Sequence
 from pathlib import Path
+from time import monotonic
 
 from rich.live import Live
 from rich.text import Text
 
 from mcward import (
     RunningEnvironment,
+    TestBatch,
     TestResult,
     TestSession,
     TestStatus,
@@ -38,6 +40,8 @@ def run(
     datapacks: Sequence[Path],
     environments: Sequence[RunningEnvironment],
     selector: str = "*:*",
+    coverage: bool = False,
+    verbose: bool = False,
     resolve: FileResolver | None = None,
 ) -> TestSession:
     """Run tests across running environments with a live Rich display."""
@@ -45,10 +49,16 @@ def run(
     console.print(render_header([p.name for p in datapacks], versions))
     resolve = resolve or pack_resolver(datapacks)
 
-    session = TestSession(versions)  # placeholder so the return is always bound
+    session = TestSession(versions)  # rebound by every frame; bound even if none arrives
+    rendered = 0.0
     with Live(console=console, refresh_per_second=10) as live:
-        for session in run_tests(datapacks, environments, selector=selector):
-            live.update(render_session(session, resolve), refresh=False)
+        for session in run_tests(datapacks, environments, selector=selector, coverage=coverage):
+            # Events can outpace the display many times over; render at frame rate
+            if (now := monotonic()) - rendered < 0.1:
+                continue
+            rendered = now
+            live.update(render_session(session, resolve, verbose), refresh=False)
+        live.update(render_session(session, resolve, verbose), refresh=False)
     return session
 
 
@@ -58,10 +68,7 @@ def format_millis(millis: int) -> str:
 
 
 def describe_failure(outcome: VersionOutcome, file: str | None = None) -> str:
-    """The failure message, with the position suffix when the test carries one.
-
-    With a ``path:line`` relative to the project root when applicable.
-    """
+    """The failure message, with its position (``file:line`` when the file is known) and tick."""
     if outcome.line is None:
         return outcome.error
     if file is None:
@@ -81,20 +88,34 @@ def render_header(datapacks: Sequence[str], versions: Sequence[Version]) -> Text
     return text
 
 
-def render_session(session: TestSession, resolve: FileResolver | None = None) -> Text:
+def render_session(
+    session: TestSession,
+    resolve: FileResolver | None = None,
+    verbose: bool = False,
+) -> Text:
     """The full aggregated results view for the test phase."""
     text = Text()
+    batches = session.batches
+    summary = session.summary
     _render_diagnostics(text, session, resolve)
-    for batch in session.batches:
-        label = f"{batch.name} ({batch.dimension})" if batch.dimension else batch.name
-        text.append(f"\n {label}\n", "dim")
-        for result in batch.results:
-            _render_result(text, result, resolve)
+    if not verbose and batches:
+        text.append("\n")
+        active = session.active_batches if not summary.done else set()
+        width = max(len(batch.name) for batch in batches)
+        counts = [_count(batch) for batch in batches]
+        count_width = max(map(len, counts))
+        for batch, count in zip(batches, counts, strict=True):
+            _render_batch(text, batch, active, width, f"{count:>{count_width}}", resolve)
+    else:
+        for batch in batches:
+            text.append(f"\n {_label(batch)}\n", "dim")
+            for result in batch.results:
+                _render_result(text, result, resolve)
 
     for version, message in session.aborted.items():
         text.append(f"✗ {version.name}: {message}\n", "red")
     text.append("\n")
-    _render_summary(text, session.summary, session.versions)
+    _render_summary(text, summary, session.versions)
     return text
 
 
@@ -123,10 +144,57 @@ def _render_diagnostics(
         text.append(f"  {diagnostic.message}\n", f"dim {style}")
 
 
+def _render_batch(
+    text: Text,
+    batch: TestBatch,
+    active: set[tuple[str, str | None]],
+    width: int,
+    count: str,
+    resolve: FileResolver | None = None,
+) -> None:
+    """One line per batch: status symbol, name, dimension, aligned passed count."""
+    statuses = [result.status for result in batch.results]
+    if TestStatus.FAILED in statuses:
+        status: TestStatus | None = TestStatus.FAILED
+    elif None in statuses or (batch.name, batch.dimension) in active:
+        status = None
+    elif TestStatus.SKIPPED in statuses:
+        status = TestStatus.SKIPPED
+    else:
+        status = TestStatus.PASSED
+
+    symbol, style = _SYMBOL[status]
+    text.append(f"{_frame(symbol)} ", style)
+    text.append(f"{batch.name:<{width}}")
+    text.append(f" {count}")
+    if batch.dimension:
+        text.append(f" ({batch.dimension})", "dim")
+    text.append("\n")
+
+    for result in batch.results:
+        if result.status in (TestStatus.FAILED, TestStatus.SKIPPED):
+            _render_result(text, result, resolve)
+
+
+def _label(batch: TestBatch) -> str:
+    return f"{batch.name} ({batch.dimension})" if batch.dimension else batch.name
+
+
+def _count(batch: TestBatch) -> str:
+    """Passed over the announced batch size, so the denominator is stable mid-run."""
+    passed = sum(result.status is TestStatus.PASSED for result in batch.results)
+    return f"{passed}/{max(batch.total or 0, len(batch.results))}"
+
+
+def _frame(symbol: str | tuple[str, ...]) -> str:
+    if isinstance(symbol, tuple):
+        return symbol[(int(console.get_time() * 16 % len(symbol)))]
+    return symbol
+
+
 def _render_result(text: Text, result: TestResult, resolve: FileResolver | None = None) -> None:
     symbol, symbol_style = _SYMBOL[result.status]
-    if isinstance(symbol, tuple):
-        symbol = symbol[(int(console.get_time() * 16 % len(symbol)))]
+    symbol = _frame(symbol)
 
     text.append("  ")
     text.append(f"{symbol} ", symbol_style)
@@ -176,7 +244,11 @@ def _render_failure(
 
 def _render_summary(text: Text, summary: TestSummary, versions: tuple[Version, ...]) -> None:
     if not summary.done:
-        text.append(f"Tests: {summary.completed}/{summary.total} completed", "dim")
+        if summary.total:
+            text.append(f"Tests: {summary.completed}/{summary.total} completed", "dim")
+        else:
+            # Nothing has been announced yet: the server is still deploying and booting
+            text.append("Starting tests…", "dim")
         return
 
     if len(versions) > 1:

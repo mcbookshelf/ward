@@ -46,9 +46,6 @@ public class WardRegistries {
 		this.registries = registries;
 	}
 
-	/**
-	 * Releases the last run's test functions from the global TEST_FUNCTION registry.
-	 */
 	public static void release() {
 		if (registeredFunctionKeys.isEmpty()) return;
 		MappedRegistry<Consumer<GameTestHelper>> functions = (MappedRegistry<Consumer<GameTestHelper>>) BuiltInRegistries.TEST_FUNCTION;
@@ -57,20 +54,17 @@ public class WardRegistries {
 	}
 
 	/**
-	 * Loads TEST_ENVIRONMENT and TEST_INSTANCE into a throwaway access via vanilla's own {@link RegistryDataLoader}.
+	 * Loads the test registries into a throwaway access; {@link #register} then copies them into the live ones.
 	 */
 	public CompletableFuture<RegistryAccess.Frozen> load(ResourceManager manager, Executor executor) {
 		return RegistryDataLoader.load(manager, this.registries.listRegistries().toList(), TEST_REGISTRIES, executor);
 	}
 
-	/**
-	 * Reloads registries and registers a TEST_FUNCTION per test (plus a TEST_INSTANCE for tests without JSON).
-	 */
 	public void register(RegistryAccess.Frozen loaded, Map<Identifier, TestFunction> tests) {
 		MappedRegistry<TestEnvironmentDefinition<?>> environments = replace(Registries.TEST_ENVIRONMENT, loaded);
 		environments.freeze();
 
-		// Left unfrozen until the loop below adds an instance per .mcfunction test
+		// Left unfrozen until the loop below adds an instance per test without a JSON definition
 		MappedRegistry<GameTestInstance> instances = replace(Registries.TEST_INSTANCE, loaded);
 		MappedRegistry<Consumer<GameTestHelper>> functions = (MappedRegistry<Consumer<GameTestHelper>>) registries.lookupOrThrow(Registries.TEST_FUNCTION);
 		clearRegistered(functions);

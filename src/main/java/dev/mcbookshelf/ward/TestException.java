@@ -23,6 +23,7 @@ public class TestException extends GameTestException {
 		return this.tick;
 	}
 
+	@Override
 	public String getMessage() {
 		return this.getDescription().getString();
 	}

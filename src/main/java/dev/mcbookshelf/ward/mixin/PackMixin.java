@@ -26,9 +26,6 @@ public class PackMixin {
 		ReportManager.report(LoadDiagnostic.error("pack.mcmeta", location.id(), LoadDiagnostic.describe(throwable)));
 	}
 
-	/**
-	 * Reports pack.mcmeta validation errors.
-	 */
 	@WrapOperation(method = "readPackMetadata", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;warn(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
 	private static void catchPackValidationError(
 			Logger logger,

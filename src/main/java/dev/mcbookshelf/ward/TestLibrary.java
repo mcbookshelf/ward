@@ -3,13 +3,13 @@ package dev.mcbookshelf.ward;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.mojang.brigadier.CommandDispatcher;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -24,7 +24,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.permissions.PermissionSet;
 
 /**
- * Discovers test .mcfunction files on every /reload, parses them into {@link TestFunction}s and hands them to {@link WardRegistries} for registration.
+ * Loads the {@code test/*.mcfunction} files on every reload and registers them as game tests.
  */
 public class TestLibrary implements PreparableReloadListener {
 	private static final FileToIdConverter TEST_FUNCTION_LISTER = new FileToIdConverter("test", ".mcfunction");
@@ -66,7 +66,7 @@ public class TestLibrary implements PreparableReloadListener {
 	private CompletableFuture<Map<Identifier, CompletableFuture<TestFunction>>> prepareTestFunctions(
 			Map<Identifier, Resource> resources,
 			Executor taskExecutor) {
-		Map<Identifier, CompletableFuture<TestFunction>> result = Maps.newHashMap();
+		Map<Identifier, CompletableFuture<TestFunction>> result = new HashMap<>();
 		CommandSourceStack compilationContext = Commands.createCompilationContext(this.testCompilationPermissions);
 
 		for (Map.Entry<Identifier, Resource> entry : resources.entrySet()) {
@@ -80,9 +80,6 @@ public class TestLibrary implements PreparableReloadListener {
 		return CompletableFuture.allOf(result.values().toArray(new CompletableFuture[0])).handle((_, _) -> result);
 	}
 
-	/**
-	 * Collects the parsed tests, reporting the ones that failed to parse.
-	 */
 	private static Map<Identifier, TestFunction> collectTestFunctions(Map<Identifier, CompletableFuture<TestFunction>> futures) {
 		ImmutableMap.Builder<Identifier, TestFunction> result = ImmutableMap.builder();
 		futures.forEach((id, future) -> future.handle((test, e) -> {

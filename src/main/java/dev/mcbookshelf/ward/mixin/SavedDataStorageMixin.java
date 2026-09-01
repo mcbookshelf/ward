@@ -11,14 +11,14 @@ import net.minecraft.world.level.storage.SavedDataStorage;
 
 import dev.mcbookshelf.ward.Ward;
 
-/**
- * Drops saved-data writes (scoreboard, raids, ...) in daemon mode.
- */
 @Mixin(SavedDataStorage.class)
 public class SavedDataStorageMixin {
+	/**
+	 * Drops saved-data writes (scoreboard, raids, ...) in daemon mode.
+	 */
 	@Inject(method = "scheduleSave", at = @At("HEAD"), cancellable = true)
 	private void skipSave(CallbackInfoReturnable<CompletableFuture<?>> cir) {
-		if (Ward.ENABLED) {
+		if (Ward.DAEMON) {
 			cir.setReturnValue(CompletableFuture.completedFuture(null));
 		}
 	}

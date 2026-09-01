@@ -27,7 +27,7 @@ class FakeEnvironment:
         self.version = version
         self._events = events
 
-    def test(self, datapacks, selector="*:*", timeout=None) -> Iterator[Event]:
+    def test(self, datapacks, selector="*:*", coverage=False, timeout=None) -> Iterator[Event]:
         if isinstance(self._events, Exception):
             raise self._events
         yield from self._events
@@ -206,6 +206,24 @@ class TestRunTests:
         result = next(r for b in session.batches for r in b.results)
         assert result.status is None
         assert not session.summary.done
+
+    def test_batches_carry_their_announced_total(self) -> None:
+        session = Session([V1])
+        session._dispatch(V1, BatchStarted(environment="default", total=17))
+        session._dispatch(V1, Passed(name="a:one", time=5))
+
+        (batch,) = session.batches
+        assert batch.total == 17
+
+    def test_active_batches_follow_the_batch_lifecycle(self) -> None:
+        session = Session([V1])
+        assert session.active_batches == set()
+
+        session._dispatch(V1, BatchStarted(environment="default"))
+        assert session.active_batches == {("default", None)}
+
+        session._dispatch(V1, BatchFinished(environment="default"))
+        assert session.active_batches == set()
 
     def test_total_falls_back_to_seen_results(self) -> None:
         """Before tests_started arrives, total mirrors the recorded results."""

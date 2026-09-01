@@ -1,0 +1,13 @@
+{
+  "type": "any_of",
+  "terms": [
+    {
+      "type": "random_chance",
+      "chance": 1.0
+    },
+    {
+      "type": "weather_check",
+      "raining": true
+    }
+  ]
+}

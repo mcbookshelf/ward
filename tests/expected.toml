@@ -14,6 +14,7 @@ passed = [
   "ward:assert_slots",
   "ward:assert_stopwatch",
   "ward:chat_server",
+  "ward:chat_delayed",
   "ward:await_entity",
   "ward:await_delay",
   "ward:await_limit",
@@ -35,7 +36,12 @@ passed = [
   "ward:use_entity_advancement",
   "ward:forceload_during",
   "ward:forceload_kept",
+  "ward:coverage_branches",
+  "ward:coverage_conditions",
 ]
+
+# Never in any report: excluded by tests/ward.toml, muted by @coverage off
+absent = ["ward:coverage/excluded", "ward:coverage/muted"]
 
 [failed]
 "ward:fail_expected" = "ward intentional failure"
@@ -47,6 +53,90 @@ passed = [
 
 [skipped]
 "ward:optional_expected" = "Fail command invoked"
+
+# Line categories per function: executed (dispatched), guarded (reached but the
+# fork or condition never passed) and unreached
+[coverage."ward:coverage/target"]
+executed = [2, 3, 4, 7, 8, 9]
+guarded = [5, 6]
+unreached = [10]
+
+[coverage."ward:coverage/check"]
+executed = [1]
+
+[coverage."ward:coverage/macro"]
+executed = [1]
+
+[coverage."ward:coverage/unused"]
+executed = []
+unreached = [1]
+
+# Marker-excluded lines (4 and 6) drop out even though they ran
+[coverage."ward:coverage/markers"]
+executed = [2]
+guarded = []
+unreached = []
+
+# Outcome counts per condition node: [times_true, times_false]. The gated
+# predicate short-circuits its second term; blocked only ever tests false
+[conditions."ward:coverage/gated"]
+"" = [1, 0]
+"terms[0]" = [1, 0]
+"terms[1]" = [0, 0]
+
+[conditions."ward:coverage/blocked"]
+"" = [0, 1]
+
+[conditions."ward:coverage/unused"]
+"" = [0, 0]
+"term" = [0, 0]
+
+# The conditional number provider drives a loot pool's rolls; spawning the
+# table's loot evaluates its condition
+[conditions."ward:coverage/rolls"]
+"condition" = [1, 0]
+
+# The emerald entry is reached on every roll but its zero-chance condition
+# always fails, so the entry stays blocked
+[conditions."ward:coverage/drops"]
+"pools[0].entries[1].condition" = [0, 1]
+
+# Block runs as [reached, ran]: rolling the table counts the table itself, its
+# entries, and the number provider and slot source it pulls in; using a lever
+# and feeding a cow fire their advancement criteria
+[runs."ward:coverage/drops"]
+"" = [1, 1]
+"pools[0].entries[0]" = [1, 1]
+"pools[0].entries[1]" = [1, 0]
+
+[runs."ward:coverage/rolls"]
+"" = [1, 1]
+
+[runs."ward:coverage/chest_slots"]
+"" = [1, 1]
+
+# Nothing references these: their universe still reports, all zero. The
+# entry node is dropped by a tests/ward.toml node pattern
+[runs."ward:coverage/untouched"]
+"" = [0, 0]
+
+[runs."ward:coverage/idle"]
+"" = [0, 0]
+
+[runs."ward:coverage/spare"]
+"" = [0, 0]
+
+# One criterion grants per lever-flipping dummy; the impossible one never fires
+[runs."ward:coverage/partial"]
+"criteria.flipped" = [2, 2]
+"criteria.never" = [0, 0]
+
+# Two tests flip a lever with their own dummies, so the criterion grants twice
+[runs."ward:use_lever"]
+"criteria.use_lever" = [2, 2]
+
+[runs."ward:feed_cow"]
+"criteria.feed" = [1, 1]
 
 [diagnostics]
 "minecraft:function" = ["ward:broken"]

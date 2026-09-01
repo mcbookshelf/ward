@@ -45,7 +45,7 @@ public class TestExecutor {
 	private final List<Dummy> dummies = new ArrayList<>();
 	private final GameTestHelper helper;
 	private final int timeout;
-	private long chatSequence = ChatRecorder.sequence();
+	private final long chatSequence = ChatRecorder.sequence();
 	private int line = 0;
 	private boolean done = false;
 
@@ -95,7 +95,6 @@ public class TestExecutor {
 				}
 			} finally {
 				current = null;
-				this.chatSequence = ChatRecorder.sequence();
 			}
 		};
 
@@ -138,9 +137,6 @@ public class TestExecutor {
 		return negated ? result.count() == 0 && !result.errored() : result.count() > 0;
 	}
 
-	/**
-	 * Retries every tick, failing with the check's own message on the last tick before the timeout.
-	 */
 	private void registerPoll(Supplier<AssertResult> check, boolean negated) {
 		this.awaits.add(() -> {
 			AssertResult retry = check.get();
@@ -197,9 +193,6 @@ public class TestExecutor {
 		return source;
 	}
 
-	/**
-	 * Removes the dummies spawned by this test once it finishes, pass or fail.
-	 */
 	private final class DummyCleanup implements GameTestListener {
 		@Override
 		public void testStructureLoaded(GameTestInfo testInfo) {

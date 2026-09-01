@@ -1,29 +1,31 @@
 package dev.mcbookshelf.ward;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
  * Records system messages sent to players so chat assertions can check them.
- * Each test remembers the last sequence number it has seen, so concurrent tests do not consume each other's messages.
  */
 public final class ChatRecorder {
-	private static final int RETENTION_TICKS = 2;
+	private static final int RETENTION_LIMIT = 4096;
 
-	private record Message(UUID recipient, long sequence, long time, String text) {
+	private record Message(UUID recipient, long sequence, String text) {
 	}
 
-	private static final List<Message> MESSAGES = new ArrayList<>();
+	private static final Deque<Message> MESSAGES = new ArrayDeque<>();
 	private static long sequence = 0;
 
 	private ChatRecorder() {
 	}
 
-	public static void record(UUID recipient, long gameTime, String text) {
-		MESSAGES.removeIf(message -> message.time() < gameTime - RETENTION_TICKS);
-		MESSAGES.add(new Message(recipient, ++sequence, gameTime, text));
+	public static void record(UUID recipient, String text) {
+		if (MESSAGES.size() >= RETENTION_LIMIT) {
+			MESSAGES.removeFirst();
+		}
+
+		MESSAGES.add(new Message(recipient, ++sequence, text));
 	}
 
 	public static void clear() {

@@ -22,6 +22,8 @@ def run(
     datapacks: Sequence[Path],
     environments: Sequence[RunningEnvironment],
     selector: str = "*:*",
+    coverage: bool = False,
+    verbose: bool = False,
     resolve: FileResolver | None = None,
 ) -> TestSession:
     """Run tests, printing the final results view and GitHub annotations."""
@@ -30,8 +32,8 @@ def run(
     resolve = resolve or pack_resolver(datapacks)
 
     # Consume the stream without rendering; it always yields a starting frame
-    *_, session = run_tests(datapacks, environments, selector=selector)
-    console.print(render_session(session, resolve))
+    *_, session = run_tests(datapacks, environments, selector=selector, coverage=coverage)
+    console.print(render_session(session, resolve, verbose))
 
     for command in annotations(session, resolve):
         print(command, flush=True)

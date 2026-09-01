@@ -40,10 +40,10 @@ public class Ward implements ModInitializer {
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
-	public static final @Nullable String DAEMON = System.getProperty("ward.daemon");
+	public static final @Nullable String PORT_FILE = System.getProperty("ward.daemon");
 	public static final @Nullable String GENERATE_COMMANDS = System.getProperty("ward.generate.commands");
 
-	public static final boolean ENABLED = DAEMON != null;
+	public static final boolean DAEMON = PORT_FILE != null;
 
 	@Override
 	public void onInitialize() {

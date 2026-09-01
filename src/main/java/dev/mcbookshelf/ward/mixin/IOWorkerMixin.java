@@ -22,26 +22,23 @@ import dev.mcbookshelf.ward.Ward;
  */
 @Mixin(IOWorker.class)
 public class IOWorkerMixin {
-	@Inject(
-			method = "store(Lnet/minecraft/world/level/ChunkPos;Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;",
-			at = @At("HEAD"),
-			cancellable = true)
+	@Inject(method = "store(Lnet/minecraft/world/level/ChunkPos;Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;", at = @At("HEAD"), cancellable = true)
 	private void skipStore(ChunkPos pos, Supplier<CompoundTag> supplier, CallbackInfoReturnable<CompletableFuture<Void>> cir) {
-		if (Ward.ENABLED) {
+		if (Ward.DAEMON) {
 			cir.setReturnValue(CompletableFuture.completedFuture(null));
 		}
 	}
 
 	@Inject(method = "loadAsync", at = @At("HEAD"), cancellable = true)
 	private void skipLoad(ChunkPos pos, CallbackInfoReturnable<CompletableFuture<Optional<CompoundTag>>> cir) {
-		if (Ward.ENABLED) {
+		if (Ward.DAEMON) {
 			cir.setReturnValue(CompletableFuture.completedFuture(Optional.empty()));
 		}
 	}
 
 	@Inject(method = "scanChunk", at = @At("HEAD"), cancellable = true)
 	private void skipScan(ChunkPos pos, StreamTagVisitor visitor, CallbackInfoReturnable<CompletableFuture<Void>> cir) {
-		if (Ward.ENABLED) {
+		if (Ward.DAEMON) {
 			cir.setReturnValue(CompletableFuture.completedFuture(null));
 		}
 	}

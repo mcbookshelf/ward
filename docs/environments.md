@@ -1,45 +1,38 @@
 # Test environments
 
-A test environment prepares the world before tests run and restores it
-afterwards: game rules, weather, time, or arbitrary setup/teardown functions.
-Tests declare their environment with the
-[`# @environment` directive](directives.md). Tests sharing an environment are
-batched together, so the setup runs once per batch, not once per test.
+An environment prepares the world before a group of tests runs, and cleans up
+after. Use one to run a setup function, freeze time, or force the weather.
 
-Environments are vanilla registry entries, following the format documented on
-the [Minecraft wiki](https://minecraft.wiki/w/Test_environment_definition).
-They live in your datapack at:
+Define it as a JSON file under `data/<namespace>/test_environment/`, then name
+it in your tests:
 
-```
-data/<namespace>/test_environment/<name>.json
+```mcfunction
+# @environment mypack:no_ticks
 ```
 
-and are referenced as `<namespace>:<name>`. The built-in `minecraft:default`
-environment (no setup at all) is used when a test declares nothing.
+Tests without the directive use the built-in `minecraft:default` environment.
+Tests that share an environment run together, in one batch.
 
-Ward changes one thing: vanilla only loads the `test_environment` registry at
-world creation, while Ward reloads it on every `/reload`. Environments
-live-update in daemon mode like the tests themselves, and a file that fails
-to parse shows up as a diagnostic in the test report.
+These are the vanilla
+[test environment definitions](https://minecraft.wiki/w/Test_environment_definition).
+The types below cover the common needs.
 
-## Environment types
+## Run functions
 
-### `minecraft:function`
-
-Runs functions around the batch. Both fields are optional. Functions run as
-the server with gamemaster permissions.
+Runs a function before the batch and another after it. Both are optional.
+They run as the server.
 
 ```json
 {
   "type": "minecraft:function",
-  "setup": "ward:helper/env_setup",
-  "teardown": "ward:helper/env_teardown"
+  "setup": "mypack:test/setup",
+  "teardown": "mypack:test/teardown"
 }
 ```
 
-### `minecraft:game_rules`
+## Set game rules
 
-Sets game rules for the batch and restores the previous values afterwards.
+Sets game rules for the batch and restores them afterwards.
 
 ```json
 {
@@ -51,10 +44,9 @@ Sets game rules for the batch and restores the previous values afterwards.
 }
 ```
 
-### `minecraft:difficulty`
+## Set the difficulty
 
-Sets the world difficulty (`peaceful`, `easy`, `normal` or `hard`) for the
-batch and restores the previous value afterwards.
+`peaceful`, `easy`, `normal` or `hard`.
 
 ```json
 {
@@ -63,9 +55,9 @@ batch and restores the previous value afterwards.
 }
 ```
 
-### `minecraft:weather`
+## Set the weather
 
-Forces `clear`, `rain` or `thunder`, and restores the previous weather.
+`clear`, `rain` or `thunder`.
 
 ```json
 {
@@ -74,10 +66,9 @@ Forces `clear`, `rain` or `thunder`, and restores the previous weather.
 }
 ```
 
-### `minecraft:clock_time`
+## Set the time
 
-Sets a world clock to a fixed time (`minecraft:overworld` and
-`minecraft:the_end` are the vanilla clocks).
+Freezes a world clock. `minecraft:overworld` and `minecraft:the_end` are the vanilla clocks.
 
 ```json
 {
@@ -87,10 +78,9 @@ Sets a world clock to a fixed time (`minecraft:overworld` and
 }
 ```
 
-### `minecraft:timeline_attributes`
+## Apply timelines
 
-Applies environment-attribute timelines to the level for the duration of the
-batch.
+Applies environment attribute timelines to the level for the batch.
 
 ```json
 {
@@ -99,16 +89,15 @@ batch.
 }
 ```
 
-### `minecraft:all_of`
+## Combine environments
 
-Composes several environments. Entries can reference other environment files
-by id, or be inlined. Teardown runs in reverse order.
+Lists other environments, by id or inline. Setup runs in order, teardown in reverse.
 
 ```json
 {
   "type": "minecraft:all_of",
   "definitions": [
-    "ward:no_ticks",
+    "mypack:no_ticks",
     {
       "type": "minecraft:weather",
       "weather": "clear"

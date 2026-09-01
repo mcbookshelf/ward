@@ -1,5 +1,6 @@
 """Tests for environment state transitions and datapack deployment."""
 
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -87,7 +88,7 @@ class TestDatapackDeployment:
     """Test how RunningEnvironment.test ships datapacks into the server world."""
 
     def test_deploys_packs_and_replaces_previous_run(self, tmp_path: Path) -> None:
-        """Old datapacks are wiped and the new ones copied in."""
+        """Old datapacks are wiped and the new ones deployed as zips."""
         env_dir = tmp_path / "env"
         deployed = env_dir / "world" / "datapacks"
         (deployed / "stale_pack").mkdir(parents=True)
@@ -97,13 +98,15 @@ class TestDatapackDeployment:
         (pack / "pack.mcmeta").write_text("{}")
         (pack / "data" / "function.mcfunction").write_text("say hi")
 
-        with patch("mcward._daemon.stream_tests") as mock_stream:
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests") as mock_stream:
             make_running(env_dir).test([pack], selector="my:*")
 
-        mock_stream.assert_called_once_with(("127.0.0.1", 25565), "my:*", timeout=None)
+        mock_stream.assert_called_once_with(
+            ("127.0.0.1", 25565), "my:*", coverage=False, timeout=None
+        )
         assert not (deployed / "stale_pack").exists()
-        assert (deployed / "my_pack" / "pack.mcmeta").exists()
-        assert (deployed / "my_pack" / "data" / "function.mcfunction").exists()
+        with zipfile.ZipFile(deployed / "my_pack.zip") as archive:
+            assert sorted(archive.namelist()) == ["data/function.mcfunction", "pack.mcmeta"]
 
     def test_excludes_development_files(self, tmp_path: Path) -> None:
         """Hidden and tooling directories never reach the server."""
@@ -113,15 +116,15 @@ class TestDatapackDeployment:
         (pack / ".git").mkdir(parents=True)
         (pack / ".git" / "HEAD").write_text("ref")
         (pack / "__pycache__").mkdir()
+        (pack / "__pycache__" / "junk.pyc").write_text("")
         (pack / "pack.mcmeta").write_text("{}")
 
-        with patch("mcward._daemon.stream_tests"):
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
             make_running(env_dir).test([pack])
 
-        deployed = env_dir / "world" / "datapacks" / "my_pack"
-        assert (deployed / "pack.mcmeta").exists()
-        assert not (deployed / ".git").exists()
-        assert not (deployed / "__pycache__").exists()
+        deployed = env_dir / "world" / "datapacks" / "my_pack.zip"
+        with zipfile.ZipFile(deployed) as archive:
+            assert archive.namelist() == ["pack.mcmeta"]
 
     def test_works_without_previous_datapacks_directory(self, tmp_path: Path) -> None:
         """The very first run has no datapacks directory to clear."""
@@ -130,10 +133,10 @@ class TestDatapackDeployment:
         pack.mkdir()
         (pack / "pack.mcmeta").write_text("{}")
 
-        with patch("mcward._daemon.stream_tests"):
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
             make_running(env_dir).test([pack])
 
-        assert (env_dir / "world" / "datapacks" / "my_pack" / "pack.mcmeta").exists()
+        assert (env_dir / "world" / "datapacks" / "my_pack.zip").is_file()
 
     def test_duplicate_pack_names_are_disambiguated(self, tmp_path: Path) -> None:
         """Packs sharing a directory name deploy side by side with a suffix."""
@@ -145,14 +148,18 @@ class TestDatapackDeployment:
             (pack / "pack.mcmeta").write_text(pack.parent.name)
 
         env_dir = tmp_path / "env"
-        with patch("mcward._daemon.stream_tests"):
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
             make_running(env_dir).test([first, second, third])
 
-        deployed = env_dir / "world" / "datapacks"
+        def mcmeta(name: str) -> str:
+            deployed = env_dir / "world" / "datapacks" / name
+            with zipfile.ZipFile(deployed) as archive:
+                return archive.read("pack.mcmeta").decode()
+
         # The suffix never displaces the real my_pack-2's own name
-        assert (deployed / "my_pack" / "pack.mcmeta").read_text() == "a"
-        assert (deployed / "my_pack-3" / "pack.mcmeta").read_text() == "b"
-        assert (deployed / "my_pack-2" / "pack.mcmeta").read_text() == "c"
+        assert mcmeta("my_pack.zip") == "a"
+        assert mcmeta("my_pack-3.zip") == "b"
+        assert mcmeta("my_pack-2.zip") == "c"
 
     def test_deploys_zipped_packs_as_files(self, tmp_path: Path) -> None:
         """A zipped datapack is copied as a file the server can read directly."""
@@ -160,7 +167,7 @@ class TestDatapackDeployment:
         pack = tmp_path / "my_pack.zip"
         pack.write_bytes(b"PK\x05\x06" + b"\x00" * 18)  # empty zip
 
-        with patch("mcward._daemon.stream_tests"):
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
             make_running(env_dir).test([pack])
 
         deployed = env_dir / "world" / "datapacks" / "my_pack.zip"
@@ -176,7 +183,7 @@ class TestDatapackDeployment:
             pack.write_bytes(b"PK\x05\x06" + b"\x00" * 18)
 
         env_dir = tmp_path / "env"
-        with patch("mcward._daemon.stream_tests"):
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
             make_running(env_dir).test([first, second])
 
         deployed = env_dir / "world" / "datapacks"
@@ -191,7 +198,39 @@ class TestDatapackDeployment:
         pack.mkdir()
 
         with (
+            patch("mcward._daemon.wait_idle"),
+            patch("mcward._environments.time.sleep"),
             patch("shutil.rmtree", side_effect=OSError("locked")),
             pytest.raises(DeployError, match="copy"),
         ):
             make_running(env_dir).test([pack])
+
+    def test_deploy_retries_through_transient_locks(self, tmp_path: Path) -> None:
+        """A briefly locked file (server shutdown, antivirus) does not fail the run."""
+        env_dir = tmp_path / "env"
+        (env_dir / "world" / "datapacks" / "stale_pack").mkdir(parents=True)
+        pack = tmp_path / "my_pack"
+        pack.mkdir()
+        (pack / "pack.mcmeta").write_text("{}")
+
+        locked = iter([OSError("locked"), OSError("locked"), None])
+
+        def rmtree(path, **kwargs):
+            if (error := next(locked)) is not None:
+                raise error
+            for child in sorted(Path(path).rglob("*"), reverse=True):
+                if child.is_dir():
+                    child.rmdir()
+                else:
+                    child.unlink()
+            Path(path).rmdir()
+
+        with (
+            patch("mcward._daemon.wait_idle"),
+            patch("mcward._environments.time.sleep"),
+            patch("mcward._daemon.stream_tests"),
+            patch("mcward._environments.shutil.rmtree", side_effect=rmtree),
+        ):
+            make_running(env_dir).test([pack])
+
+        assert (env_dir / "world" / "datapacks" / "my_pack.zip").is_file()
