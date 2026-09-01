@@ -14,7 +14,6 @@ import httpx
 from ._constants import MODRINTH_API, PACK_FORMATS, USER_AGENT
 from ._exceptions import VersionError
 
-
 # Release ("") sorts above every pre-release stage of its own version
 _STAGES = {"snapshot": 0, "pre": 1, "rc": 2, "": 3}
 
