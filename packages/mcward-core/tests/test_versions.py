@@ -18,7 +18,8 @@ class TestVersionParsing:
         assert v.year == 26
         assert v.major == 1
         assert v.patch == 2
-        assert v.snapshot == 0
+        assert v.stage == ""
+        assert v.build == 0
         assert v.is_snapshot is False
 
     def test_parse_release_without_patch(self) -> None:
@@ -27,7 +28,8 @@ class TestVersionParsing:
         assert v.year == 26
         assert v.major == 1
         assert v.patch == 0
-        assert v.snapshot == 0
+        assert v.stage == ""
+        assert v.build == 0
         assert v.is_snapshot is False
 
     def test_parse_snapshot(self) -> None:
@@ -36,7 +38,28 @@ class TestVersionParsing:
         assert v.year == 26
         assert v.major == 2
         assert v.patch == 0
-        assert v.snapshot == 6
+        assert v.stage == "snapshot"
+        assert v.build == 6
+        assert v.is_snapshot is True
+
+    def test_parse_pre_release(self) -> None:
+        v = Version.parse("26.3-pre-1")
+        assert v.name == "26.3-pre-1"
+        assert v.year == 26
+        assert v.major == 3
+        assert v.patch == 0
+        assert v.stage == "pre"
+        assert v.build == 1
+        assert v.is_snapshot is True
+
+    def test_parse_release_candidate(self) -> None:
+        v = Version.parse("26.3-rc-2")
+        assert v.name == "26.3-rc-2"
+        assert v.year == 26
+        assert v.major == 3
+        assert v.patch == 0
+        assert v.stage == "rc"
+        assert v.build == 2
         assert v.is_snapshot is True
 
     def test_parse_invalid_format(self) -> None:
@@ -55,7 +78,8 @@ class TestVersionParsing:
         assert v.year == 26
         assert v.major == 1
         assert v.patch == 2
-        assert v.snapshot == 0
+        assert v.stage == ""
+        assert v.build == 0
         assert v.is_snapshot is False
 
     def test_parse_dev_snapshot(self) -> None:
@@ -64,7 +88,8 @@ class TestVersionParsing:
         assert v.year == 26
         assert v.major == 2
         assert v.patch == 0
-        assert v.snapshot == 6
+        assert v.stage == "snapshot"
+        assert v.build == 6
         assert v.is_snapshot is True
 
 
@@ -80,6 +105,13 @@ class TestVersionComparison:
         v2 = Version.parse("26.1-snapshot-2")
         v3 = Version.parse("26.1-snapshot-10")
         assert v1 < v2 < v3
+
+    def test_stage_ordering(self) -> None:
+        snapshot = Version.parse("26.3-snapshot-10")
+        pre = Version.parse("26.3-pre-1")
+        rc = Version.parse("26.3-rc-1")
+        release = Version.parse("26.3")
+        assert snapshot < pre < rc < release
 
     def test_patch_ordering(self) -> None:
         v1 = Version.parse("26.1")
@@ -109,6 +141,8 @@ class TestVersionComparison:
             Version.parse("26.1.2"),
             Version.parse("26.1.1"),
             Version.parse("26.1"),
+            Version.parse("26.1-rc-1"),
+            Version.parse("26.1-pre-2"),
             Version.parse("26.1-snapshot-4"),
             Version.parse("26.1-snapshot-1"),
             Version.parse("26.0.5"),
@@ -122,6 +156,8 @@ class TestVersionComparison:
             "26.0.5",
             "26.1-snapshot-1",
             "26.1-snapshot-4",
+            "26.1-pre-2",
+            "26.1-rc-1",
             "26.1",
             "26.1.1",
             "26.1.2",
