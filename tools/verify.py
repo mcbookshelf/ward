@@ -11,15 +11,21 @@ import tomllib
 from pathlib import Path
 
 from mcward import (
+    CoverageIgnores,
     EnvironmentManager,
     InstalledEnvironment,
     RunningEnvironment,
     TestSession,
+    resolve_coverage,
+    resolve_functions,
+    resolve_resources,
     run_tests,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
+PACKS = [TESTS / "packs" / "ward", TESTS / "packs" / "broken", TESTS / "packs" / "overlay"]
+IGNORES = CoverageIgnores.load(TESTS)
 
 EVENT_TIMEOUT = 600  # seconds without any test event before giving up
 STATUS_COLORS = {"passed": "32", "failed": "31", "skipped": "33"}
@@ -77,9 +83,10 @@ def stream_run(running: RunningEnvironment) -> TestSession:
 
     # The default selector also proves vanilla built-ins stay out of daemon runs
     for session in run_tests(
-        [TESTS / "packs" / "ward", TESTS / "packs" / "broken", TESTS / "packs" / "overlay"],
+        PACKS,
         [running],
         selector="*:*",
+        coverage=True,
         timeout=EVENT_TIMEOUT,
     ):
         for batch in session.batches:
@@ -136,6 +143,14 @@ def check_session(session: TestSession, expected_file: Path) -> int:
             if not any(kind in d.kind and id in d.id for d in diagnostics):
                 problems.append(f"missing diagnostic: {kind} for {id}")
 
+    coverage = expected.get("coverage", {})
+    problems += check_coverage(session, version, coverage)
+    problems += check_absent(session, version, expected.get("absent", []))
+    conditions = expected.get("conditions", {})
+    problems += check_nodes(session, version, conditions, "nodes")
+    runs = expected.get("runs", {})
+    problems += check_nodes(session, version, runs, "runs")
+
     if problems:
         failure = f"run does not match {expected_file.name}"
         print(f"\n{color('FAIL:', '1;31')} {failure}", file=sys.stderr)
@@ -143,9 +158,76 @@ def check_session(session: TestSession, expected_file: Path) -> int:
             print(f"  {color('-', '31')} {problem}", file=sys.stderr)
         return 1
 
-    counts = f"{len(tests)} tests and {len(diagnostics)} diagnostics as expected"
+    counts = (
+        f"{len(tests)} tests, {len(diagnostics)} diagnostics, {len(coverage)} coverage, "
+        f"{len(conditions)} condition and {len(runs)} run reports as expected"
+    )
     print(f"\n{color('OK:', '1;32')} {counts}")
     return 0
+
+
+def check_coverage(session: TestSession, version, expected: dict) -> list[str]:
+    """Compare per-function line categories against the expected manifest."""
+    if not expected:
+        return []
+    coverage = session.coverage.get(version)
+    if coverage is None:
+        return ["missing coverage event: the run reported no coverage"]
+
+    problems = []
+    functions = resolve_functions(coverage, PACKS, ignores=IGNORES)
+    reports = {report.name: report for report in functions}
+    for name, spec in expected.items():
+        report = reports.get(name)
+        if report is None:
+            problems.append(f"missing coverage for {name}")
+            continue
+        actual = {
+            "executed": [line.line for line in report.lines if line.executed],
+            "guarded": [line.line for line in report.lines if line.reached and not line.executed],
+            "unreached": [line.line for line in report.lines if not line.reached],
+        }
+        for category, lines in spec.items():
+            if (found := actual.get(category)) != lines:
+                problems.append(f"{name}: {category} lines {found}, expected {lines}")
+    return problems
+
+
+def check_absent(session: TestSession, version, names: list[str]) -> list[str]:
+    """Elements the ignore markers and tests/ward.toml must keep out of the report."""
+    if not names:
+        return []
+    coverage = session.coverage.get(version)
+    if coverage is None:
+        return ["missing coverage event: the run reported no coverage"]
+
+    reported = {r.name for r in resolve_coverage(coverage, PACKS, ignores=IGNORES).reports}
+    return [f"{name} should be ignored but is in the report" for name in names if name in reported]
+
+
+def check_nodes(session: TestSession, version, expected: dict, field: str) -> list[str]:
+    """Compare per-resource node counts (conditions or runs) against the manifest."""
+    if not expected:
+        return []
+    coverage = session.coverage.get(version)
+    if coverage is None:
+        return ["missing coverage event: the run reported no coverage"]
+
+    problems = []
+    resolved = resolve_resources(coverage, PACKS, ignores=IGNORES)
+    resources = {resource.name: resource for resource in resolved}
+    for name, nodes in expected.items():
+        resource = resources.get(name)
+        if resource is None:
+            problems.append(f"missing {field} for {name}")
+            continue
+        recorded = getattr(resource, field)
+        actual = {node.path: list(node.counts) for node in recorded}
+        if actual != nodes:
+            problems.append(f"{name}: {field} {actual}, expected {nodes}")
+        elif any(node.lines is None for node in recorded):
+            problems.append(f"{name}: some {field} did not resolve to line spans")
+    return problems
 
 
 if __name__ == "__main__":

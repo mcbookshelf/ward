@@ -14,11 +14,11 @@ public final class AssertCommand {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
-		Assertion.Context plain = new Assertion.Context(dispatcher, context, true, false);
-		Assertion.Context not = new Assertion.Context(dispatcher, context, true, true);
+		Assertion.Mode plain = new Assertion.Mode(true, false);
+		Assertion.Mode not = new Assertion.Mode(true, true);
 
 		dispatcher.register(Assertions.build(Commands.literal("assert")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-				.then(Assertions.build(Commands.literal("not"), not)), plain));
+				.then(Assertions.build(Commands.literal("not"), dispatcher, context, not)), dispatcher, context, plain));
 	}
 }

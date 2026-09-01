@@ -63,7 +63,7 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 	 * Vanilla would throw instead, dropping the whole registry and crashing later lookups.
 	 */
 	@WrapOperation(method = "freeze", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z", ordinal = 0))
-	private boolean ward$reportUnboundValues(List<Identifier> unboundEntries, Operation<Boolean> original) {
+	private boolean reportUnboundValues(List<Identifier> unboundEntries, Operation<Boolean> original) {
 		if (!original.call(unboundEntries)) {
 			String registry = this.key().identifier().toString();
 			unboundEntries.forEach(id -> {

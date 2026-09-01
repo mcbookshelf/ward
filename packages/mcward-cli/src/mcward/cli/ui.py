@@ -3,31 +3,34 @@
 import io
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 
-import questionary
-from questionary import Style
-from questionary.prompts.common import Choice
 from rich.console import Console
 
-# Windows consoles are not always UTF-8 (cp1252 when piped)
-# Symbols like ✓ must degrade to "?" there instead of crashing the print
 for _stream in (sys.stdout, sys.stderr):
     if isinstance(_stream, io.TextIOWrapper):
         _stream.reconfigure(errors="replace")
 
 console = Console()
 
-STYLE = Style(
-    [
-        ("qmark", "ansiblue bold"),  # token in front of the question
-        ("question", "nobold"),  # question text
-        ("answer", "ansiblue nobold"),  # submitted answer text behind the question
-        ("pointer", "ansiblue bold"),  # pointer used in select and checkbox prompts
-        ("highlighted", "ansiblue"),  # pointed-at choice in select and checkbox prompts
-        ("instruction", "dim"),  # user instructions for select, rawselect, checkbox
-        ("disabled", "dim italic"),  # disabled choices for select and checkbox prompts
-    ]
-)
+_STYLE = [
+    ("qmark", "ansiblue bold"),
+    ("question", "nobold"),
+    ("answer", "ansiblue nobold"),
+    ("pointer", "ansiblue bold"),
+    ("highlighted", "ansiblue"),
+    ("instruction", "dim"),
+    ("disabled", "dim italic"),
+]
+
+
+@dataclass(frozen=True)
+class Option:
+    """A selectable entry: its title, a dimmed hint after it, and the value it yields."""
+
+    title: str
+    hint: str = ""
+    value: str | None = None
 
 
 def print_note(message: str) -> None:
@@ -44,13 +47,24 @@ def print_warning(message: str) -> None:
 
 def confirm(message: str, default: bool = False) -> bool:
     """Ask for a yes/no answer, treating a cancelled prompt as no."""
-    result = questionary.confirm(message, default=default, style=STYLE).ask()
-    return result if result is not None else False
+    import questionary  # deferred: prompts are rare and the import costs ~0.15s
+
+    style = questionary.Style(_STYLE)
+    return bool(questionary.confirm(message, default=default, style=style).ask())
 
 
-def select(message: str, choices: Sequence[str | Choice], **kwargs) -> str:
+def select(message: str, options: Sequence[str | Option]) -> str:
     """Show a selection prompt; a cancelled prompt exits cleanly."""
-    answer = questionary.select(message, choices, style=STYLE, **kwargs).ask()
+    import questionary
+
+    choices = []
+    for option in options:
+        if isinstance(option, str):
+            choices.append(option)
+            continue
+        title = [("", option.title), ("dim", f" {option.hint}")] if option.hint else option.title
+        choices.append(questionary.Choice(title, value=option.value or option.title))
+    answer = questionary.select(message, choices, style=questionary.Style(_STYLE)).ask()
     if answer is None:
         sys.exit(0)
     return answer

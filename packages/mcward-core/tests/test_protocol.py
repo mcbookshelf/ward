@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcward import Diagnostic, ProcessConnectionError, Status
+from mcward import Coverage, Diagnostic, FunctionCoverage, ProcessConnectionError, Status
 from mcward._protocol import (
     BatchFinished,
     BatchStarted,
@@ -30,6 +30,10 @@ class TestParseEvent:
             (
                 {"type": "batch_started", "environment": "e", "dimension": "minecraft:the_nether"},
                 BatchStarted(environment="e", dimension="minecraft:the_nether"),
+            ),
+            (
+                {"type": "batch_started", "environment": "e", "total": 17},
+                BatchStarted(environment="e", total=17),
             ),
             (
                 {"type": "batch_finished", "environment": "e", "dimension": "minecraft:the_nether"},
@@ -61,6 +65,24 @@ class TestParseEvent:
                     "message": "Missing type",
                 },
                 Diagnostic("error", "minecraft:loot_table", "a:broken", "Missing type"),
+            ),
+            (
+                {
+                    "type": "coverage",
+                    "functions": {"a:helper": {"reached": [2, 1, 0], "executed": [2, 0, 0]}},
+                },
+                Coverage(functions={"a:helper": FunctionCoverage((2, 1, 0), (2, 0, 0))}),
+            ),
+            (
+                {
+                    "type": "coverage",
+                    "functions": {},
+                    "conditions": {"minecraft:predicate": {"a:gate": {"": [1, 0]}}},
+                },
+                Coverage(
+                    functions={},
+                    conditions={"minecraft:predicate": {"a:gate": {"": (1, 0)}}},
+                ),
             ),
             (
                 {

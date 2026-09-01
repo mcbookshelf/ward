@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from httpx import AsyncClient
 
 from . import _java
 from ._constants import (
@@ -54,18 +53,18 @@ async def install(directory: Path, version: Version) -> None:
     The produced files are what ``_manager.INSTALLED_FILES`` checks for:
     the two must move together.
     """
-    async with AsyncClient(
+    async with httpx.AsyncClient(
         timeout=DOWNLOAD_TIMEOUT,
         follow_redirects=True,
         headers={"User-Agent": USER_AGENT},
     ) as client:
-        prod = not version.is_dev
-        vers = version.minecraft
+        minecraft = version.minecraft
         mods = directory / "mods"
+        ward = mods / "ward.jar"
         tasks = [
-            _install_server(client, vers, directory / "server.jar"),
-            _install_mod(client, "fabric-api", vers, mods / "fabric-api.jar"),
-            _install_mod(client, "ward", vers, mods / "ward.jar") if prod else _build_ward(mods),
+            _install_server(client, minecraft, directory / "server.jar"),
+            _install_mod(client, "fabric-api", minecraft, mods / "fabric-api.jar"),
+            _build_ward(mods) if version.is_dev else _install_mod(client, "ward", minecraft, ward),
         ]
         if _java.resolve() is None:
             tasks.append(_install_java(client))
@@ -78,7 +77,7 @@ async def install(directory: Path, version: Version) -> None:
             raise errors.exceptions[0] from None
 
 
-async def _install_server(client: AsyncClient, minecraft: str, file: Path) -> None:
+async def _install_server(client: httpx.AsyncClient, minecraft: str, file: Path) -> None:
     """Download the Fabric server launcher for the newest stable loader."""
     loaders = await _get_json(client, f"{FABRIC_API}/versions/loader/{minecraft}")
     if not loaders:
@@ -88,7 +87,7 @@ async def _install_server(client: AsyncClient, minecraft: str, file: Path) -> No
     await _download_file(client, url, file)
 
 
-async def _install_mod(client: AsyncClient, project: str, minecraft: str, file: Path) -> None:
+async def _install_mod(client: httpx.AsyncClient, project: str, minecraft: str, file: Path) -> None:
     """Download the newest Modrinth release of a project for this Minecraft."""
     releases = await _get_json(client, f"{MODRINTH_API}/project/{project}/version")
     for release in releases:
@@ -99,7 +98,7 @@ async def _install_mod(client: AsyncClient, project: str, minecraft: str, file: 
     raise AssetNotFoundError(project, minecraft)
 
 
-async def _install_java(client: AsyncClient) -> None:
+async def _install_java(client: httpx.AsyncClient) -> None:
     """Download and unpack a Temurin JRE into the mcward cache."""
     os_name, arch, suffix = _adoptium_platform()
     release = f"{ADOPTIUM_API}/binary/latest/{JAVA_VERSION}/ga"
@@ -118,7 +117,7 @@ async def _install_java(client: AsyncClient) -> None:
         raise JavaNotFoundError(f"provisioned runtime has no java executable in {JAVA_DIR}")
 
 
-async def _download_file(client: AsyncClient, url: str, file: Path) -> None:
+async def _download_file(client: httpx.AsyncClient, url: str, file: Path) -> None:
     """Stream the URL into the file, atomically through a .part sibling."""
     file.parent.mkdir(parents=True, exist_ok=True)
     partial = file.with_suffix(file.suffix + ".part")
@@ -136,7 +135,7 @@ async def _download_file(client: AsyncClient, url: str, file: Path) -> None:
     partial.replace(file)
 
 
-async def _get_json(client: AsyncClient, url: str) -> Any:
+async def _get_json(client: httpx.AsyncClient, url: str) -> Any:
     """GET a JSON document; network and HTTP errors become DownloadFailedError."""
     try:
         response = await client.get(url)
@@ -166,8 +165,10 @@ async def _build_ward(directory: Path) -> None:
         tail = "\n".join(output.decode(errors="replace").splitlines()[-30:])
         raise InstallError(f"Gradle build failed:\n{tail}")
 
-    libs = list((root / "build/libs").glob("*.jar"))
-    jar = next((p for p in libs if not p.stem.endswith(("-sources", "-dev"))), None)
+    jars = (root / "build/libs").glob("*.jar")
+    libs = [p for p in jars if not p.stem.endswith(("-sources", "-dev"))]
+    # Stale jars from an older mod_version can linger next to the fresh build
+    jar = max(libs, key=lambda p: p.stat().st_mtime, default=None)
     if jar is None:
         raise InstallError("No jar file found in build/libs")
     directory.mkdir(parents=True, exist_ok=True)

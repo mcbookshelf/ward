@@ -19,11 +19,12 @@ import dev.mcbookshelf.ward.AssertResult;
 import dev.mcbookshelf.ward.TestExecutor;
 
 public interface Assertion {
-	void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion);
+	void attach(
+			LiteralArgumentBuilder<CommandSourceStack> root,
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext context,
+			Mode mode);
 
-	/**
-	 * Returns the raw text the user typed for an argument.
-	 */
 	static String getRawArgument(CommandContext<?> ctx, String name) {
 		for (ParsedCommandNode<?> node : ctx.getNodes()) {
 			if (node.getNode() instanceof ArgumentCommandNode<?, ?> argNode && argNode.getName().equals(name)) {
@@ -35,20 +36,16 @@ public interface Assertion {
 		throw new IllegalArgumentException("No such argument '" + name + "' exists on this command");
 	}
 
-	record Context(
-			CommandDispatcher<CommandSourceStack> dispatcher,
-			CommandBuildContext buildContext,
-			boolean immediate,
-			boolean negated) {
-		/**
-		 * Runs the check now (assert) or every tick (await), depending on the mode.
-		 */
+	/**
+	 * How a condition is checked: now ({@code assert}) or every tick ({@code await}), and whether it is expected to fail ({@code not}).
+	 */
+	record Mode(boolean immediate, boolean negated) {
 		int check(ResultSupplier check) throws CommandSyntaxException {
 			return check(TestExecutor.current(), check.get(), check::get);
 		}
 
 		/**
-		 * Like {@link #check(ResultSupplier)}, for a first result already computed by the command engine.
+		 * For a first result the command engine already computed.
 		 */
 		int check(TestExecutor test, AssertResult first, Supplier<AssertResult> poll) {
 			if (this.immediate) return test.assertThat(first, this.negated);

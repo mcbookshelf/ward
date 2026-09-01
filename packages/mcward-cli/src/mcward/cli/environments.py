@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 
 import rich_click as click
-from questionary.prompts.common import Choice
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from mcward import (
@@ -18,7 +17,7 @@ from mcward import (
     VersionNotFoundError,
 )
 
-from .ui import console, print_note, print_success, select
+from .ui import Option, console, print_note, print_success, select
 
 manager = EnvironmentManager()
 
@@ -27,12 +26,12 @@ def curate_versions(versions: Iterable[Version]) -> list[Version]:
     """Keep all releases but only the newest snapshot of each (year, major) line."""
     seen = set()
     curated = []
-    for v in versions:
-        k = (v.year, v.major)
-        if v.is_snapshot and k in seen:
+    for version in versions:
+        line = (version.year, version.major)
+        if version.is_snapshot and line in seen:
             continue
-        curated.append(v)
-        seen.add(k)
+        curated.append(version)
+        seen.add(line)
     return curated
 
 
@@ -45,18 +44,12 @@ def get_environment(version: str) -> Environment:
 
 def select_installed(message: str) -> str:
     """Prompt for an installed version, skipping the prompt when only one fits."""
-    versions = manager.list_installed()
-    if not versions:
-        raise click.ClickException("No versions installed")
-    return versions[0].name if len(versions) == 1 else select(message, [v.name for v in versions])
+    return _select_version(manager.list_installed(), message, "No versions installed")
 
 
 def select_running(message: str) -> str:
     """Prompt for a running version, skipping the prompt when only one fits."""
-    versions = manager.list_running()
-    if not versions:
-        raise click.ClickException("No versions running")
-    return versions[0].name if len(versions) == 1 else select(message, [v.name for v in versions])
+    return _select_version(manager.list_running(), message, "No versions running")
 
 
 def select_available(message: str) -> str:
@@ -65,18 +58,13 @@ def select_available(message: str) -> str:
     if not curated:
         raise click.ClickException("No versions available")
 
-    choices = []
     snapshot = next((v for v in curated if v.is_snapshot), None)
     latest = next((v for v in curated if not v.is_snapshot), None)
-    for v in curated:
-        title = [("", v.name)]
-        if v == latest:
-            title.append(("dim", " (latest)"))
-        elif v == snapshot:
-            title.append(("dim", " (snapshot)"))
-        choices.append(Choice(title))
-
-    return select(message, choices)
+    options = []
+    for version in curated:
+        hint = "(latest)" if version == latest else "(snapshot)" if version == snapshot else ""
+        options.append(Option(version.name, hint))
+    return select(message, options)
 
 
 def select_compatible(min_format: int, max_format: int) -> list[str]:
@@ -92,10 +80,9 @@ def select_compatible(min_format: int, max_format: int) -> list[str]:
         return [versions[0].name]
 
     print_note("Pack format range supports multiple major versions")
-
-    choices = [Choice(title=[("", "Use all versions "), ("dim", "(Recommended)")], value="all")]
-    choices.extend(Choice(title=f"Use {v.name} only", value=v.name) for v in versions)
-    name = select("Select version strategy:", choices)
+    options = [Option("Use all versions", "(Recommended)", value="all")]
+    options.extend(Option(f"Use {v.name} only", value=v.name) for v in versions)
+    name = select("Select version strategy:", options)
 
     return [v.name for v in versions if name == "all" or v.name == name]
 
@@ -110,6 +97,14 @@ def start_environments(envs: Sequence[Environment]) -> list[RunningEnvironment]:
     ) as progress:
         with ThreadPoolExecutor(max_workers=len(envs)) as executor:
             return list(executor.map(lambda env: _start_environment(env, progress), envs))
+
+
+def _select_version(versions: list[Version], message: str, empty: str) -> str:
+    if not versions:
+        raise click.ClickException(empty)
+    if len(versions) == 1:
+        return versions[0].name
+    return select(message, [v.name for v in versions])
 
 
 def _start_environment(env: Environment, progress: Progress) -> RunningEnvironment:

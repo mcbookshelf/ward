@@ -85,9 +85,6 @@ public final class WardBridge {
 		Files.deleteIfExists(portFile);
 	}
 
-	/**
-	 * Broadcasts an event to all connected clients, mutating {@code data} to carry the event type.
-	 */
 	public void broadcast(String type, JsonObject data) {
 		data.addProperty("type", type);
 		channels.writeAndFlush(encode(data));
@@ -170,7 +167,8 @@ public final class WardBridge {
 
 		private void handleTest(JsonObject msg) throws Exception {
 			String selector = msg.has("selector") ? msg.get("selector").getAsString() : "*:*";
-			daemon.runTests(selector);
+			boolean coverage = msg.has("coverage") ? msg.get("coverage").getAsBoolean() : false;
+			daemon.runTests(selector, coverage);
 		}
 	}
 }

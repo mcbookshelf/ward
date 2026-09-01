@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:inverted",
+  "term": {
+    "type": "minecraft:random_chance",
+    "chance": 0.5
+  }
+}

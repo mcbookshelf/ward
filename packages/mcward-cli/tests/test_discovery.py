@@ -94,6 +94,19 @@ class TestDiscoverDatapacks:
             [datapack] = discover_datapacks([pattern])
             assert datapack.path == pack.resolve()
 
+    def test_absolute_and_recursive_patterns(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Absolute globs and ** work, like pointing -p at another project's build."""
+        write_datapack(tmp_path / "build" / "v1" / "my_pack", 81, 81)
+        write_datapack(tmp_path / "build" / "v2" / "other", 81, 81)
+        (tmp_path / "sub").mkdir()
+        monkeypatch.chdir(tmp_path / "sub")
+
+        for pattern in [str(tmp_path / "build" / "**"), "../build/**/"]:
+            names = sorted(dp.path.name for dp in discover_datapacks([pattern]))
+            assert names == ["my_pack", "other"], pattern
+
     def test_zipped_packs_are_discovered(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

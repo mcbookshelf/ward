@@ -14,9 +14,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.functions.CommandFunction;
 import net.minecraft.gametest.framework.GameTestHelper;
 
-/**
- * A test parsed from a function file, with its commands and directives.
- */
 public record TestFunction(List<Entry> commands, TestDirectives directives) {
 	public record Entry(String command, ContextChain<CommandSourceStack> chain, int line) {
 	}

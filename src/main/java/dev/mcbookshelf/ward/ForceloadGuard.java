@@ -23,9 +23,6 @@ public final class ForceloadGuard {
 	private ForceloadGuard() {
 	}
 
-	/**
-	 * Starts guarding the chunks currently forced in every dimension.
-	 */
 	public static void reset(MinecraftServer server) {
 		preRun.clear();
 		kept.clear();
@@ -35,16 +32,10 @@ public final class ForceloadGuard {
 		}
 	}
 
-	/**
-	 * Replaces the guarded set of the level's dimension.
-	 */
 	public static void update(ServerLevel level, LongSet chunks) {
 		kept.put(level.dimension(), chunks);
 	}
 
-	/**
-	 * Removes the guarded chunks from the given set.
-	 */
 	public static LongSet exclude(ServerLevel level, LongSet chunks) {
 		LongSet result = new LongOpenHashSet(chunks);
 		LongSet keptChunks = kept.get(level.dimension());

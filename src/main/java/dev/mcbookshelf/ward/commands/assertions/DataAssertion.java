@@ -1,9 +1,11 @@
 package dev.mcbookshelf.ward.commands.assertions;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.NbtPathArgument;
@@ -16,16 +18,20 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class DataAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
+	public void attach(
+			LiteralArgumentBuilder<CommandSourceStack> root,
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext context,
+			Mode mode) {
 		for (ArgProvider<DataAccessor> provider : DataCommands.SOURCE_PROVIDERS) {
 			root.then(provider.wrap(Commands.literal("data"), p -> p
 					.then(Commands.argument("path", NbtPathArgument.nbtPath())
-							.executes(ctx -> run(ctx, assertion, provider)))));
+							.executes(ctx -> run(ctx, mode, provider)))));
 		}
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Context assertion, ArgProvider<DataAccessor> provider) throws CommandSyntaxException {
-		return assertion.check(() -> {
+	private static int run(CommandContext<CommandSourceStack> context, Mode mode, ArgProvider<DataAccessor> provider) throws CommandSyntaxException {
+		return mode.check(() -> {
 			NbtPathArgument.NbtPath path = NbtPathArgument.getPath(context, "path");
 			DataAccessor accessor = provider.access(context);
 			CompoundTag data = accessor.getData();

@@ -46,16 +46,16 @@ def resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ],
 )
 def test_resolution(resources: Path, version: str | None, expected: str) -> None:
-    assert plugin._resolve_command_tree(version) == resources / f"{expected}.json"
+    assert plugin._command_tree(version) == resources / f"{expected}.json"
 
 
 @pytest.mark.parametrize("version", ["1.0", "1.0.9", "0.9.0"])
 def test_older_than_any_tree(resources: Path, version: str) -> None:
     with pytest.raises(ValueError, match="No ward command tree"):
-        plugin._resolve_command_tree(version)
+        plugin._command_tree(version)
 
 
 @pytest.mark.parametrize("version", ["abc", "", ">=1.2", "1.2.3.4", "1.x.3", "x.2"])
 def test_invalid_version(resources: Path, version: str) -> None:
     with pytest.raises(ValueError, match="Invalid ward version"):
-        plugin._resolve_command_tree(version)
+        plugin._command_tree(version)

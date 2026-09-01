@@ -1,19 +1,16 @@
 package dev.mcbookshelf.ward;
 
-/**
- * A datapack file that failed to load, with the registry kind and resource id it belongs to.
- */
-public record LoadDiagnostic(Severity severity, String type, String id, String message) {
+public record LoadDiagnostic(Severity severity, String kind, String id, String message) {
 	public enum Severity {
 		ERROR, WARN
 	}
 
-	public static LoadDiagnostic error(String type, String id, String message) {
-		return new LoadDiagnostic(Severity.ERROR, type, id, message);
+	public static LoadDiagnostic error(String kind, String id, String message) {
+		return new LoadDiagnostic(Severity.ERROR, kind, id, message);
 	}
 
-	public static LoadDiagnostic warn(String type, String id, String message) {
-		return new LoadDiagnostic(Severity.WARN, type, id, message);
+	public static LoadDiagnostic warn(String kind, String id, String message) {
+		return new LoadDiagnostic(Severity.WARN, kind, id, message);
 	}
 
 	public static String describe(Throwable error) {

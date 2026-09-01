@@ -20,15 +20,15 @@ import net.minecraft.server.level.ServerLevel;
 
 import dev.mcbookshelf.ward.ForceloadGuard;
 
-/**
- * Snapshots user forceloads into {@link ForceloadGuard} when a run starts and after each batch.
- * {@code GameTestRunnerListenerMixin} then keeps those chunks out of the runner's cleanup.
- */
 @Mixin(GameTestRunner.class)
 public class GameTestRunnerMixin {
 	@Shadow
 	private ImmutableList<GameTestBatch> batches;
 
+	/**
+	 * Snapshots the chunks datapacks forced into {@link ForceloadGuard} when a run starts and after each batch.
+	 * {@code GameTestRunnerListenerMixin} then keeps them out of the runner's cleanup.
+	 */
 	@Inject(method = "start", at = @At("HEAD"))
 	private void snapshotForcedChunks(CallbackInfo info) {
 		ServerLevel level = this.ward$anyLevel();

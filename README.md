@@ -17,7 +17,7 @@
 
 <br/>
 
-<p align="center">Ward lets you write automated tests for your datapacks as plain <code>.mcfunction</code> files in a <code>test/</code> folder.</p>
+<p align="center">Ward runs automated tests for Minecraft datapacks. Tests are plain <code>.mcfunction</code> files in a <code>test/</code> folder.</p>
 
 <p align="center"><img src="./docs/assets/demo.gif" alt="demo"></p>
 <p align="center"><i>A test run with <code>ward</code>, results stream in live.</i></p>
@@ -31,13 +31,13 @@ Ward comes in two parts:
   </tr>
   <tr>
     <td align="center" nowrap>🐍 <b>CLI</b> - <a href="https://pypi.org/project/mcward/">PyPI</a></td>
-    <td>Installs test servers (Java and the mod are fetched for you) and runs your packs on one or several Minecraft versions. Also ships a <a href="https://github.com/mcbeet/beet">beet</a> plugin that adds <code>beet test</code>.</td>
+    <td>Installs test servers and runs your packs on one or more Minecraft versions. Java and the mod are downloaded for you. Also ships a <a href="https://github.com/mcbeet/beet">beet</a> plugin that adds <code>beet test</code>.</td>
   </tr>
 </table>
 
 ## Quickstart
 
-Install the CLI:
+Install the CLI (requires Python 3.14 or newer):
 
 ```sh
 uv tool install mcward[cli]   # or: pip install mcward[cli]
@@ -46,27 +46,29 @@ uv tool install mcward[cli]   # or: pip install mcward[cli]
 Write a test in your datapack under `data/<namespace>/test/`:
 
 ```mcfunction
-# @max_ticks 100
-summon minecraft:armor_stand ~ ~ ~ {Tags: ["target"]}
-assert entity @e[tag=target]
+# @max_ticks 20
+summon minecraft:zombie ~ ~ ~ {Tags: ["target"]}
+kill @e[tag=target]
+await not entity @e[tag=target]
 ```
 
-Run it:
+Ward finds your packs, picks matching versions, and runs the tests:
 
 ```sh
-ward   # discovers your packs, picks compatible versions, runs the tests
+ward
 ```
 
-Comment lines starting with `@` are [directives](docs/directives.md) that
-configure the test, and `assert` is one of the [test commands](docs/commands.md).
+Comments starting with `@` are [directives](docs/directives.md). They configure the test.
+`await` and `assert` are the [test commands](docs/commands.md).
 
 ## Documentation
 
-- [CLI](docs/cli.md): the `mcward` CLI and `beet test`
-- [Dummies](docs/dummies.md): fake players and the `/dummy` command
-- [Directives](docs/directives.md): `@max_ticks`, `@environment`, ...
 - [Test commands](docs/commands.md): `/assert`, `/await`, `/fail`, `/succeed`
 - [Test environments](docs/environments.md): world setup/teardown around tests
+- [Directives](docs/directives.md): `@max_ticks`, `@environment`, ...
+- [Dummies](docs/dummies.md): fake players and the `/dummy` command
+- [Coverage](docs/coverage.md): which parts of your packs the tests run
+- [CLI](docs/cli.md): the `mcward` CLI and `beet test`
 
 ## Acknowledgements
 

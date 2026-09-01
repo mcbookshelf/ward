@@ -1,6 +1,5 @@
-"""Version parsing and comparison utilities for Ward."""
+"""Minecraft versions: parsing, ordering, and the registry of supported ones."""
 
-import asyncio
 import json
 import re
 from contextlib import suppress
@@ -8,13 +7,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import total_ordering
 from pathlib import Path
-
-import httpx
+from typing import TYPE_CHECKING
 
 from ._constants import MODRINTH_API, PACK_FORMATS, USER_AGENT
 from ._exceptions import VersionError
 
-# Release ("") sorts above every pre-release stage of its own version
+if TYPE_CHECKING:
+    import httpx
+
+_PATTERN = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:-(snapshot|pre|rc)-(\d+))?$")
 _STAGES = {"snapshot": 0, "pre": 1, "rc": 2, "": 3}
 
 
@@ -44,7 +45,7 @@ class Version:
         """Parse "26.1.2", "26.2-snapshot-6", "26.3-pre-1", "26.3-rc-1"
         or a "dev/" prefixed variant."""
         version = name.removeprefix("dev/")
-        if match := re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:-(snapshot|pre|rc)-(\d+))?$", version):
+        if match := _PATTERN.match(version):
             return cls(
                 name,
                 version,
@@ -80,9 +81,8 @@ class Version:
         )
 
 
-# Aliases used inside VersionRegistry
-type _VersionList = list[Version]
-type _VersionEntries = list[tuple[Version, int]]
+type _Versions = list[Version]
+type _Entries = list[tuple[Version, int]]
 
 
 class VersionRegistry:
@@ -95,57 +95,68 @@ class VersionRegistry:
     def __init__(self, cache_dir: Path, ttl_hours: int = 4):
         self._file = cache_dir / "versions.json"
         self._ttl = timedelta(hours=ttl_hours)
-        self._versions: list[tuple[Version, int]] | None = None
+        self._entries: _Entries | None = None
 
     def get(self, name: str) -> Version | None:
         """Get a specific version by name or alias (dev, latest, snapshot)."""
         if name == "dev":
             return _get_gradle_version()
-        versions = self._ensure_loaded()
+        entries = self._load()
         if name == "snapshot":
-            return max((v for v, _ in versions), default=None)
+            return max((v for v, _ in entries), default=None)
         if name == "latest":
-            return max((v for v, _ in versions if not v.is_snapshot), default=None)
-        return next((v for v, _ in versions if v.name == name), None)
+            return max((v for v, _ in entries if not v.is_snapshot), default=None)
+        return next((v for v, _ in entries if v.name == name), None)
 
-    def list(self) -> _VersionList:
+    def list(self) -> _Versions:
         """Every version in the registry, in registry order."""
-        return [v for v, _ in self._ensure_loaded()]
+        return [v for v, _ in self._load()]
 
-    def list_in_range(self, min_fmt: int, max_fmt: int) -> _VersionList:
+    def list_in_range(self, min_fmt: int, max_fmt: int) -> _Versions:
         """Every version whose pack format falls inside the range."""
-        return [v for v, fmt in self._ensure_loaded() if min_fmt <= fmt <= max_fmt]
+        return [v for v, fmt in self._load() if min_fmt <= fmt <= max_fmt]
 
     def refresh(self) -> VersionRegistry:
-        """Fetch fresh data from remote endpoints and update cache."""
-        formats, versions = asyncio.run(_fetch())
-        # A version without a known pack format is left out
-        entries = [(v, formats[v.name]) for v in versions if v.name in formats]
-        self._versions = entries
-        self._save(entries)
+        """Fetch fresh data from the remote endpoints and update the cache file."""
+        self._entries = self._fetch()
         return self
 
-    def _ensure_loaded(self) -> _VersionEntries:
-        """Refresh from remote if stale, falling back to the cached file."""
-        if self._versions is None:
-            if self._is_stale():
-                # ValueError covers a garbage response body
-                # A broken API falls back to the cached file, like a broken network
-                try:
-                    return self.refresh()._versions or []
-                except (httpx.HTTPError, ValueError) as e:
-                    if not self._file.exists():
-                        raise VersionError(f"Could not fetch version data: {e}") from e
-            self._load()
-        return self._versions or []
+    def _load(self) -> _Entries:
+        if self._entries is None:
+            self._entries = self._fetch_or_read() if self._is_stale() else self._read()
+        return self._entries
 
-    def _load(self) -> None:
-        self._versions = []
-        with suppress(FileNotFoundError, json.JSONDecodeError, KeyError):
+    def _fetch_or_read(self) -> _Entries:
+        """Fresh entries, or the stale cache file when the network or the API is broken."""
+        try:
+            return self._fetch()
+        except VersionError:
+            if not self._file.exists():
+                raise
+            return self._read()
+
+    def _fetch(self) -> _Entries:
+        import asyncio
+
+        import httpx  # deferred: most runs never fetch
+
+        try:
+            formats, versions = asyncio.run(_fetch())
+        except (httpx.HTTPError, ValueError) as e:
+            raise VersionError(f"Could not fetch version data: {e}") from e
+        # A version without a known pack format is left out
+        entries = [(v, formats[v.name]) for v in versions if v.name in formats]
+        self._save(entries)
+        return entries
+
+    def _read(self) -> _Entries:
+        try:
             data = json.loads(self._file.read_text(encoding="utf-8"))
-            self._versions = [(Version.parse(e["name"]), e["format"]) for e in data]
+            return [(Version.parse(e["name"]), e["format"]) for e in data]
+        except FileNotFoundError, json.JSONDecodeError, KeyError:
+            return []
 
-    def _save(self, entries: _VersionEntries) -> None:
+    def _save(self, entries: _Entries) -> None:
         data = [{"name": v.name, "format": fmt} for v, fmt in entries]
         self._file.parent.mkdir(parents=True, exist_ok=True)
         partial = self._file.with_suffix(self._file.suffix + ".part")
@@ -153,14 +164,19 @@ class VersionRegistry:
         partial.replace(self._file)
 
     def _is_stale(self) -> bool:
-        with suppress(FileNotFoundError):
+        try:
             mtime = datetime.fromtimestamp(self._file.stat().st_mtime)
-            return datetime.now() - mtime > self._ttl
-        return True
+        except FileNotFoundError:
+            return True
+        return datetime.now() - mtime > self._ttl
 
 
 async def _fetch() -> tuple[dict[str, int], list[Version]]:
     """Fetch formats and versions in parallel."""
+    import asyncio
+
+    import httpx
+
     async with httpx.AsyncClient(timeout=5, headers={"User-Agent": USER_AGENT}) as client:
         return await asyncio.gather(_fetch_formats(client), _fetch_versions(client))
 
@@ -177,7 +193,7 @@ async def _fetch_versions(client: httpx.AsyncClient) -> list[Version]:
     response = await client.get(f"{MODRINTH_API}/project/ward/version")
     response.raise_for_status()
 
-    versions = set()
+    versions: set[Version] = set()
     for release in response.json():
         for name in release["game_versions"]:
             # One mispublished id must not brick the registry
@@ -188,11 +204,11 @@ async def _fetch_versions(client: httpx.AsyncClient) -> list[Version]:
 
 def _get_gradle_version() -> Version | None:
     """The version targeted by the mod checkout in the working directory."""
-    with suppress(FileNotFoundError, ValueError, IndexError):
-        props = Path.cwd() / "gradle.properties"
-        content = props.read_text(encoding="utf-8")
+    try:
+        content = (Path.cwd() / "gradle.properties").read_text(encoding="utf-8")
         for line in content.splitlines():
             if line.startswith("minecraft_version="):
-                mc_version = line.split("=", 1)[1].strip()
-                return Version.parse(f"dev/{mc_version}")
+                return Version.parse(f"dev/{line.split('=', 1)[1].strip()}")
+    except FileNotFoundError, ValueError, IndexError:
+        pass
     return None

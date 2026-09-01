@@ -3,10 +3,12 @@ package dev.mcbookshelf.ward.commands.assertions;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.blocks.BlockPredicateArgument;
@@ -24,17 +26,21 @@ import dev.mcbookshelf.ward.AssertResult;
 
 class BlockAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
+	public void attach(
+			LiteralArgumentBuilder<CommandSourceStack> root,
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext context,
+			Mode mode) {
 		root.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
-				.then(Commands.argument("block", BlockPredicateArgument.blockPredicate(assertion.buildContext()))
-						.executes(ctx -> run(ctx, assertion)))));
+				.then(Commands.argument("block", BlockPredicateArgument.blockPredicate(context))
+						.executes(ctx -> run(ctx, mode)))));
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Context assertion) throws CommandSyntaxException {
+	private static int run(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
 		ServerLevel level = context.getSource().getLevel();
 		Predicate<BlockInWorld> expect = BlockPredicateArgument.getBlockPredicate(context, "block");
 
-		return assertion.check(() -> {
+		return mode.check(() -> {
 			BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
 			BlockInWorld blockInWorld = new BlockInWorld(level, pos, true);
 

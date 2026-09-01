@@ -2,8 +2,10 @@ package dev.mcbookshelf.ward.commands.assertions;
 
 import java.util.List;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 
 public final class Assertions {
@@ -27,14 +29,13 @@ public final class Assertions {
 	private Assertions() {
 	}
 
-	/**
-	 * Attaches every condition to the given assert/await literal.
-	 */
 	public static LiteralArgumentBuilder<CommandSourceStack> build(
 			LiteralArgumentBuilder<CommandSourceStack> root,
-			Assertion.Context assertion) {
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext context,
+			Assertion.Mode mode) {
 		for (Assertion condition : CONDITIONS) {
-			condition.attach(root, assertion);
+			condition.attach(root, dispatcher, context, mode);
 		}
 
 		return root;

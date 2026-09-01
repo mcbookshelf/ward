@@ -541,7 +541,7 @@ class TestWaitReady:
         self, directory: Path, running_process: Mock
     ) -> None:
         (directory / PORT_FILE).write_text("25565")
-        responses = [ProcessConnectionError("not yet"), {"ready": True}]
+        responses = [ProcessConnectionError("not yet"), Status(ready=True)]
 
         with (
             patch("mcward._daemon.status", side_effect=responses),

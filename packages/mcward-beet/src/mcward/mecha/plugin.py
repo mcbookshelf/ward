@@ -1,5 +1,5 @@
-"""Mecha integration: parse test functions with the ward command tree.
-The nesting approach follows CarbonSmasher's packtest-beet plugin."""
+"""Parse test functions with the ward command tree.
+Inspired by https://github.com/CarbonSmasher/packtest-beet/blob/main/packtest_beet/nesting.py"""
 
 import math
 import re
@@ -27,16 +27,12 @@ _VERSION = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class AstTestRoot(AstRoot):
-    """Root node of a test function.
-
-    A dedicated root type is what @rule targets, and it keeps bolt from treating
-    the file as a plain module.
-    """
+    """Root of a test file: rules can target it, and bolt won't treat it as a plain module."""
 
 
 @dataclass
 class TestRootParser:
-    """Wraps the root parser to tag test functions with their own root node."""
+    """Wraps the root parser so test files yield an AstTestRoot."""
 
     database: CompilationDatabase
     root_parser: Parser
@@ -58,7 +54,7 @@ def beet_default(ctx: Context) -> None:
     ctx.require("mcward.beet.plugin")
 
     version = ctx.meta.get("ward", {}).get("version")
-    command_tree = JsonFile(source_path=_resolve_command_tree(version))
+    command_tree = JsonFile(source_path=_command_tree(version))
 
     mc = ctx.inject(Mecha)
     mc.providers.append(FileTypeCompilationUnitProvider([TestFunction]))
@@ -66,39 +62,41 @@ def beet_default(ctx: Context) -> None:
     mc.spec.parsers["root"] = TestRootParser(mc.database, mc.spec.parsers["root"])
 
 
-def _resolve_command_tree(version: str | None) -> Path:
-    """Return the newest command tree at or below the given version.
-
-    Trees are only kept when they differ from the previous one, so a version
-    without its own file resolves to the closest older tree. Missing or
-    wildcard components mean newest: "1.2.1+26.2", "1.2", "1.x", and
-    "latest" or "*" for the newest tree.
-    """
+def _command_tree(version: str | None) -> Path:
+    """The newest bundled command tree at or below the given Ward version."""
     trees = {tuple(map(int, p.stem.split("."))): p for p in RESOURCES_DIR.glob("*.json")}
-    spec = str(version).strip() if version is not None else "*"
-    if spec in ("*", "latest"):
-        return trees[max(trees)]
+    target = _parse_version(version)
 
-    match = _VERSION.match(spec)
-    minor = match and _part(match.group("minor"))
-    patch = match and _part(match.group("patch"))
-    if match is None or (minor is None and patch is not None):
-        err = f"Invalid ward version {version!r} (expected e.g. '1.2', '1.2.x' or 'latest')."
-        raise ValueError(err)
-    inf = math.inf
-    target = (
-        int(match.group("major")),
-        inf if minor is None else minor,
-        inf if patch is None else patch,
-    )
+    if target is None:
+        return trees[max(trees)]
 
     closest = max((key for key in trees if key <= target), default=None)
     if closest is None:
         available = ", ".join(trees[key].stem for key in sorted(trees))
         raise ValueError(f"No ward command tree for version {version!r} (available: {available}).")
+
     return trees[closest]
 
 
-def _part(value: str | None) -> int | None:
-    """A version component, where wildcards count as unspecified."""
-    return int(value) if value is not None and value.isdigit() else None
+def _parse_version(version: str | float | None) -> tuple[int, float, float] | None:
+    """Parse a Ward version specification into a comparable version."""
+    spec = str(version).strip() if version is not None else "*"
+    if spec in ("*", "latest"):
+        return None
+
+    match = _VERSION.fullmatch(spec)
+    if match is not None:
+        major, minor, patch = match.groups()
+        major = int(major)
+        minor = int(minor) if minor is not None and minor.isdigit() else None
+        patch = int(patch) if patch is not None and patch.isdigit() else None
+
+        # patch requires a concrete minor version
+        if minor is not None or patch is None:
+            return (
+                major,
+                math.inf if minor is None else minor,
+                math.inf if patch is None else patch,
+            )
+
+    raise ValueError(f"Invalid ward version {version!r} (expected '1.2', '1.2.x' or 'latest').")

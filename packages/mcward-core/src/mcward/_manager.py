@@ -4,8 +4,8 @@ from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 
-from ._constants import CACHE_DIR, PID_FILE, PORT_FILE
-from ._daemon import RunningProcess, is_ward_process
+from ._constants import CACHE_DIR
+from ._daemon import RunningProcess, clear_files, is_ward_process
 from ._environments import InstalledEnvironment, RunningEnvironment, UninstalledEnvironment
 from ._exceptions import VersionNotFoundError
 from ._versions import Version, VersionRegistry
@@ -35,8 +35,8 @@ class EnvironmentManager:
         version, listed = self._get_version(name)
         directory = self.environments / version.name
 
-        if self._is_running(directory):
-            return RunningEnvironment(directory, version, RunningProcess.load(directory))
+        if (process := self._running_process(directory)) is not None:
+            return RunningEnvironment(directory, version, process)
         if self._is_installed(directory):
             return InstalledEnvironment(directory, version)
         if listed:
@@ -71,26 +71,28 @@ class EnvironmentManager:
             raise VersionNotFoundError(name) from None
 
     def _is_installed(self, directory: Path) -> bool:
-        """Whether the directory holds every asset of an installed environment."""
-        return directory.exists() and all((directory / f).exists() for f in INSTALLED_FILES)
+        return all((directory / f).exists() for f in INSTALLED_FILES)
 
     def _is_running(self, directory: Path) -> bool:
-        """Whether the recorded pid is still one of our servers, clearing it if not."""
+        return self._running_process(directory) is not None
+
+    def _running_process(self, directory: Path) -> RunningProcess | None:
+        """The recorded process if it is still one of our servers, clearing stale files if not."""
         try:
-            running = RunningProcess.load(directory)
+            process = RunningProcess.load(directory)
         except OSError, ValueError:
-            return False
-        if is_ward_process(running.pid):
-            return True
-        directory.joinpath(PID_FILE).unlink(missing_ok=True)
-        directory.joinpath(PORT_FILE).unlink(missing_ok=True)
-        return False
+            return None
+        if is_ward_process(process.pid):
+            return process
+        clear_files(directory)
+        return None
 
     def _scan_directory(self, predicate: Callable[[Path], bool]) -> list[Version]:
         """Collect versions whose environment directory matches the predicate."""
         versions = []
-        sources = [(self.environments, ""), (self.environments / "dev", "dev/")]
-        for base, prefix in filter(lambda e: e[0].exists(), sources):
+        for base, prefix in ((self.environments, ""), (self.environments / "dev", "dev/")):
+            if not base.exists():
+                continue
             for entry in base.iterdir():
                 if entry.is_dir() and predicate(entry):
                     with suppress(ValueError):

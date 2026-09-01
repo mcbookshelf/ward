@@ -1,0 +1,21 @@
+{
+  "pools": [
+    {
+      "rolls": "ward:coverage/rolls",
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:stone"
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:emerald",
+          "condition": {
+            "type": "minecraft:random_chance",
+            "chance": 0.0
+          }
+        }
+      ]
+    }
+  ]
+}

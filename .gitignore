@@ -23,6 +23,8 @@
 bin/
 build/
 classes/
+coverage.html
+coverage.lcov
 coverage.xml
 hs_err_*.log
 out/

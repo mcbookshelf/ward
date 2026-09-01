@@ -50,7 +50,7 @@ class RunningProcess:
 def start(directory: Path, timeout: float = STARTUP_TIMEOUT) -> RunningProcess:
     """Spawn the server process and wait until it is ready to serve requests."""
     proc = _spawn(directory)
-    _ = directory.joinpath(PID_FILE).write_text(str(proc.pid), encoding="utf-8")
+    directory.joinpath(PID_FILE).write_text(str(proc.pid), encoding="utf-8")
 
     # BaseException: a Ctrl+C while waiting must not orphan the spawned JVM
     try:
@@ -58,12 +58,11 @@ def start(directory: Path, timeout: float = STARTUP_TIMEOUT) -> RunningProcess:
     except BaseException:
         proc.terminate()
         try:
-            _ = proc.wait(timeout=SHUTDOWN_TIMEOUT)
+            proc.wait(timeout=SHUTDOWN_TIMEOUT)
         except subprocess.TimeoutExpired:
             proc.kill()
-            _ = proc.wait()
-        directory.joinpath(PID_FILE).unlink(missing_ok=True)
-        directory.joinpath(PORT_FILE).unlink(missing_ok=True)
+            proc.wait()
+        clear_files(directory)
         raise
 
     return RunningProcess(directory, proc.pid, port)
@@ -78,8 +77,7 @@ def stop(running: RunningProcess, timeout: float = SHUTDOWN_TIMEOUT) -> None:
         with suppress(psutil.NoSuchProcess):
             _wait_or_kill(psutil.Process(running.pid), timeout)
 
-    running.directory.joinpath(PID_FILE).unlink(missing_ok=True)
-    running.directory.joinpath(PORT_FILE).unlink(missing_ok=True)
+    clear_files(running.directory)
 
 
 def status(address: tuple[str, int], timeout: float = STATUS_TIMEOUT) -> Status:
@@ -102,6 +100,7 @@ def status(address: tuple[str, int], timeout: float = STATUS_TIMEOUT) -> Status:
 def stream_tests(
     address: tuple[str, int],
     selector: str = "*:*",
+    coverage: bool = False,
     timeout: float | None = None,
 ) -> Iterator[Event]:
     """Start a test run via the bridge and stream its events.
@@ -111,6 +110,8 @@ def stream_tests(
     """
     with _bridge.connect(address) as conn:
         cmd = {"type": "test", "protocol": PROTOCOL_VERSION, "selector": selector}
+        if coverage:
+            cmd["coverage"] = True
         _bridge.send_message(conn, cmd)
 
         for message in _bridge.receive_messages(conn, timeout=timeout):
@@ -125,10 +126,20 @@ def stream_tests(
 
 def is_ward_process(pid: int) -> bool:
     """Check that the pid exists and belongs to a Ward server JVM."""
-    with suppress(psutil.Error):
+    try:
         cmdline = psutil.Process(pid).cmdline()
-        return any("server.jar" in arg for arg in cmdline)
-    return False
+    except psutil.Error:
+        return False
+    return any("server.jar" in arg for arg in cmdline)
+
+
+def wait_idle(address: tuple[str, int], timeout: float = SHUTDOWN_TIMEOUT) -> None:
+    """Wait until the daemon is ready to serve a run."""
+    deadline = time.monotonic() + timeout
+    while not _probe(address):
+        if time.monotonic() > deadline:
+            raise ProcessConnectionError(f"Daemon still busy after {timeout}s")
+        time.sleep(0.5)
 
 
 def _spawn(directory: Path) -> subprocess.Popen[bytes]:
@@ -140,8 +151,9 @@ def _spawn(directory: Path) -> subprocess.Popen[bytes]:
     return subprocess.Popen(
         java.command(
             directory / "server.jar",
-            "-Xms256m",
             "-Xmx2g",
+            "-Xms1g",
+            "-XX:G1PeriodicGCInterval=60000",
             "-XX:+ParallelRefProcEnabled",
             "-XX:+DisableExplicitGC",
             "-XX:+HeapDumpOnOutOfMemoryError",
@@ -157,33 +169,44 @@ def _spawn(directory: Path) -> subprocess.Popen[bytes]:
 def _wait_or_kill(proc: psutil.Process, timeout: float) -> None:
     """Wait for the process to exit, escalating to terminate then kill."""
     try:
-        _ = proc.wait(timeout)
+        proc.wait(timeout)
     except psutil.TimeoutExpired:
         proc.terminate()
         try:
-            _ = proc.wait(timeout)
+            proc.wait(timeout)
         except psutil.TimeoutExpired:
             proc.kill()
-            _ = proc.wait()
+            proc.wait()
 
 
 def _wait_ready(process: subprocess.Popen[bytes], directory: Path, timeout: float) -> int:
     """Return the port once the JVM has published it and answers a status call."""
     deadline = time.monotonic() + timeout
-    file = directory.joinpath(PORT_FILE)
 
     while True:
         if process.poll() is not None:
             raise ProcessStartupError(f"Process exited with code {process.returncode}")
         if time.monotonic() > deadline:
             raise ProcessStartupError(f"Process did not become ready within {timeout}s")
-        if file.exists():
-            with suppress(ValueError, OSError):
-                port = int(file.read_text(encoding="utf-8").strip())
-                address = (WARD_HOST, port)
-                # A short probe timeout keeps the outer deadline honest
-                with suppress(ProcessConnectionError, ConnectionRefusedError, OSError):
-                    _ = status(address, timeout=2)
-                    return port
-
+        if (port := _get_port(directory)) is not None and _probe((WARD_HOST, port)):
+            return port
         time.sleep(0.1)
+
+
+def clear_files(directory: Path) -> None:
+    directory.joinpath(PID_FILE).unlink(missing_ok=True)
+    directory.joinpath(PORT_FILE).unlink(missing_ok=True)
+
+
+def _get_port(directory: Path) -> int | None:
+    try:
+        return int(directory.joinpath(PORT_FILE).read_text(encoding="utf-8").strip())
+    except ValueError, OSError:
+        return None
+
+
+def _probe(address: tuple[str, int]) -> bool:
+    try:
+        return status(address, timeout=2).ready
+    except ProcessConnectionError:
+        return False

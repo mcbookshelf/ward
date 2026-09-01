@@ -14,16 +14,14 @@ import dev.mcbookshelf.ward.LoadDiagnostic;
 import dev.mcbookshelf.ward.ReportManager;
 import dev.mcbookshelf.ward.Ward;
 
-/**
- * Reports each registry element that fails to parse, instead of letting one broken element crash the whole load.
- */
 @Mixin(RegistryDataLoader.class)
 public class RegistryDataLoaderMixin {
 	/**
+	 * Reports each element that failed to parse instead of letting one broken element fail the whole load.
 	 * {@code lambda$load$2} is the freeze-and-validate stage of {@code load}.
 	 */
 	@WrapOperation(method = "lambda$load$2", at = @At(value = "INVOKE", target = "Ljava/util/Map;isEmpty()Z"))
-	private static boolean ward$reportAndContinue(Map<ResourceKey<?>, Exception> errors, Operation<Boolean> original) {
+	private static boolean reportAndContinue(Map<ResourceKey<?>, Exception> errors, Operation<Boolean> original) {
 		errors.forEach((key, error) -> {
 			// Draining the map skips vanilla's own error logging, so replace it too
 			Ward.LOGGER.error("Failed to load {} from {}", key.registry(), key.identifier(), error);

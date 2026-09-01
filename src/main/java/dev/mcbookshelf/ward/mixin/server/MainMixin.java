@@ -17,7 +17,7 @@ import dev.mcbookshelf.ward.WardDaemon;
 public class MainMixin {
 	@ModifyExpressionValue(method = "main", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/Eula;hasAgreedToEULA()Z"))
 	private static boolean isEulaAgreedTo(boolean isEulaAgreedTo) {
-		return Ward.ENABLED || isEulaAgreedTo;
+		return Ward.DAEMON || isEulaAgreedTo;
 	}
 
 	/**
@@ -25,7 +25,7 @@ public class MainMixin {
 	 */
 	@Inject(method = "main", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Lorg/slf4j/Marker;Ljava/lang/String;Ljava/lang/Throwable;)V", shift = At.Shift.AFTER))
 	private static void exitOnError(CallbackInfo info) {
-		if (Ward.ENABLED) {
+		if (Ward.DAEMON) {
 			System.exit(-1);
 		}
 	}
@@ -50,7 +50,7 @@ public class MainMixin {
 			CallbackInfo info,
 			@Local LevelStorageSource source,
 			@Local LevelStorageSource.LevelStorageAccess storage) {
-		if (Ward.ENABLED) {
+		if (Ward.DAEMON) {
 			WardDaemon.launch(source, storage);
 			info.cancel();
 		}

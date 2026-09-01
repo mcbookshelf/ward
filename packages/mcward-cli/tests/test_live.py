@@ -58,19 +58,63 @@ class TestRenderSession:
         start_run(session, V1, V2)
         session._dispatch(V1, Passed(name="a:one", time=5))
 
-        lines = rendered_lines(session)
+        lines = render_session(session, verbose=True).plain.splitlines()
         result_line = next(line for line in lines if "a:one" in line)
         assert result_line.lstrip()[0] in "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
         assert "5ms" in result_line
         assert "—" in result_line
 
-    def test_passed_result_shows_timings(self) -> None:
+        # The collapsed view marks the whole batch as still running instead
+        batch_line = next(line for line in rendered_lines(session) if "default" in line)
+        assert batch_line[0] in "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        assert not any("a:one" in line for line in rendered_lines(session))
+
+    def test_passed_results_collapse_by_default(self) -> None:
+        """Passed tests fold into a count on the batch line so failures stay in view."""
+        session = Session([V1])
+        start_run(session, V1)
+        session._dispatch(V1, Passed(name="a:one", time=5))
+        session._dispatch(
+            V1, Failed("a:bad", time=5, error="boom", required=True, line=None, tick=None)
+        )
+        finish_run(session, V1)
+
+        lines = rendered_lines(session)
+        assert any(line == "✗ default 1/2" for line in lines)
+        assert any("✗ a:bad" in line for line in lines)
+        assert not any("a:one" in line for line in lines)
+
+    def test_running_batch_shows_the_announced_total(self) -> None:
+        """The denominator holds steady while results are still streaming in."""
+        session = Session([V1])
+        session._dispatch(V1, Started(total=17, pos=(0, -59, 0)))
+        session._dispatch(V1, BatchStarted(environment="default", total=17))
+        session._dispatch(V1, Passed(name="a:one", time=5))
+
+        batch_line = next(line for line in rendered_lines(session) if "default" in line)
+        assert batch_line.endswith("1/17")
+
+    def test_batch_counts_align_in_a_column(self) -> None:
+        """Counts pad to the widest batch label and right-align so they line up."""
+        session = Session([V1])
+        start_run(session, V1)
+        session._dispatch(V1, Passed(name="a:one", time=5))
+        session._dispatch(V1, BatchStarted(environment="much_longer_batch"))
+        for i in range(10):
+            session._dispatch(V1, Passed(name=f"a:many{i}", time=5))
+        finish_run(session, V1)
+
+        lines = [line for line in rendered_lines(session) if line.startswith("✓")]
+        assert lines == ["✓ default" + " " * 13 + "1/1", "✓ much_longer_batch 10/10"]
+
+    def test_verbose_passed_result_shows_timings(self) -> None:
         session = Session([V1])
         start_run(session, V1)
         session._dispatch(V1, Passed(name="a:one", time=5))
         finish_run(session, V1)
 
-        assert any("✓ a:one (5ms)" in line for line in rendered_lines(session))
+        rendered = render_session(session, verbose=True).plain.splitlines()
+        assert any("✓ a:one (5ms)" in line for line in rendered)
 
     def test_batch_header_shows_dimension(self) -> None:
         """The batch dimension is displayed next to the environment when known."""
@@ -83,7 +127,7 @@ class TestRenderSession:
         finish_run(session, V1)
 
         assert any(
-            "ward:default (minecraft:the_nether)" in line for line in rendered_lines(session)
+            line == "✓ ward:default 1/1 (minecraft:the_nether)" for line in rendered_lines(session)
         )
 
     def test_batch_header_without_dimension_is_plain(self) -> None:
@@ -93,7 +137,7 @@ class TestRenderSession:
         finish_run(session, V1)
 
         lines = rendered_lines(session)
-        assert any(line.strip() == "default" for line in lines)
+        assert any(line == "✓ default 1/1" for line in lines)
 
     def test_single_version_failure_shows_error_only(self) -> None:
         """With one version the error is printed without a Failed on line."""
@@ -211,6 +255,12 @@ class TestRenderSession:
         session._dispatch(V1, StreamError("server died"))
 
         assert any("✗ 26.1.2: server died" in line for line in rendered_lines(session))
+
+    def test_summary_before_any_event_shows_startup(self) -> None:
+        """No 0/0 counter while the server is still deploying and booting."""
+        session = Session([V1])
+
+        assert rendered_lines(session)[-1] == "Starting tests…"
 
     def test_progress_summary_while_running(self) -> None:
         session = Session([V1])

@@ -1,0 +1,6 @@
+# Coverage exclusions for the integration fixtures, loaded by tools/verify.py
+[coverage]
+ignore = [
+  { kind = "predicate", id = "ward:coverage/excluded" },
+  { id = "ward:coverage/untouched", nodes = ["pools[0].entries[0]"] },
+]

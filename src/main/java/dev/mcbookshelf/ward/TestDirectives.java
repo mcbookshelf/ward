@@ -21,9 +21,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Rotation;
 
-/**
- * Parsed {@code # @directive value} headers from a test file.
- */
 public record TestDirectives(
 		String environment,
 		String dimension,
@@ -101,6 +98,9 @@ public record TestDirectives(
 						throw new IllegalArgumentException(e.getMessage());
 					}
 				}
+
+				// Coverage markers belong in function files; a stray one here is harmless
+				case "coverage" -> { }
 				default -> throw new IllegalArgumentException("Unknown directive");
 			}
 		}

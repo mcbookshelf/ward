@@ -1,0 +1,9 @@
+{
+  "type": "conditional",
+  "condition": {
+    "type": "random_chance",
+    "chance": 1.0
+  },
+  "on_true": 1,
+  "on_false": 0
+}

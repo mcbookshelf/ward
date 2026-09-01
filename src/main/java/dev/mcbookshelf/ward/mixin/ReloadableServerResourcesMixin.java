@@ -23,9 +23,6 @@ import net.minecraft.world.flag.FeatureFlagSet;
 
 import dev.mcbookshelf.ward.TestLibrary;
 
-/**
- * Adds {@link TestLibrary} to the /reload listeners.
- */
 @Mixin(ReloadableServerResources.class)
 public abstract class ReloadableServerResourcesMixin {
 	@Shadow
@@ -49,6 +46,9 @@ public abstract class ReloadableServerResourcesMixin {
 				this.commands.getDispatcher());
 	}
 
+	/**
+	 * Adds {@link TestLibrary} to the reload listeners.
+	 */
 	@ModifyReturnValue(method = "listeners", at = @At("RETURN"))
 	private List<PreparableReloadListener> listeners(List<PreparableReloadListener> list) {
 		List<PreparableReloadListener> result = new ArrayList<>(list);

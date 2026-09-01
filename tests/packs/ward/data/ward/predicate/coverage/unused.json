@@ -1,0 +1,7 @@
+{
+  "type": "inverted",
+  "term": {
+    "type": "weather_check",
+    "thundering": true
+  }
+}

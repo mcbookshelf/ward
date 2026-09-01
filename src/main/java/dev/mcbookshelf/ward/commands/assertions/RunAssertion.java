@@ -3,6 +3,7 @@ package dev.mcbookshelf.ward.commands.assertions;
 import java.util.List;
 import java.util.function.Consumer;
 
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.context.ContextChain;
@@ -10,6 +11,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.advancements.predicates.MinMaxBounds;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandResultCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -26,23 +28,27 @@ import dev.mcbookshelf.ward.AssertResult;
 import dev.mcbookshelf.ward.TestExecutor;
 
 /**
- * Asserts on a command's own outcome, optionally against a result range.
- * The first execution runs through the command engine as a forked tail; an await that has to retry replays that tail itself, which is why every step exists in a queued and a polled form.
+ * The first execution runs through the command engine as a forked tail.
+ * A retrying await replays that tail itself, so each step has a queued and a polled form.
  */
 class RunAssertion implements Assertion {
 	@Override
-	public void attach(LiteralArgumentBuilder<CommandSourceStack> root, Context assertion) {
-		root.then(buildRun(assertion, false));
+	public void attach(
+			LiteralArgumentBuilder<CommandSourceStack> root,
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext context,
+			Mode mode) {
+		root.then(buildRun(dispatcher, mode, false));
 		root.then(Commands.literal("result")
 				.then(Commands.argument("range", RangeArgument.intRange())
-						.then(buildRun(assertion, true))));
+						.then(buildRun(dispatcher, mode, true))));
 	}
 
-	private static LiteralArgumentBuilder<CommandSourceStack> buildRun(Context assertion, boolean ranged) {
-		return Commands.literal("run").fork(assertion.dispatcher().getRoot(), new AssertRun(assertion, ranged));
+	private static LiteralArgumentBuilder<CommandSourceStack> buildRun(CommandDispatcher<CommandSourceStack> dispatcher, Mode mode, boolean ranged) {
+		return Commands.literal("run").fork(dispatcher.getRoot(), new AssertRun(mode, ranged));
 	}
 
-	private record AssertRun(Context assertion, boolean ranged) implements CustomModifierExecutor.ModifierAdapter<CommandSourceStack> {
+	private record AssertRun(Mode mode, boolean ranged) implements CustomModifierExecutor.ModifierAdapter<CommandSourceStack> {
 		@Override
 		public void apply(
 				CommandSourceStack originalSource,
@@ -64,15 +70,12 @@ class RunAssertion implements Assertion {
 				List<CommandSourceStack> captured = List.copyOf(sources);
 
 				queueTail(output, input, tail, modifiers, originalSource, captured, range, rawRange, result ->
-						this.assertion.check(test, result, () -> pollTail(input, tail, captured, range, rawRange)));
+						this.mode.check(test, result, () -> pollTail(input, tail, captured, range, rawRange)));
 			} catch (CommandSyntaxException e) {
 				originalSource.handleError(e, modifiers.isForked(), output.tracer());
 			}
 		}
 
-		/**
-		 * Hands the tail to the command engine, then reports its outcome once it has run.
-		 */
 		private static void queueTail(
 				ExecutionControl<CommandSourceStack> output,
 				String input,
@@ -101,9 +104,6 @@ class RunAssertion implements Assertion {
 			}, CommandResultCallback.EMPTY));
 		}
 
-		/**
-		 * Replays the tail on a later tick, for an await that did not pass the first time.
-		 */
 		private static AssertResult pollTail(
 				String input,
 				ContextChain<CommandSourceStack> tail,
@@ -124,7 +124,6 @@ class RunAssertion implements Assertion {
 		}
 
 		/**
-		 * Wraps a source so its callback tallies fires, misses and the last result.
 		 * The counters are arrays because the callback outlives this frame.
 		 */
 		private static CommandSourceStack counting(

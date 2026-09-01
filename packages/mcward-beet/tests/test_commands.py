@@ -93,14 +93,19 @@ class TestBeetTestCommand:
 
     def invoke(self, runner: CliRunner, args: list[str], failed: bool = False) -> tuple:
         """Invoke beet test with the Ward machinery stubbed, returning (result, calls)."""
-        calls = SimpleNamespace(packs=None, selector=None, versions=None, shipped_files=[])
+        calls = SimpleNamespace(
+            packs=None, selector=None, versions=None, coverage=None, shipped_files=[]
+        )
 
-        def fake_run_tests_live(datapacks, envs, selector, resolve=None):
+        def fake_run_tests_live(
+            datapacks, envs, selector, coverage=False, verbose=False, resolve=None
+        ):
             calls.packs = list(datapacks)
             calls.selector = selector
+            calls.coverage = coverage
             # Snapshot now: the built pack's TemporaryDirectory is gone once the command returns
             calls.shipped_files = pack_files(datapacks[0])
-            return SimpleNamespace(failed=failed)
+            return SimpleNamespace(failed=failed, coverage={}, versions=(), batches=[], aborted={})
 
         def fake_get(version):
             calls.versions = (calls.versions or []) + [version]
@@ -138,6 +143,29 @@ class TestBeetTestCommand:
         result, _ = self.invoke(runner, ["test", "-v", "26.1.2"], failed=True)
 
         assert result.exit_code == 1
+
+    def test_coverage_flag_reaches_the_run(self, project_dir: Path, runner: CliRunner) -> None:
+        result, calls = self.invoke(runner, ["test", "-v", "26.1.2", "--coverage"])
+
+        assert result.exit_code == 0, result.output
+        assert calls.coverage is True
+
+    def test_coverage_report_implies_coverage(self, project_dir: Path, runner: CliRunner) -> None:
+        result, calls = self.invoke(
+            runner, ["test", "-v", "26.1.2", "--coverage-report", "lcov:out.lcov"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert calls.coverage is True
+
+    def test_junit_xml_writes_results(
+        self, project_dir: Path, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        report = tmp_path / "results.xml"
+        result, _ = self.invoke(runner, ["test", "-v", "26.1.2", "--junit-xml", str(report)])
+
+        assert result.exit_code == 0, result.output
+        assert report.read_text(encoding="utf-8").startswith("<?xml")
 
     def test_versions_resolved_from_pack_formats(
         self, project_dir: Path, runner: CliRunner
