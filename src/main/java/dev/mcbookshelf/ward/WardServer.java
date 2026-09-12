@@ -96,8 +96,16 @@ public class WardServer extends MinecraftServer {
 			Thread thread,
 			LevelStorageSource.LevelStorageAccess storage,
 			PackRepository packs,
-			String selection) {
+			String selection,
+			boolean coverage) {
 		packs.reload();
+
+		// Enabled before the world stem loads: conditions record their coverage nodes while
+		// the registry data decodes, well before the server instance even exists
+		if (coverage) {
+			CoverageRecorder.enable();
+		}
+
 		WorldDataConfiguration config = new WorldDataConfiguration(
 				new DataPackConfig(selectPacks(packs), List.of()),
 				ENABLED_FEATURES);
@@ -142,6 +150,8 @@ public class WardServer extends MinecraftServer {
 
 			return new WardServer(daemon, thread, storage, packs, worldStem, selection);
 		} catch (Exception e) {
+			// The server never runs, so onServerExit will not disable coverage
+			CoverageRecorder.disable();
 			// Propagates to WardDaemon.boot which reports the failure to clients
 			throw new RuntimeException("Failed to load datapacks: " + Diagnostic.describe(e), e);
 		}
@@ -229,6 +239,11 @@ public class WardServer extends MinecraftServer {
 			long elapsed = this.stopwatch.elapsed(TimeUnit.MILLISECONDS);
 
 			Ward.LOGGER.info("Test run finished: {}/{} passed in {}", passed, total, formatMillis(elapsed));
+
+			if (CoverageRecorder.isEnabled()) {
+				ReportManager.reportCoverage(CoverageRecorder.drain());
+			}
+
 			ReportManager.runFinished(total, passed, failed, skipped, elapsed);
 
 			GameTestTicker.SINGLETON.clear();
@@ -280,6 +295,7 @@ public class WardServer extends MinecraftServer {
 		super.onServerExit();
 		TestLibrary.release();
 		ChatRecorder.clear();
+		CoverageRecorder.disable();
 		this.daemon.serverExited();
 	}
 

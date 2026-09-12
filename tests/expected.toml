@@ -24,6 +24,13 @@ result = "passed"
 [tests."ward:assert_predicate"]
 result = "passed"
 
+# Coverage fixtures: exercise the instrumented function, condition and loot paths
+[tests."ward:coverage_branches"]
+result = "passed"
+
+[tests."ward:coverage_conditions"]
+result = "passed"
+
 [tests."ward:assert_biome"]
 result = "passed"
 

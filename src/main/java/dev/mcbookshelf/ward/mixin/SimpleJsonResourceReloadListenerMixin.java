@@ -1,18 +1,25 @@
 package dev.mcbookshelf.ward.mixin;
 
 import java.util.List;
+import java.util.Map;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
+import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 
+import dev.mcbookshelf.ward.DataCoverage;
 import dev.mcbookshelf.ward.report.Diagnostic;
 import dev.mcbookshelf.ward.report.ReportManager;
 
@@ -47,6 +54,30 @@ public class SimpleJsonResourceReloadListenerMixin {
 		original.call(logger, message, args);
 		String type = "minecraft:" + extractType(((Identifier) args[1]).getPath());
 		ReportManager.report(Diagnostic.error(type, args[0].toString(), Diagnostic.describe((Throwable) args[2])));
+	}
+
+	/**
+	 * Tags the element decode with its file, so nodes decoded from its JSON attribute their coverage to it.
+	 * Loot data and advancements load through here rather than the registry loader.
+	 */
+	@WrapOperation(method = "scanDirectory(Lnet/minecraft/server/packs/resources/ResourceManager;Lnet/minecraft/resources/FileToIdConverter;Lcom/mojang/serialization/DynamicOps;Lcom/mojang/serialization/Codec;Ljava/util/Map;)V", at = @At(value = "INVOKE", target = "Lcom/mojang/serialization/Codec;parse(Lcom/mojang/serialization/DynamicOps;Ljava/lang/Object;)Lcom/mojang/serialization/DataResult;"))
+	private static DataResult<?> tagElementDecode(
+			Codec<?> codec,
+			DynamicOps<?> ops,
+			Object json,
+			Operation<DataResult<?>> original,
+			@Local(argsOnly = true) FileToIdConverter lister,
+			@Local Map.Entry<Identifier, Resource> entry) {
+		String id = lister.fileToId(entry.getKey()).toString();
+		DataCoverage.beginElement("minecraft:" + lister.prefix(), id, entry.getValue(), json);
+
+		try {
+			DataResult<?> result = original.call(codec, ops, json);
+			result.result().ifPresent(DataCoverage::completeElement);
+			return result;
+		} finally {
+			DataCoverage.endElement();
+		}
 	}
 
 	/**

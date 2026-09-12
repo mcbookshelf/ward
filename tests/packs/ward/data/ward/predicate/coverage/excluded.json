@@ -1,0 +1,7 @@
+{
+  "condition": "minecraft:inverted",
+  "term": {
+    "condition": "minecraft:random_chance",
+    "chance": 0.5
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "condition": "inverted",
+  "term": {
+    "condition": "weather_check",
+    "thundering": true
+  }
+}

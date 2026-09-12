@@ -174,7 +174,8 @@ public final class WardBridge {
 
 		private void handleTest(Channel ch, JsonObject msg) throws Exception {
 			String selector = msg.has("selector") ? msg.get("selector").getAsString() : "*:*";
-			daemon.runTests(selector);
+			boolean coverage = msg.has("coverage") && msg.get("coverage").getAsBoolean();
+			daemon.runTests(selector, coverage);
 		}
 	}
 }

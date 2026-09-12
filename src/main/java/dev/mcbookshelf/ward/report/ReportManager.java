@@ -60,6 +60,10 @@ public class ReportManager {
 		broadcast("batch_finished", createBatchData(index, environment));
 	}
 
+	public static synchronized void reportCoverage(JsonObject report) {
+		broadcast("coverage", report);
+	}
+
 	public static synchronized void runFinished(int total, int passed, int failed, int skipped, long elapsedMs) {
 		JsonObject data = new JsonObject();
 		data.addProperty("total", total);

@@ -69,10 +69,10 @@ public final class WardDaemon {
 	 * Boots a fresh server and runs tests matching the given selection. Failures past this point
 	 * are asynchronous and broadcast to connected clients.
 	 */
-	public synchronized void runTests(String selection) throws Exception {
+	public synchronized void runTests(String selection, boolean coverage) throws Exception {
 		if (this.busy) throw new Exception("Tests are already running");
 		this.busy = true;
-		new Thread(() -> boot(selection), "Ward bootstrap").start();
+		new Thread(() -> boot(selection, coverage), "Ward bootstrap").start();
 	}
 
 	/**
@@ -120,13 +120,13 @@ public final class WardDaemon {
 	 * Loads the world and spins up a server for this run; the server starts the tests itself and
 	 * halts once they complete.
 	 */
-	private void boot(String selection) {
+	private void boot(String selection, boolean coverage) {
 		try {
 			LevelStorageSource.LevelStorageAccess storage = this.source.validateAndCreateAccess(this.levelId);
 
 			try {
 				PackRepository packs = ServerPacksSource.createPackRepository(storage);
-				WardServer started = MinecraftServer.spin(thread -> WardServer.create(this, thread, storage, packs, selection));
+				WardServer started = MinecraftServer.spin(thread -> WardServer.create(this, thread, storage, packs, selection, coverage));
 
 				synchronized (this) {
 					this.server = started;
