@@ -94,7 +94,7 @@ def test(
         envs = start_environments([manager.get(v) for v in selected])
         console.print()
         session = run(paths, envs, selector, coverage=enabled, verbose=verbose)
-        report_session(session, paths, specs, junit_xml, verbose, selector, ignores)
+        report_session(session, paths, specs, junit_xml, verbose, selector, ignores, enabled)
         if session.failed:
             sys.exit(1)
     except WardError as e:
