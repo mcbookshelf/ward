@@ -17,6 +17,7 @@ from mcward._protocol import (
 )
 from mcward._runner import TestSession as Session
 from mcward.cli.reports import (
+    missing_coverage,
     parse_coverage_report,
     write_coverage_reports,
     write_junit,
@@ -25,6 +26,24 @@ from mcward.cli.reports import (
 
 V1 = Version.parse("26.1.2")
 V2 = Version.parse("26.1.1")
+
+
+class TestMissingCoverage:
+    """Test spotting versions whose mod ignored the coverage flag."""
+
+    def test_version_that_never_reported_is_missing(self) -> None:
+        """An older mod runs the tests fine and never sends the event."""
+        session = Session([V1, V2])
+        session._dispatch(V1, Coverage(functions={}))
+
+        assert missing_coverage(session) == [V2]
+
+    def test_aborted_version_is_not_blamed_on_the_mod(self) -> None:
+        session = Session([V1, V2])
+        session._dispatch(V1, Coverage(functions={}))
+        session._dispatch(V2, StreamError("boom"))
+
+        assert missing_coverage(session) == []
 
 
 def resolved(session: Session, pack: Path) -> dict[Version, ResolvedCoverage]:

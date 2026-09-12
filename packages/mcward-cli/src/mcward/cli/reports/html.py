@@ -74,7 +74,7 @@ input { margin: 1rem 0 .5rem; padding: .4rem; width: 20rem; }
 summary { cursor: pointer; list-style: none; }
 summary::-webkit-details-marker { display: none; }
 .group { border: 1px solid var(--border); border-radius: 6px; margin: .5rem 0; }
-.group > summary { display: grid; grid-template-columns: 1fr 8rem 3fr 3.5rem; gap: 1rem;
+.group > summary { display: grid; grid-template-columns: 1fr 8rem 2fr 3.5rem; gap: 1rem;
                    align-items: center; padding: .5rem .75rem; }
 .group > summary b { font-family: monospace; }
 .group > summary b::before { content: "\\25B8  "; color: var(--muted); }

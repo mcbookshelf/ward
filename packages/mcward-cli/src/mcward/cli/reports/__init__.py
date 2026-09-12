@@ -8,12 +8,13 @@ import rich_click as click
 from mcward import CoverageIgnores, ResolvedCoverage, TestSession, Version, resolve_coverage
 
 from ..reporters.coverage import render_coverage
-from ..ui import console
+from ..ui import console, print_warning
 from .html import write_html
 from .junit import write_junit
 from .lcov import write_lcov
 
 __all__ = [
+    "missing_coverage",
     "parse_coverage_report",
     "report_session",
     "write_coverage_reports",
@@ -42,11 +43,18 @@ def report_session(
     verbose: bool = False,
     selector: str = "*:*",
     ignores: CoverageIgnores | None = None,
+    coverage: bool = False,
 ) -> None:
     """Render the coverage summary and write the requested report files."""
     if junit_xml is not None:
         write_junit(session, junit_xml)
         console.print(f"Test results written to [magenta]{junit_xml}[/magenta]")
+    if coverage:
+        for version in missing_coverage(session):
+            print_warning(
+                f"No coverage reported by {version.name}: its ward mod predates coverage, "
+                "reinstall the environment once a newer release supports this Minecraft version"
+            )
     if session.coverage:
         resolved = {
             version: resolve_coverage(coverage, datapacks, selector, ignores)
@@ -60,6 +68,15 @@ def report_session(
         if session.coverage and not specs:
             hint += ", or --coverage-report html"
         console.print(f"[dim]{hint}[/dim]")
+
+
+def missing_coverage(session: TestSession) -> list[Version]:
+    """Versions whose run completed without a coverage event."""
+    return [
+        version
+        for version in session.versions
+        if version not in session.coverage and version not in session.aborted
+    ]
 
 
 def write_coverage_reports(

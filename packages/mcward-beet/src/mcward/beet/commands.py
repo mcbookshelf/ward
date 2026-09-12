@@ -111,7 +111,16 @@ def test_project(
     with TemporaryDirectory() as directory:
         pack, sources = _build_pack(project, Path(directory))
         session = _run_tests(pack, sources, versions, selector, reporter, coverage, verbose)
-        report_session(session, [pack], coverage_specs, junit_xml, verbose, selector, ignores)
+        report_session(
+            session,
+            [pack],
+            coverage_specs,
+            junit_xml,
+            verbose,
+            selector,
+            ignores,
+            coverage,
+        )
         return session
 
 
