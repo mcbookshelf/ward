@@ -3,6 +3,7 @@ package dev.mcbookshelf.ward.mixin;
 import java.util.List;
 import java.util.Map;
 
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import org.slf4j.Logger;
@@ -14,11 +15,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import net.minecraft.core.Registry;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagLoader;
 
 import dev.mcbookshelf.ward.LoadDiagnostic;
 import dev.mcbookshelf.ward.ReportManager;
+import dev.mcbookshelf.ward.WardRegistries;
 
 @Mixin(TagLoader.class)
 public class TagLoaderMixin {
@@ -73,5 +76,14 @@ public class TagLoaderMixin {
 		original.call(logger, message, id, references);
 		String error = String.format("Missing references: %s", references);
 		ReportManager.report(LoadDiagnostic.error("minecraft:" + ward$currentDirectory.get(), id.toString(), error));
+	}
+
+	/**
+	 * Drops the tags of the registries Ward reloads itself. Vanilla resolves these before the reload runs,
+	 * then applies them after it, which would bind them to holders the reload has already replaced.
+	 */
+	@ModifyReturnValue(method = "loadTagsForExistingRegistries", at = @At("RETURN"))
+	private static List<Registry.PendingTags<?>> dropReloadedRegistries(List<Registry.PendingTags<?>> tags) {
+		return tags.stream().filter(pending -> !WardRegistries.owns(pending.key())).toList();
 	}
 }

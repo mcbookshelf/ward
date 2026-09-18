@@ -8,6 +8,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -15,6 +16,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderOwner;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
@@ -30,7 +32,7 @@ import dev.mcbookshelf.ward.accessor.MappedRegistryAccessor;
  * Allows unfreezing and clearing registries, so TEST_INSTANCE and TEST_FUNCTION can be reloaded without a server restart.
  */
 @Mixin(MappedRegistry.class)
-public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T> {
+public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T>, HolderOwner<T> {
 	@Shadow
 	@Final
 	private ObjectList<Holder.Reference<T>> byId;
@@ -58,22 +60,12 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 	@Shadow
 	public abstract ResourceKey<? extends Registry<T>> key();
 
-	/**
-	 * Reports references to missing elements and lets the registry freeze anyway.
-	 * Vanilla would throw instead, dropping the whole registry and crashing later lookups.
-	 */
-	@WrapOperation(method = "freeze", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z", ordinal = 0))
-	private boolean reportUnboundValues(List<Identifier> unboundEntries, Operation<Boolean> original) {
-		if (!original.call(unboundEntries)) {
-			String registry = this.key().identifier().toString();
-			unboundEntries.forEach(id -> {
-				Ward.LOGGER.error("Unbound value in registry {}: {} is referenced but never defined", registry, id);
-				ReportManager.report(LoadDiagnostic.error(
-						registry, id.toString(), "Referenced but not defined in any loaded data pack"));
-			});
-		}
+	@Unique
+	private @Nullable HolderOwner<T> ward$adopted;
 
-		return true;
+	@Override
+	public boolean canSerialize(HolderOwner<T> owner) {
+		return owner == this || owner == this.ward$adopted;
 	}
 
 	@Override
@@ -81,6 +73,12 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 	public void ward$unfreeze() {
 		this.frozen = false;
 		this.allTags = MappedRegistry.TagSet.unbound();
+	}
+
+	@Override
+	@Unique
+	public void ward$adopt(HolderOwner<T> owner) {
+		this.ward$adopted = owner;
 	}
 
 	@Override
@@ -116,5 +114,23 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 				toId.put(holder.value(), newId);
 			}
 		}
+	}
+
+	/**
+	 * Reports references to missing elements and lets the registry freeze anyway.
+	 * Vanilla would throw instead, dropping the whole registry and crashing later lookups.
+	 */
+	@WrapOperation(method = "freeze", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z", ordinal = 0))
+	private boolean reportUnboundValues(List<Identifier> unboundEntries, Operation<Boolean> original) {
+		if (!original.call(unboundEntries)) {
+			String registry = this.key().identifier().toString();
+			unboundEntries.forEach(id -> {
+				Ward.LOGGER.error("Unbound value in registry {}: {} is referenced but never defined", registry, id);
+				ReportManager.report(LoadDiagnostic.error(
+						registry, id.toString(), "Referenced but not defined in any loaded data pack"));
+			});
+		}
+
+		return true;
 	}
 }

@@ -7,9 +7,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
@@ -23,9 +25,9 @@ import net.minecraft.gametest.framework.TestData;
 import net.minecraft.gametest.framework.TestEnvironmentDefinition;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryDataLoader;
-import net.minecraft.resources.RegistryValidator;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.tags.TagKey;
 
 import dev.mcbookshelf.ward.accessor.MappedRegistryAccessor;
 
@@ -34,9 +36,12 @@ import dev.mcbookshelf.ward.accessor.MappedRegistryAccessor;
  * Vanilla loads them once at world load and keeps frozen references everywhere, so a reload has to refresh them in place.
  */
 public class WardRegistries {
-	private static final List<RegistryDataLoader.RegistryData<?>> TEST_REGISTRIES = List.of(
-			new RegistryDataLoader.RegistryData<>(Registries.TEST_ENVIRONMENT, TestEnvironmentDefinition.DIRECT_CODEC, RegistryValidator.none()),
-			new RegistryDataLoader.RegistryData<>(Registries.TEST_INSTANCE, GameTestInstance.DIRECT_CODEC, RegistryValidator.none()));
+	private static final Set<ResourceKey<? extends Registry<?>>> TEST_REGISTRY_KEYS =
+			Set.of(Registries.TEST_ENVIRONMENT, Registries.TEST_INSTANCE);
+
+	private static final List<RegistryDataLoader.RegistryData<?>> TEST_REGISTRIES = RegistryDataLoader.WORLD_REGISTRIES.stream()
+			.filter(data -> TEST_REGISTRY_KEYS.contains(data.key()))
+			.toList();
 
 	private static final Set<ResourceKey<Consumer<GameTestHelper>>> registeredFunctionKeys = new HashSet<>();
 
@@ -51,6 +56,13 @@ public class WardRegistries {
 		MappedRegistry<Consumer<GameTestHelper>> functions = (MappedRegistry<Consumer<GameTestHelper>>) BuiltInRegistries.TEST_FUNCTION;
 		clearRegistered(functions);
 		functions.freeze();
+	}
+
+	/**
+	 * Whether {@link #register} reloads this registry itself, tags included.
+	 */
+	public static boolean owns(ResourceKey<? extends Registry<?>> registryKey) {
+		return TEST_REGISTRY_KEYS.contains(registryKey);
 	}
 
 	/**
@@ -109,17 +121,30 @@ public class WardRegistries {
 	}
 
 	/**
-	 * Unfreezes a live registry, clears it, and copies in every element freshly loaded into {@code source}.
+	 * Unfreezes a live registry, clears it, and copies in every element and tag freshly loaded into {@code source}.
 	 */
 	private <T> MappedRegistry<T> replace(ResourceKey<Registry<T>> registryKey, RegistryAccess.Frozen source) {
 		MappedRegistry<T> registry = (MappedRegistry<T>) registries.lookupOrThrow(registryKey);
-		unfrozen(registry).ward$clearByPredicate(_ -> true);
+		MappedRegistryAccessor<T> accessor = unfrozen(registry);
+		accessor.ward$clearByPredicate(_ -> true);
 
-		for (Holder.Reference<T> holder : source.lookupOrThrow(registryKey).listElements().toList()) {
+		Registry<T> loaded = source.lookupOrThrow(registryKey);
+
+		for (Holder.Reference<T> holder : loaded.listElements().toList()) {
 			registry.register(holder.key(), holder.value(), RegistrationInfo.BUILT_IN);
 		}
 
+		registry.bindAllTagsToEmpty();
+		registry.bindTags(rebind(loaded, registry));
+
+		accessor.ward$adopt(loaded);
 		return registry;
+	}
+
+	private static <T> Map<TagKey<T>, List<Holder<T>>> rebind(Registry<T> loaded, Registry<T> registry) {
+		return loaded.getTags().collect(Collectors.toMap(
+				HolderSet.Named::key,
+				tag -> tag.stream().<Holder<T>>flatMap(holder -> holder.unwrapKey().flatMap(registry::get).stream()).toList()));
 	}
 
 	@SuppressWarnings("unchecked")
