@@ -14,7 +14,6 @@ import dev.mcbookshelf.ward.DataCoverage;
 public class ContextIntProviderTypesMixin {
 	/**
 	 * Wraps every provider type's codec for coverage.
-	 * Inline constants bypass the dispatch and stay out: a bare number is not runnable logic.
 	 */
 	@ModifyArg(method = "bootstrap", at = @At(value = "INVOKE", target = "Lnet/minecraft/core/Registry;register(Lnet/minecraft/core/Registry;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;"), index = 2)
 	@SuppressWarnings("unchecked")
