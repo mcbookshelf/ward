@@ -58,10 +58,9 @@ public class Dummy extends ServerPlayer {
 		position = Vec3.atBottomCenterOf(BlockPos.containing(position));
 		MinecraftServer server = level.getServer();
 		GameProfile profile = new GameProfile(UUID.randomUUID(), username);
-		ClientInformation clientInformation = ClientInformation.createDefault();
-		Dummy instance = new Dummy(server, level, profile, clientInformation, position, rotation);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		Dummy instance = new Dummy(server, level, profile, cookie.clientInformation(), position, rotation);
 		FakeConnection connection = new FakeConnection(PacketFlow.SERVERBOUND);
-		CommonListenerCookie cookie = new CommonListenerCookie(profile, 0, clientInformation, false);
 		level.getServer().getPlayerList().placeNewPlayer(connection, instance, cookie);
 		instance.teleportTo(level, position.x, position.y, position.z, Set.of(), rotation.y, rotation.x, true);
 		instance.setHealth(20);
