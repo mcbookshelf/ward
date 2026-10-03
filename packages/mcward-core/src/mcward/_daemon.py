@@ -2,16 +2,17 @@
 
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import override
+from typing import Any, override
 
 import psutil
 
 from . import _bridge, _java
 from ._constants import (
+    OUTPUT_FILE,
     PID_FILE,
     PORT_FILE,
     PROTOCOL_VERSION,
@@ -21,7 +22,7 @@ from ._constants import (
     WARD_HOST,
 )
 from ._exceptions import ProcessConnectionError, ProcessStartupError
-from ._protocol import Event, Status, StreamError, TestsFinished, parse_event
+from ._protocol import BenchFinished, Event, Status, StreamError, TestsFinished, parse_event
 
 
 @dataclass
@@ -73,7 +74,7 @@ def stop(running: RunningProcess, timeout: float = SHUTDOWN_TIMEOUT) -> None:
     with suppress(ProcessConnectionError), _bridge.connect(running.address) as conn:
         _bridge.send_message(conn, {"type": "stop", "protocol": PROTOCOL_VERSION})
 
-    if is_ward_process(running.pid):
+    if is_ward_process(running.pid, running.directory):
         with suppress(psutil.NoSuchProcess):
             _wait_or_kill(psutil.Process(running.pid), timeout)
 
@@ -91,8 +92,6 @@ def status(address: tuple[str, int], timeout: float = STATUS_TIMEOUT) -> Status:
                     return event
                 case StreamError(message=error):
                     raise ProcessConnectionError(f"Status failed: {error}")
-                case _:
-                    pass
 
         raise ProcessConnectionError("No status response received")
 
@@ -108,29 +107,65 @@ def stream_tests(
     ``timeout`` bounds the wait between consecutive events; ``None`` waits
     indefinitely.
     """
+    request = {"type": "test", "protocol": PROTOCOL_VERSION, "selector": selector}
+    if coverage:
+        request["coverage"] = True
+    return _stream(address, request, TestsFinished, timeout)
+
+
+def stream_bench(
+    address: tuple[str, int],
+    commands: Sequence[str],
+    setup: Sequence[str] = (),
+    prepare: Sequence[str] = (),
+    batch: int = 0,
+    warmup: int | None = None,
+    duration: int | None = None,
+    timeout: float | None = None,
+) -> Iterator[Event]:
+    """Start a bench via the bridge and stream its events. Durations are milliseconds."""
+    request = {
+        "type": "bench",
+        "protocol": PROTOCOL_VERSION,
+        "commands": list(commands),
+        "setup": list(setup),
+        "prepare": list(prepare),
+        "batch": batch,
+    }
+    if warmup is not None:
+        request["warmup"] = warmup
+    if duration is not None:
+        request["time"] = duration
+    return _stream(address, request, BenchFinished, timeout)
+
+
+def _stream(
+    address: tuple[str, int],
+    request: dict[str, Any],
+    last: type[Event],
+    timeout: float | None,
+) -> Iterator[Event]:
+    """Send a request and yield its events, up to the one that ends the run or an error."""
     with _bridge.connect(address) as conn:
-        cmd = {"type": "test", "protocol": PROTOCOL_VERSION, "selector": selector}
-        if coverage:
-            cmd["coverage"] = True
-        _bridge.send_message(conn, cmd)
+        _bridge.send_message(conn, request)
 
         for message in _bridge.receive_messages(conn, timeout=timeout):
             if (event := parse_event(message)) is None:
                 continue
             yield event
-            if isinstance(event, TestsFinished | StreamError):
+            if isinstance(event, last | StreamError):
                 return
 
-        raise ProcessConnectionError("Event stream ended before tests finished")
+        raise ProcessConnectionError("Event stream ended before the run finished")
 
 
-def is_ward_process(pid: int) -> bool:
-    """Check that the pid exists and belongs to a Ward server JVM."""
+def is_ward_process(pid: int, directory: Path) -> bool:
+    """Check that the pid is the daemon that was started for this directory."""
     try:
         cmdline = psutil.Process(pid).cmdline()
     except psutil.Error:
         return False
-    return any("server.jar" in arg for arg in cmdline)
+    return _daemon_flag(directory) in cmdline
 
 
 def wait_idle(address: tuple[str, int], timeout: float = SHUTDOWN_TIMEOUT) -> None:
@@ -144,26 +179,32 @@ def wait_idle(address: tuple[str, int], timeout: float = SHUTDOWN_TIMEOUT) -> No
 
 def _spawn(directory: Path) -> subprocess.Popen[bytes]:
     """Launch the JVM, which picks its own port and writes it to ward.port."""
-    port_file = directory / PORT_FILE
     # A stale file from a crashed run must never be read as the new port
-    port_file.unlink(missing_ok=True)
+    directory.joinpath(PORT_FILE).unlink(missing_ok=True)
     java = _java.find()
-    return subprocess.Popen(
-        java.command(
-            directory / "server.jar",
-            "-Xmx2g",
-            "-Xms1g",
-            "-XX:G1PeriodicGCInterval=60000",
-            "-XX:+ParallelRefProcEnabled",
-            "-XX:+DisableExplicitGC",
-            "-XX:+HeapDumpOnOutOfMemoryError",
-            "-XX:+ExitOnOutOfMemoryError",
-            f"-Dward.daemon={port_file}",
-        ),
-        cwd=directory,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    # Kept in a file: when a start fails, the reason is often only printed here
+    with directory.joinpath(OUTPUT_FILE).open("wb") as output:
+        return subprocess.Popen(
+            java.command(
+                directory / "server.jar",
+                "-Xmx2g",
+                "-Xms1g",
+                "-XX:G1PeriodicGCInterval=60000",
+                "-XX:+ParallelRefProcEnabled",
+                "-XX:+DisableExplicitGC",
+                "-XX:+HeapDumpOnOutOfMemoryError",
+                "-XX:+ExitOnOutOfMemoryError",
+                _daemon_flag(directory),
+            ),
+            cwd=directory,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+        )
+
+
+def _daemon_flag(directory: Path) -> str:
+    """The JVM argument that turns daemon mode on. It also tells whose daemon a process is."""
+    return f"-Dward.daemon={directory / PORT_FILE}"
 
 
 def _wait_or_kill(proc: psutil.Process, timeout: float) -> None:
@@ -182,12 +223,17 @@ def _wait_or_kill(proc: psutil.Process, timeout: float) -> None:
 def _wait_ready(process: subprocess.Popen[bytes], directory: Path, timeout: float) -> int:
     """Return the port once the JVM has published it and answers a status call."""
     deadline = time.monotonic() + timeout
+    output = directory / OUTPUT_FILE
 
     while True:
         if process.poll() is not None:
-            raise ProcessStartupError(f"Process exited with code {process.returncode}")
+            raise ProcessStartupError(
+                f"Process exited with code {process.returncode}, see {output}"
+            )
         if time.monotonic() > deadline:
-            raise ProcessStartupError(f"Process did not become ready within {timeout}s")
+            raise ProcessStartupError(
+                f"Process did not become ready within {timeout}s, see {output}"
+            )
         if (port := _get_port(directory)) is not None and _probe((WARD_HOST, port)):
             return port
         time.sleep(0.1)

@@ -7,7 +7,7 @@ import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 
-import dev.mcbookshelf.ward.TestExecutor;
+import dev.mcbookshelf.ward.test.TestExecutor;
 
 public final class SucceedCommand {
 	private SucceedCommand() {

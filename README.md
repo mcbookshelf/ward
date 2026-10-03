@@ -68,6 +68,7 @@ Comments starting with `@` are [directives](docs/directives.md). They configure 
 - [Directives](docs/directives.md): `@max_ticks`, `@environment`, ...
 - [Dummies](docs/dummies.md): fake players and the `/dummy` command
 - [Coverage](docs/coverage.md): which parts of your packs the tests run
+- [Benchmarks](docs/bench.md): time commands and compare them
 - [CLI](docs/cli.md): the `mcward` CLI and `beet test`
 
 ## Acknowledgements

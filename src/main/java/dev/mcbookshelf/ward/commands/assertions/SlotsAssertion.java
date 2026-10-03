@@ -17,7 +17,8 @@ import net.minecraft.server.commands.item.BlockItemAccessor;
 import net.minecraft.server.commands.item.EntityItemAccessor;
 import net.minecraft.server.commands.item.ItemAccessor;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class SlotsAssertion implements Assertion {
 	@Override
@@ -29,26 +30,28 @@ class SlotsAssertion implements Assertion {
 		root.then(Commands.literal("slots")
 				.then(Commands.literal("entity").then(Commands.argument("entities", EntityArgument.entities())
 						.then(Commands.argument("slots", SlotSourceArgument.slotSource(context))
-								.executes(ctx -> runForEntity(ctx, mode)))))
+								.executes(ctx -> mode.check(ctx, SlotsAssertion::countForEntity)))))
 				.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
 						.then(Commands.argument("slots", SlotSourceArgument.slotSource(context))
-								.executes(ctx -> runForBlock(ctx, mode))))));
+								.executes(ctx -> mode.check(ctx, SlotsAssertion::countForBlock))))));
 	}
 
-	private static int runForEntity(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult countForBlock(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		return count(context, new BlockItemAccessor(BlockPosArgument.getLoadedBlockPos(context, "pos")));
+	}
+
+	private static AssertResult countForEntity(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		EntitySelector selector = context.getArgument("entities", EntitySelector.class);
 
-		return mode.check(() -> count(context, new EntityItemAccessor(selector.findEntities(context.getSource()))));
-	}
-
-	private static int runForBlock(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
-		return mode.check(() -> count(context, new BlockItemAccessor(BlockPosArgument.getLoadedBlockPos(context, "pos"))));
+		return count(context, new EntityItemAccessor(selector.findEntities(context.getSource())));
 	}
 
 	private static AssertResult count(CommandContext<CommandSourceStack> context, ItemAccessor<?> accessor) throws CommandSyntaxException {
 		SlotSourceArgument.Result slots = SlotSourceArgument.getSlotSource(context, "slots");
 		int count = ExecuteCommand.countSlots(context.getSource(), accessor, slots);
 
-		return AssertResult.of(count, "slots", Assertion.getRawArgument(context, "slots"), count);
+		return AssertResult.of(count, negated -> Messages.translatable(
+				negated ? "ward.assert.not_slots" : "ward.assert.slots",
+				Assertion.getRawArgument(context, "slots"), count));
 	}
 }

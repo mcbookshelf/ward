@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:function",
+  "function": "ward:instance_timeout_expected",
+  "environment": "minecraft:default",
+  "structure": "minecraft:empty",
+  "max_ticks": 20
+}

@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:game_rules",
+  "rules": {
+    "minecraft:advance_time": false,
+    "minecraft:random_tick_speed": 0
+  }
+}

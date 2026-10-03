@@ -15,22 +15,14 @@ public class FakeConnection extends Connection {
 	}
 
 	@Override
-	public void handleDisconnection() {
-	}
-
-	@Override
-	public void setReadOnly() {
-	}
-
-	@Override
-	public void setListenerForServerboundHandshake(PacketListener packetListener) {
-	}
-
-	@Override
 	public <T extends PacketListener> void setupInboundProtocol(ProtocolInfo<T> protocol, T packetListener) {
 	}
 
 	@Override
 	public void send(Packet<?> packet, @Nullable ChannelFutureListener listener, boolean flush) {
+	}
+
+	@Override
+	public void flushChannel() {
 	}
 }

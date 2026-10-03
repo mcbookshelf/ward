@@ -3,7 +3,6 @@ package dev.mcbookshelf.ward.commands.assertions;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -13,7 +12,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.commands.ExecuteCommand;
 import net.minecraft.server.level.ServerLevel;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class LoadedAssertion implements Assertion {
 	@Override
@@ -23,16 +23,15 @@ class LoadedAssertion implements Assertion {
 			CommandBuildContext context,
 			Mode mode) {
 		root.then(Commands.literal("loaded").then(Commands.argument("pos", BlockPosArgument.blockPos())
-				.executes(ctx -> run(ctx, mode))));
+				.executes(ctx -> mode.check(ctx, LoadedAssertion::check))));
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult check(CommandContext<CommandSourceStack> context) {
 		ServerLevel level = context.getSource().getLevel();
+		BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
 
-		return mode.check(() -> {
-			BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
-
-			return AssertResult.of(ExecuteCommand.isChunkLoaded(level, pos) ? 1 : 0, "loaded", pos.toShortString());
-		});
+		return AssertResult.of(ExecuteCommand.isChunkLoaded(level, pos), negated -> Messages.translatable(
+				negated ? "ward.assert.not_loaded" : "ward.assert.loaded",
+				pos.toShortString()));
 	}
 }

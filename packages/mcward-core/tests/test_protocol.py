@@ -25,6 +25,7 @@ class TestParseEvent:
                 {"type": "tests_started", "total": 3, "pos": [40, -59, -128]},
                 Started(total=3, pos=(40, -59, -128)),
             ),
+            ({"type": "tests_started", "total": 3}, Started(total=3, pos=None)),
             ({"type": "batch_started", "environment": "e"}, BatchStarted(environment="e")),
             ({"type": "batch_finished", "environment": "e"}, BatchFinished(environment="e")),
             (
@@ -85,6 +86,10 @@ class TestParseEvent:
                 ),
             ),
             (
+                {"type": "coverage", "functions": {}, "pack_format": [119, 1]},
+                Coverage(functions={}, pack_format=(119, 1)),
+            ),
+            (
                 {
                     "type": "tests_finished",
                     "total": 3,
@@ -95,7 +100,15 @@ class TestParseEvent:
                 },
                 Finished(total=3, passed=1, failed=1, skipped=1, elapsed=900),
             ),
+            (
+                {"type": "tests_finished", "elapsed": 900},
+                Finished(total=None, passed=None, failed=None, skipped=None, elapsed=900),
+            ),
             ({"type": "status", "ready": True}, Status(ready=True)),
+            (
+                {"type": "status", "ready": False, "protocol": 1, "mod": "1.3", "minecraft": "26"},
+                Status(ready=False, protocol=1, mod="1.3", minecraft="26"),
+            ),
             ({"type": "error", "message": "boom"}, StreamError(message="boom")),
         ],
     )

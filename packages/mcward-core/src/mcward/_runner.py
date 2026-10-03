@@ -5,7 +5,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from queue import Queue
+from queue import Empty, Queue
 
 from ._environments import RunningEnvironment
 from ._protocol import (
@@ -76,17 +76,15 @@ class TestResult:
 
     @property
     def status(self) -> TestStatus | None:
-        """Overall status, or ``None`` while still awaiting some version."""
-        skipped = False
-        for version in self.versions:
-            match self.outcomes.get(version):
-                case None:
-                    return None
-                case VersionOutcome(status=TestStatus.FAILED):
-                    return TestStatus.FAILED
-                case VersionOutcome(status=TestStatus.SKIPPED):
-                    skipped = True
-        return TestStatus.SKIPPED if skipped else TestStatus.PASSED
+        """Overall status: failed as soon as one version fails, else ``None``
+        while some version has not reported."""
+        outcomes = [self.outcomes.get(version) for version in self.versions]
+        statuses = {outcome.status for outcome in outcomes if outcome}
+        if TestStatus.FAILED in statuses:
+            return TestStatus.FAILED
+        if None in outcomes:
+            return None
+        return TestStatus.SKIPPED if TestStatus.SKIPPED in statuses else TestStatus.PASSED
 
 
 @dataclass(frozen=True)
@@ -235,11 +233,13 @@ def run_tests(
     selector: str = "*:*",
     coverage: bool = False,
     timeout: float | None = None,
+    tick: float | None = None,
 ) -> Iterator[TestSession]:
     """Stream tests across already-running environments, aggregating results.
 
     Yields the same (mutating) session after every event; consumers that need
-    snapshots must copy what they read.
+    snapshots must copy what they read. With ``tick``, the session is also
+    yielded after that many seconds without an event, so a display keeps moving.
     """
     session = TestSession([env.version for env in environments])
     events: Queue[tuple[Version, Event | None]] = Queue()
@@ -261,7 +261,11 @@ def run_tests(
 
     pending = len(environments)
     while pending:
-        version, event = events.get()
+        try:
+            version, event = events.get(timeout=tick)
+        except Empty:
+            yield session
+            continue
         if event is None:
             pending -= 1
             continue

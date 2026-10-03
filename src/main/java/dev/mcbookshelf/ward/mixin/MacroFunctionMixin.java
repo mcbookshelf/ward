@@ -11,7 +11,7 @@ import net.minecraft.commands.functions.InstantiatedFunction;
 import net.minecraft.commands.functions.MacroFunction;
 import net.minecraft.resources.Identifier;
 
-import dev.mcbookshelf.ward.CoverageRecorder;
+import dev.mcbookshelf.ward.coverage.FunctionCoverage;
 
 @Mixin(MacroFunction.class)
 public class MacroFunctionMixin<T extends ExecutionCommandSource<T>> {
@@ -20,14 +20,11 @@ public class MacroFunctionMixin<T extends ExecutionCommandSource<T>> {
 	private Identifier id;
 
 	/**
-	 * Instantiated macros carry a derived id; coverage maps it back to the source function.
+	 * An instance has an id of its own: its commands count for the macro they come from.
 	 */
 	@ModifyReturnValue(method = "substituteAndParse", at = @At("RETURN"))
-	private InstantiatedFunction<T> registerCoverageAlias(InstantiatedFunction<T> function) {
-		if (CoverageRecorder.isEnabled()) {
-			CoverageRecorder.registerMacroAlias(function.id(), this.id);
-		}
-
+	private InstantiatedFunction<T> stampCoverage(InstantiatedFunction<T> function) {
+		FunctionCoverage.stamp(this.id, function.entries());
 		return function;
 	}
 }

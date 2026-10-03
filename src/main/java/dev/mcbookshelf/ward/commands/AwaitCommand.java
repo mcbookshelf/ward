@@ -11,9 +11,9 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.TimeArgument;
 
-import dev.mcbookshelf.ward.TestExecutor;
 import dev.mcbookshelf.ward.commands.assertions.Assertion;
 import dev.mcbookshelf.ward.commands.assertions.Assertions;
+import dev.mcbookshelf.ward.test.TestExecutor;
 
 public final class AwaitCommand {
 	private AwaitCommand() {

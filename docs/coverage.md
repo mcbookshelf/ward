@@ -6,11 +6,13 @@ Coverage shows which parts of your packs the tests run.
 mcward test --coverage
 ```
 
-The summary prints after the results. It counts two things:
+The summary prints after the results. It counts three things:
 
 - **Commands** in `function` files.
 - **Conditions** in JSON files: predicates, loot tables, item modifiers,
   advancements, number providers.
+- **Parts that run** in JSON files: the rolls and entries of a loot table,
+  loot functions, number providers, slot sources and advancement criteria.
 
 The report only covers the namespace you test. `mcward test mypack:*`
 reports `mypack`.
@@ -29,6 +31,31 @@ mcward test --coverage-report lcov:out/cov.lcov   # custom path
 
 Use the option twice to write both. With several versions, you get one file
 per version.
+
+## Require a minimum
+
+A run can fail when coverage is too low. Set the percentage in a `ward.toml`
+file in the folder where you run the tests:
+
+```toml
+[coverage]
+minimum = 80
+```
+
+The run then ends with an error and exit code 1:
+
+```
+Coverage: 72.4% (181/250, 40/52 files)
+
+Coverage 72.4% is below the minimum of 80%
+```
+
+The minimum is checked against the figure on the `Coverage:` line, on every
+run that measures coverage. A run without `--coverage` checks nothing. With
+several versions, each one has to reach it.
+
+`--coverage-min 90` sets the minimum for one run, whatever the file says. It
+turns coverage on by itself.
 
 ## Ignore code
 

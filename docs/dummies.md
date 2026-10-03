@@ -11,7 +11,9 @@ A dummy behaves like a real player on the server:
 - It matches `@a` and `@p`, and receives chat.
 - It is never saved with the world.
 - When it dies it waits on the death screen. Use `/dummy <name> respawn`,
-  or set the `doImmediateRespawn` game rule so dummies respawn on their own.
+  or set the `immediate_respawn` game rule so dummies respawn on their own.
+- A dummy spawned by a test leaves when the test ends. A dummy spawned anywhere
+  else, such as an environment function, stays until something removes it.
 
 ## Create a dummy
 
@@ -19,31 +21,45 @@ The easiest way is the [`@dummy` directive](directives.md). It spawns a dummy
 when the test starts and runs the test as that dummy, so it is `@s`:
 
 ```mcfunction
-# @dummy 8 1 8
+# @template ward:empty/3x3x3
+# @dummy ~1 ~ ~1
 
-dummy @s mainhand 3
-dummy @s use block 8 0 9
-assert block 8 0 9 minecraft:torch
+setblock ~1 ~ ~2 minecraft:stone
+item replace entity @s weapon.mainhand with minecraft:torch
+dummy @s use block ~1 ~ ~2
+assert block ~1 ~1 ~2 minecraft:torch
 ```
 
 To pick a name, or to spawn several dummies, use the command:
 
 ```mcfunction
 dummy alice spawn
-dummy alice use block 8 0 9
+dummy alice use block ~1 ~ ~2
 ```
 
 The name must be free: no connected player or dummy with the same name.
+A dummy spawns at the bottom center of the block it is given.
+
+A dummy is 1.8 blocks tall and the default test area is one block high, closed
+by a barrier ceiling. A dummy that stays there suffocates: it loses health
+every few ticks. Give it headroom with a taller template such as
+[`ward:empty/3x3x3`](directives.md#empty-templates), or with `@skyaccess`,
+which removes the ceiling.
 
 ## Commands
 
-Each action fails with an error when the dummy cannot do it.
+Each action fails with an error when the dummy cannot do it. Inside a test,
+that error does not fail the test. Write `assert run dummy @s jump` when the
+action has to work.
+
+A dummy has no reach and needs no line of sight: it can use or attack anything
+that is loaded.
 
 | Command | Action | Fails when |
 | --- | --- | --- |
 | `dummy <name> spawn` | Spawn a new dummy | name already taken |
 | `dummy <name> leave` | Disconnect the dummy | |
-| `dummy <name> respawn` | Respawn a dead dummy | |
+| `dummy <name> respawn` | Respawn a dead dummy | not dead |
 | `dummy <name> jump` | Jump | not on the ground |
 | `dummy <name> swap` | Swap main hand and off hand | |
 | `dummy <name> attack <entity>` | Attack an entity in melee | |
@@ -54,6 +70,6 @@ Each action fails with an error when the dummy cannot do it.
 | `dummy <name> drop` | Drop one item from the main hand | |
 | `dummy <name> drop all` | Drop the whole main hand stack | |
 | `dummy <name> drop from <slot> [all]` | Drop from an inventory slot | |
-| `dummy <name> use` | Use the held item (main hand, then off hand) | nothing usable |
-| `dummy <name> use block <pos> [<direction>]` | Use the held item on a block face (default `up`) | nothing happened |
+| `dummy <name> use` | Use the held item (main hand, then off hand). `use block` does not fall back to it: a bucket or an ender pearl needs `use` | nothing usable |
+| `dummy <name> use block <pos> [<direction>]` | Use the held item on a block face (default `up`). A position with decimals picks the spot that is hit, such as the upper half of a face | nothing happened |
 | `dummy <name> use entity <entity> [<pos>]` | Interact with an entity, at an exact point if given | nothing happened |

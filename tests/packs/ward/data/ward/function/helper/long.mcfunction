@@ -1,0 +1,10 @@
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1
+scoreboard players add #long ward.flaky 1

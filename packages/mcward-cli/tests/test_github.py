@@ -249,3 +249,17 @@ class TestAborted:
 
         [command] = annotations(session, pack_resolver([]))
         assert command == "::error title=Ward aborted on 26.1.2::connection lost"
+
+    def test_failure_next_to_an_aborted_version(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A test that failed on one version is annotated when the other never reported."""
+        monkeypatch.chdir(tmp_path)
+        session = Session([V1, V2])
+        start_run(session, V1)
+        fail_test(session, V1, "ward:one", "boom")
+        session._dispatch(V2, StreamError("connection lost"))
+
+        aborted, failed = annotations(session, pack_resolver([]))
+        assert aborted == "::error title=Ward aborted on 26.1.1::connection lost"
+        assert failed == "::error title=ward%3Aone failed on 26.1.2::boom"

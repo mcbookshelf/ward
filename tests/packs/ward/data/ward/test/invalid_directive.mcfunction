@@ -1,0 +1,2 @@
+# @optional yes
+say unreachable

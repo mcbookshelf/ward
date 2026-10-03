@@ -23,6 +23,7 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 
 MODRINTH_API = "https://api.modrinth.com/v2"
+FABRIC_META = "https://meta.fabricmc.net/v2"
 PROJECT_ID = "arCLMKiz"  # https://modrinth.com/mod/ward
 FABRIC_API_ID = "P7dR8mSH"  # https://modrinth.com/mod/fabric-api
 
@@ -200,6 +201,12 @@ def last_tag(pattern: str, exclude: str = "") -> str | None:
         text=True,
     )
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+def get_json(client: httpx.Client, url: str):
+    response = client.get(url)
+    response.raise_for_status()
+    return response.json()
 
 
 def read_version(pyproject: Path) -> str:

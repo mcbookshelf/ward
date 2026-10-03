@@ -5,13 +5,9 @@ from pathlib import Path
 
 import rich_click as click
 
-from mcward import CoverageIgnores, WardError
-
 from ..datapacks import DEFAULT_PATTERNS, discover_datapacks
-from ..environments import manager, select_compatible, start_environments
-from ..reporters import github, live
-from ..reports import parse_coverage_report, report_session
-from ..ui import console
+from ..reports import parse_coverage_report
+from ..session import run_session
 
 
 @click.command()
@@ -49,6 +45,13 @@ from ..ui import console
     "implies --coverage",
 )
 @click.option(
+    "--coverage-min",
+    type=click.FloatRange(0, 100),
+    default=None,
+    metavar="PERCENT",
+    help="Fail the run when coverage is below this percentage; implies --coverage",
+)
+@click.option(
     "--junit-xml",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     default=None,
@@ -66,6 +69,7 @@ def test(
     reporter: str,
     coverage: bool,
     coverage_reports: tuple[str, ...],
+    coverage_min: float | None,
     junit_xml: Path | None,
     verbose: bool,
     selector: str,
@@ -75,27 +79,16 @@ def test(
     if not datapacks:
         raise click.ClickException("Datapack not found")
 
-    strictest = max(datapacks, key=lambda datapack: datapack.min_format)
-    loosest = min(datapacks, key=lambda datapack: datapack.max_format)
-    if strictest.min_format > loosest.max_format:
-        raise click.ClickException(
-            f"Datapacks have disjoint pack format ranges: {strictest.path.name} needs "
-            f">= {strictest.min_format} but {loosest.path.name} caps at {loosest.max_format}"
-        )
-
-    selected = versions or select_compatible(strictest.min_format, loosest.max_format)
-    paths = [datapack.path for datapack in datapacks]
-
-    specs = [parse_coverage_report(value) for value in coverage_reports]
-    enabled = coverage or bool(specs)
-    run = github.run if reporter == "github" else live.run
-    try:
-        ignores = CoverageIgnores.load()
-        envs = start_environments([manager.get(v) for v in selected])
-        console.print()
-        session = run(paths, envs, selector, coverage=enabled, verbose=verbose)
-        report_session(session, paths, specs, junit_xml, verbose, selector, ignores, enabled)
-        if session.failed:
-            sys.exit(1)
-    except WardError as e:
-        raise click.ClickException(str(e)) from e
+    session = run_session(
+        datapacks,
+        versions=versions,
+        reporter=reporter,
+        selector=selector,
+        coverage=coverage,
+        coverage_specs=[parse_coverage_report(value) for value in coverage_reports],
+        coverage_min=coverage_min,
+        junit_xml=junit_xml,
+        verbose=verbose,
+    )
+    if session.failed:
+        sys.exit(1)

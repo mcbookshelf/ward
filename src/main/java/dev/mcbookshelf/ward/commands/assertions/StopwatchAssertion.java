@@ -1,5 +1,7 @@
 package dev.mcbookshelf.ward.commands.assertions;
 
+import java.util.Locale;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -17,7 +19,8 @@ import net.minecraft.server.commands.StopwatchCommand;
 import net.minecraft.world.Stopwatch;
 import net.minecraft.world.Stopwatches;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class StopwatchAssertion implements Assertion {
 	@Override
@@ -29,22 +32,20 @@ class StopwatchAssertion implements Assertion {
 		root.then(Commands.literal("stopwatch").then(Commands.argument("id", IdentifierArgument.id())
 				.suggests(StopwatchCommand.SUGGEST_STOPWATCHES)
 				.then(Commands.argument("range", RangeArgument.floatRange())
-						.executes(ctx -> run(ctx, mode)))));
+						.executes(ctx -> mode.check(ctx, StopwatchAssertion::check)))));
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult check(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		MinecraftServer server = context.getSource().getServer();
 		MinMaxBounds.Doubles range = RangeArgument.Floats.getRange(context, "range");
+		Identifier id = IdentifierArgument.getId(context, "id");
+		Stopwatch stopwatch = server.getStopwatches().get(id);
+		if (stopwatch == null) throw StopwatchCommand.ERROR_DOES_NOT_EXIST.create(id);
 
-		return mode.check(() -> {
-			Identifier id = IdentifierArgument.getId(context, "id");
-			Stopwatch stopwatch = server.getStopwatches().get(id);
-			if (stopwatch == null) throw StopwatchCommand.ERROR_DOES_NOT_EXIST.create(id);
+		double elapsed = stopwatch.elapsedSeconds(Stopwatches.currentTime());
 
-			double elapsed = stopwatch.elapsedSeconds(Stopwatches.currentTime());
-
-			return AssertResult.of(range.matches(elapsed) ? 1 : 0, "stopwatch",
-					id.toString(), Assertion.getRawArgument(context, "range"), elapsed);
-		});
+		return AssertResult.of(range.matches(elapsed), negated -> Messages.translatable(
+				negated ? "ward.assert.not_stopwatch" : "ward.assert.stopwatch",
+				id.toString(), Assertion.getRawArgument(context, "range"), String.format(Locale.ROOT, "%.2f", elapsed)));
 	}
 }

@@ -1,6 +1,6 @@
 """Environment management for Ward."""
 
-from collections.abc import Callable
+from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
 
@@ -45,15 +45,25 @@ class EnvironmentManager:
 
     def list_available(self) -> list[Version]:
         """Every version in the registry, newest first."""
-        return sorted(self.versions.list(), reverse=True)
+        return sorted(self.versions.available(), reverse=True)
 
     def list_installed(self) -> list[Version]:
         """Versions with a complete environment on disk, newest first."""
-        return sorted(self._scan_directory(self._is_installed), reverse=True)
+        installed = (v for v, directory in self._directories() if self._is_installed(directory))
+        return sorted(installed, reverse=True)
 
     def list_running(self) -> list[Version]:
         """Versions whose daemon is alive, newest first."""
-        return sorted(self._scan_directory(self._is_running), reverse=True)
+        return [environment.version for environment in self.running_environments()]
+
+    def running_environments(self) -> list[RunningEnvironment]:
+        """The environments whose daemon is alive, newest first, without asking the registry."""
+        environments = [
+            RunningEnvironment(directory, version, process)
+            for version, directory in self._directories()
+            if (process := self._running_process(directory)) is not None
+        ]
+        return sorted(environments, key=lambda environment: environment.version, reverse=True)
 
     def list_compatible(self, min_fmt: int, max_fmt: int) -> list[Version]:
         """Versions whose pack format falls in the range, newest first."""
@@ -73,28 +83,23 @@ class EnvironmentManager:
     def _is_installed(self, directory: Path) -> bool:
         return all((directory / f).exists() for f in INSTALLED_FILES)
 
-    def _is_running(self, directory: Path) -> bool:
-        return self._running_process(directory) is not None
-
     def _running_process(self, directory: Path) -> RunningProcess | None:
         """The recorded process if it is still one of our servers, clearing stale files if not."""
         try:
             process = RunningProcess.load(directory)
         except OSError, ValueError:
             return None
-        if is_ward_process(process.pid):
+        if is_ward_process(process.pid, directory):
             return process
         clear_files(directory)
         return None
 
-    def _scan_directory(self, predicate: Callable[[Path], bool]) -> list[Version]:
-        """Collect versions whose environment directory matches the predicate."""
-        versions = []
+    def _directories(self) -> Iterator[tuple[Version, Path]]:
+        """The environment directories on disk, each with the version it holds."""
         for base, prefix in ((self.environments, ""), (self.environments / "dev", "dev/")):
             if not base.exists():
                 continue
             for entry in base.iterdir():
-                if entry.is_dir() and predicate(entry):
+                if entry.is_dir():
                     with suppress(ValueError):
-                        versions.append(Version.parse(f"{prefix}{entry.name}"))
-        return versions
+                        yield Version.parse(f"{prefix}{entry.name}"), entry

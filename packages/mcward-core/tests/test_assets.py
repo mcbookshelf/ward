@@ -142,6 +142,7 @@ class TestInstallMod:
             await _install_mod(client, "fabric-api", "26.1.2", tmp_path / "mod.jar")
 
         assert "fabric-api" in client.get.call_args[0][0]
+        assert client.get.call_args.kwargs["params"] == {"game_versions": '["26.1.2"]'}
         assert mock_download.call_args[0][1] == "https://cdn/new.jar"
 
     @pytest.mark.anyio
@@ -248,6 +249,17 @@ class TestDownloadFile:
         client.stream.return_value.__aenter__.side_effect = ConnectError("offline")
 
         with pytest.raises(DownloadFailedError):
+            await _download_file(client, "https://example.com/test.jar", tmp_path / "test.jar")
+
+    @pytest.mark.anyio
+    async def test_write_error_is_an_install_error(self, tmp_path: Path) -> None:
+        """A full disk or a locked file reads as an install problem, not a traceback."""
+        client = stream_client(b"content")
+
+        with (
+            patch.object(Path, "open", side_effect=OSError("disk full")),
+            pytest.raises(InstallError, match="disk full"),
+        ):
             await _download_file(client, "https://example.com/test.jar", tmp_path / "test.jar")
 
 
@@ -399,6 +411,17 @@ class TestInstall:
             patch("mcward._assets._install_mod", AsyncMock(side_effect=failure)),
             patch("mcward._assets._java.resolve", return_value=Mock()),
             pytest.raises(AssetNotFoundError),
+        ):
+            await install(tmp_path, Version.parse("26.1.2"))
+
+    @pytest.mark.anyio
+    async def test_unexpected_failure_surfaces_as_itself(self, tmp_path: Path) -> None:
+        """An error that is not a Ward one comes out plain, not inside an exception group."""
+        with (
+            patch("mcward._assets._install_server", AsyncMock()),
+            patch("mcward._assets._install_mod", AsyncMock(side_effect=KeyError("files"))),
+            patch("mcward._assets._java.resolve", return_value=Mock()),
+            pytest.raises(KeyError),
         ):
             await install(tmp_path, Version.parse("26.1.2"))
 

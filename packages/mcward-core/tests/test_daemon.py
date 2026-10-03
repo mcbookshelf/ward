@@ -10,6 +10,7 @@ import pytest
 
 from mcward import Java, ProcessConnectionError, ProcessStartupError
 from mcward._constants import (
+    OUTPUT_FILE,
     PID_FILE,
     PORT_FILE,
     PROTOCOL_VERSION,
@@ -32,6 +33,12 @@ from mcward._protocol import (
     TestsFinished as Finished,
     TestsStarted as Started,
 )
+
+
+def daemon_cmdline(running: RunningProcess) -> list[str]:
+    """The command line of the daemon that was started for the process's directory."""
+    flag = f"-Dward.daemon={running.directory / PORT_FILE}"
+    return ["java", flag, "-jar", "server.jar", "nogui"]
 
 
 class TestRunningProcess:
@@ -107,6 +114,21 @@ class TestStart:
             assert "-jar" in cmd
             assert str(directory / "server.jar") in cmd
             assert "nogui" in cmd
+
+    def test_start_keeps_the_output_in_a_file(self, tmp_path: Path, mock_process: Mock) -> None:
+        """What the JVM prints is the only trace of some failed starts."""
+        directory = tmp_path / "env"
+        directory.mkdir()
+
+        with (
+            patch("subprocess.Popen", return_value=mock_process) as mock_popen,
+            patch("mcward._daemon._wait_ready", return_value=25565),
+        ):
+            start(directory)
+
+        options = mock_popen.call_args.kwargs
+        assert Path(options["stdout"].name) == directory / OUTPUT_FILE
+        assert options["stderr"] is subprocess.STDOUT
 
     def test_start_clears_stale_port_file(self, tmp_path: Path, mock_process: Mock) -> None:
         """A leftover port file must never be read as the new server's port."""
@@ -198,7 +220,7 @@ class TestStop:
 
     def test_stop_graceful_shutdown(self, running: RunningProcess) -> None:
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        mock_psutil.cmdline.return_value = daemon_cmdline(running)
         mock_psutil.wait.return_value = None  # Exits gracefully
 
         with (
@@ -216,7 +238,7 @@ class TestStop:
     def test_stop_sends_stop_command(self, running: RunningProcess) -> None:
         mock_socket = MagicMock()
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        mock_psutil.cmdline.return_value = daemon_cmdline(running)
 
         with (
             patch("mcward._daemon._bridge.connect", return_value=mock_socket) as mock_connect,
@@ -232,7 +254,7 @@ class TestStop:
 
     def test_stop_terminates_if_not_graceful(self, running: RunningProcess) -> None:
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        mock_psutil.cmdline.return_value = daemon_cmdline(running)
         mock_psutil.wait.side_effect = [psutil.TimeoutExpired(30), None]
 
         with (
@@ -247,7 +269,7 @@ class TestStop:
 
     def test_stop_kills_if_terminate_fails(self, running: RunningProcess) -> None:
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        mock_psutil.cmdline.return_value = daemon_cmdline(running)
         # Timeout on wait, timeout after terminate, then succeeds after kill
         mock_psutil.wait.side_effect = [psutil.TimeoutExpired(30), psutil.TimeoutExpired(30), None]
 
@@ -275,7 +297,7 @@ class TestStop:
 
     def test_stop_handles_connection_error(self, running: RunningProcess) -> None:
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        mock_psutil.cmdline.return_value = daemon_cmdline(running)
 
         with (
             patch("mcward._daemon._bridge.connect", side_effect=ProcessConnectionError("Failed")),
@@ -287,7 +309,7 @@ class TestStop:
 
     def test_stop_custom_timeout(self, running: RunningProcess) -> None:
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        mock_psutil.cmdline.return_value = daemon_cmdline(running)
 
         with (
             patch("mcward._daemon._bridge.connect"),
@@ -299,9 +321,9 @@ class TestStop:
             mock_psutil.wait.assert_called_once_with(5.0)
 
     def test_stop_skips_recycled_pid(self, running: RunningProcess) -> None:
-        """An unrelated process reusing the pid is never touched."""
+        """Another Minecraft server reusing the pid is never touched."""
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["python", "unrelated.py"]
+        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
 
         with (
             patch("mcward._daemon._bridge.connect"),
@@ -499,7 +521,7 @@ class TestStreamTests:
             patch("mcward._daemon._bridge.send_message"),
             patch("mcward._daemon._bridge.receive_messages", mock_receive),
         ):
-            with pytest.raises(ProcessConnectionError, match="before tests finished"):
+            with pytest.raises(ProcessConnectionError, match="before the run finished"):
                 list(stream_tests(address))
 
 
@@ -529,8 +551,10 @@ class TestWaitReady:
         running_process.poll.return_value = 1
         running_process.returncode = 1
 
-        with pytest.raises(ProcessStartupError, match="exited with code 1"):
+        with pytest.raises(ProcessStartupError, match="exited with code 1") as error:
             _wait_ready(running_process, directory, timeout=5)
+
+        assert str(directory / OUTPUT_FILE) in str(error.value)
 
     def test_deadline_exceeded_raises(self, directory: Path, running_process: Mock) -> None:
         """Startup fails once the deadline passes without a port file."""

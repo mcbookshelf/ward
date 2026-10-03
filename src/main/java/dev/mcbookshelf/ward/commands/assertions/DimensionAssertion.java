@@ -11,7 +11,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.DimensionArgument;
 import net.minecraft.server.level.ServerLevel;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class DimensionAssertion implements Assertion {
 	@Override
@@ -21,17 +22,15 @@ class DimensionAssertion implements Assertion {
 			CommandBuildContext context,
 			Mode mode) {
 		root.then(Commands.literal("dimension").then(Commands.argument("dimension", DimensionArgument.dimension())
-				.executes(ctx -> run(ctx, mode))));
+				.executes(ctx -> mode.check(ctx, DimensionAssertion::check))));
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult check(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		ServerLevel level = context.getSource().getLevel();
+		ServerLevel expect = DimensionArgument.getDimension(context, "dimension");
 
-		return mode.check(() -> {
-			ServerLevel expect = DimensionArgument.getDimension(context, "dimension");
-
-			return AssertResult.of(expect == level ? 1 : 0, "dimension",
-					expect.dimension().identifier().toString(), level.dimension().identifier().toString());
-		});
+		return AssertResult.of(expect == level, negated -> Messages.translatable(
+				negated ? "ward.assert.not_dimension" : "ward.assert.dimension",
+				expect.dimension().identifier().toString(), level.dimension().identifier().toString()));
 	}
 }

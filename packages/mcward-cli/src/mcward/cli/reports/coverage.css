@@ -1,0 +1,92 @@
+/* The OS preference picks the scheme; the toggle pins one on the root */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+:root {
+  --bg: light-dark(#fff, #0d1117);
+  --fg: light-dark(#222, #e6edf3);
+  --muted: light-dark(#888, #8b949e);
+  --faint: light-dark(#bbb, #6e7681);
+  --border: light-dark(#e5e5e5, #30363d);
+  --rule: light-dark(#f2f2f2, #21262d);
+  --chip: light-dark(#f0f0f0, #21262d);
+  --green: light-dark(#008608, #44c35e);
+  --red: light-dark(#be000d, #f85149);
+  --yellow: light-dark(#9a6700, #d29922);
+  --hit: light-dark(#ddf0dcbb, #1f4129bb);
+  --guard: light-dark(#fff8debb, #614a24bb);
+  --miss: light-dark(#ffebe9bb, #4c2327bb);
+  --hit-edge: light-dark(#00860880, #44c35e80);
+  --guard-edge: light-dark(#d8a20080, #d2992280);
+  --miss-edge: light-dark(#be000d80, #f8514980);
+  --track: light-dark(#e9e5e5, #30363d);
+  --fill: light-dark(#1a7f37, #238636);
+  --kw: light-dark(#0550ae, #79c0ff);
+  --str: light-dark(#0a3069, #a5d6ff);
+  --sel: light-dark(#8250df, #d2a8ff);
+  --num: light-dark(#953800, #ffa657);
+  --mac: light-dark(#cf222e, #ff7b72);
+  --cm: light-dark(#6e7781, #8b949e);
+}
+
+html { background: var(--bg); }
+body { font: 14px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 60rem;
+       padding: 0 1rem; color: var(--fg); }
+h1 { font-size: 1.3rem; }
+h1 em { color: var(--muted); font-style: normal; font-weight: normal; }
+#theme { float: right; padding: .35rem; line-height: 0; border: 1px solid var(--border);
+         border-radius: .4rem; background: var(--chip); color: var(--muted); cursor: pointer; }
+#theme:hover { color: var(--fg); }
+#theme svg[hidden] { display: none; }
+.counts span { margin-right: 1rem; }
+.passed { color: var(--green); } .failed { color: var(--red); } .skipped { color: var(--yellow); }
+.errors li { margin: .3rem 0; } .errors .message { color: var(--red); }
+input { margin: 1rem 0 .5rem; padding: .4rem; width: 20rem; }
+.legend { color: var(--muted); font-size: .85rem; margin: .5rem 0 1rem; }
+.legend span { padding: .1rem .65rem; margin-right: .5rem; color: var(--fg); }
+/* A colored edge tells the tints apart even where they look alike */
+.hit { background: var(--hit); box-shadow: inset 3px 0 var(--hit-edge); }
+.guard { background: var(--guard); box-shadow: inset 3px 0 var(--guard-edge); }
+.miss { background: var(--miss); box-shadow: inset 3px 0 var(--miss-edge); }
+
+summary { cursor: pointer; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+.group { border: 1px solid var(--border); border-radius: 6px; margin: .5rem 0; }
+.group > summary { display: grid; grid-template-columns: 1fr 8rem 2fr 3.5rem; gap: 1rem;
+                   align-items: center; padding: .5rem .75rem; }
+.group > summary b { font-family: monospace; }
+.group > summary b::before { content: "\25B8  "; color: var(--muted); }
+.group[open] > summary b::before { content: "\25BE  "; }
+.group[open] > summary { border-bottom: 1px solid var(--border); }
+.bar { height: .5rem; border-radius: .25rem; background: var(--track); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--fill); }
+div.fn, .fn > summary { display: grid; grid-template-columns: 1fr 6rem 3.5rem; gap: 1rem;
+                        padding: .25rem .75rem; font: 13px/1.5 ui-monospace, monospace; }
+.fn { border-top: 1px solid var(--rule); }
+.fn em { font-style: normal; color: var(--muted); text-align: right; }
+.fn em + span { text-align: right; }
+.fn.zero .name { color: var(--red); }
+.fn.part .name { color: var(--yellow); }
+.fn.full .name { color: var(--muted); }
+.fn > summary:hover .name { text-decoration: underline; }
+/* inline-block keeps the hover underline off the badge */
+.badge { display: inline-block; margin-left: .6rem; padding: 0 .35rem; border-radius: .5rem;
+         background: var(--chip); color: var(--muted); font-weight: normal; font-size: .85em; }
+.group > summary em { font-style: normal; color: var(--muted); text-align: right; }
+.group > summary em + span { text-align: right; }
+
+pre { font: 12.5px/1.45 ui-monospace, monospace; margin: 0; padding: .25rem 0;
+      overflow-x: auto; counter-reset: line; }
+pre span { display: block; padding: 0 .5rem; counter-increment: line; }
+pre span::before { content: counter(line); display: inline-block; width: 4ch;
+                   margin-right: 1.5ch; color: var(--faint); text-align: right; }
+::highlight(hit) { background-color: var(--hit); }
+::highlight(guard) { background-color: var(--guard); }
+::highlight(miss) { background-color: var(--miss); }
+::highlight(kw) { color: var(--kw); }
+::highlight(key) { color: var(--kw); }
+::highlight(str) { color: var(--str); }
+::highlight(sel) { color: var(--sel); }
+::highlight(num) { color: var(--num); }
+::highlight(mac) { color: var(--mac); }
+::highlight(cm) { color: var(--cm); }

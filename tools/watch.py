@@ -11,9 +11,14 @@ version to the release-pr workflow.
 import sys
 
 import httpx
-from release import MODRINTH_API, PROJECT_ID, USER_AGENT, read_gradle_property
-
-FABRIC_META = "https://meta.fabricmc.net/v2"
+from release import (
+    FABRIC_META,
+    MODRINTH_API,
+    PROJECT_ID,
+    USER_AGENT,
+    get_json,
+    read_gradle_property,
+)
 
 
 def main() -> int:
@@ -38,12 +43,6 @@ def main() -> int:
     if candidates:
         print(candidates[0])
     return 0
-
-
-def get_json(client: httpx.Client, url: str):
-    response = client.get(url)
-    response.raise_for_status()
-    return response.json()
 
 
 if __name__ == "__main__":

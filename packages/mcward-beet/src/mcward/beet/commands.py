@@ -10,12 +10,10 @@ import click
 from beet import Project
 from beet.toolchain.cli import beet, message_fence
 from beet.toolchain.project import ProjectBuilder
-from mcward import CoverageIgnores, TestSession, WardError
+from mcward import TestSession
 from mcward.cli.datapacks import parse_datapack, workspace_path
-from mcward.cli.environments import manager, select_compatible, start_environments
-from mcward.cli.reporters import github, live
-from mcward.cli.reports import parse_coverage_report, report_session
-from mcward.cli.ui import console
+from mcward.cli.reports import parse_coverage_report
+from mcward.cli.session import run_session
 
 from .plugin import TestFunction
 
@@ -51,6 +49,13 @@ pass_project = click.make_pass_decorator(Project)
     "implies --coverage.",
 )
 @click.option(
+    "--coverage-min",
+    type=click.FloatRange(0, 100),
+    default=None,
+    metavar="PERCENT",
+    help="Fail the run when coverage is below this percentage; implies --coverage.",
+)
+@click.option(
     "--junit-xml",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     default=None,
@@ -68,6 +73,7 @@ def test(
     reporter: str,
     coverage: bool,
     coverage_reports: tuple[str, ...],
+    coverage_min: float | None,
     junit_xml: Path | None,
     verbose: bool,
     selector: str,
@@ -80,8 +86,9 @@ def test(
             versions=versions,
             reporter=reporter,
             selector=selector,
-            coverage=coverage or bool(specs),
+            coverage=coverage,
             coverage_specs=specs,
+            coverage_min=coverage_min,
             junit_xml=junit_xml,
             verbose=verbose,
         )
@@ -97,6 +104,7 @@ def test_project(
     selector: str = "*:*",
     coverage: bool = False,
     coverage_specs: Sequence[tuple[str, Path]] = (),
+    coverage_min: float | None = None,
     junit_xml: Path | None = None,
     verbose: bool = False,
 ) -> TestSession:
@@ -105,23 +113,26 @@ def test_project(
     Coverage resolves against the build output, so reports render while the
     built pack still exists.
     """
-    # Loaded from the working directory on purpose: touching project.directory
-    # here would resolve and cache the config before _build_pack overrides it
-    ignores = CoverageIgnores.load()
     with TemporaryDirectory() as directory:
         pack, sources = _build_pack(project, Path(directory))
-        session = _run_tests(pack, sources, versions, selector, reporter, coverage, verbose)
-        report_session(
-            session,
-            [pack],
-            coverage_specs,
-            junit_xml,
-            verbose,
-            selector,
-            ignores,
-            coverage,
+
+        def resolve(folder: str, resource: str) -> str | None:
+            if folder != "test" or resource not in sources:
+                return None
+            return workspace_path(sources[resource])
+
+        return run_session(
+            [parse_datapack(pack)],
+            versions=versions,
+            reporter=reporter,
+            selector=selector,
+            coverage=coverage,
+            coverage_specs=coverage_specs,
+            coverage_min=coverage_min,
+            junit_xml=junit_xml,
+            verbose=verbose,
+            resolve=resolve,
         )
-        return session
 
 
 def _build_pack(project: Project, directory: Path) -> tuple[Path, dict[str, Path]]:
@@ -137,30 +148,3 @@ def _build_pack(project: Project, directory: Path) -> tuple[Path, dict[str, Path
         }
         pack = ctx.data.save(path=directory / (ctx.project_id or "datapack"), zipped=True)
         return pack, sources
-
-
-def _run_tests(
-    pack: Path,
-    sources: dict[str, Path],
-    versions: Sequence[str],
-    selector: str,
-    reporter: str,
-    coverage: bool,
-    verbose: bool,
-) -> TestSession:
-    """Run the built pack's tests on the selected versions, mirroring mcward test."""
-    datapack = parse_datapack(pack)
-    selected = versions or select_compatible(datapack.min_format, datapack.max_format)
-
-    def resolve(folder: str, resource: str) -> str | None:
-        if folder != "test" or resource not in sources:
-            return None
-        return workspace_path(sources[resource])
-
-    try:
-        envs = start_environments([manager.get(v) for v in selected])
-        console.print()
-        run = github.run if reporter == "github" else live.run
-        return run([pack], envs, selector, coverage=coverage, verbose=verbose, resolve=resolve)
-    except WardError as e:
-        raise click.ClickException(str(e)) from e

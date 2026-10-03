@@ -257,7 +257,7 @@ class TestVersionRegistry:
 
     @pytest.fixture
     def fetch_result(self) -> tuple[dict[str, int], list[Version]]:
-        """Mock (formats, versions) as produced by _fetch."""
+        """Mock (formats, versions) as produced by _fetch_remote."""
         versions = [
             Version.parse("26.2-snapshot-6"),
             Version.parse("26.1.2"),
@@ -274,7 +274,7 @@ class TestVersionRegistry:
         async def fake_fetch() -> tuple[dict[str, int], list[Version]]:
             return result
 
-        return patch("mcward._versions._fetch", side_effect=fake_fetch)
+        return patch("mcward._versions._fetch_remote", side_effect=fake_fetch)
 
     def test_constructor_is_lazy(self, temp_cache: Path) -> None:
         with self.patch_fetch(({}, [])) as mock_fetch:
@@ -303,8 +303,8 @@ class TestVersionRegistry:
         self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
     ) -> None:
         with self.patch_fetch(fetch_result) as mock_fetch:
-            versions = registry.list()
-            registry.list()
+            versions = registry.available()
+            registry.available()
             registry.get("26.1.2")
             mock_fetch.assert_called_once()
 
@@ -314,11 +314,11 @@ class TestVersionRegistry:
         self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
     ) -> None:
         with self.patch_fetch(fetch_result):
-            versions1 = VersionRegistry(temp_cache, ttl_hours=1).list()
+            versions1 = VersionRegistry(temp_cache, ttl_hours=1).available()
 
         registry2 = VersionRegistry(temp_cache, ttl_hours=1)
         with self.patch_fetch(({}, [])) as mock_fetch:
-            versions2 = registry2.list()
+            versions2 = registry2.available()
             mock_fetch.assert_not_called()
 
         assert versions1 == versions2
@@ -327,11 +327,11 @@ class TestVersionRegistry:
         self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
     ) -> None:
         with self.patch_fetch(fetch_result) as mock_fetch:
-            VersionRegistry(temp_cache, ttl_hours=0).list()
+            VersionRegistry(temp_cache, ttl_hours=0).available()
             assert mock_fetch.call_count == 1
 
             time.sleep(0.01)
-            VersionRegistry(temp_cache, ttl_hours=0).list()
+            VersionRegistry(temp_cache, ttl_hours=0).available()
             assert mock_fetch.call_count == 2
 
     def test_stale_cache_fallback_on_network_error(
@@ -339,28 +339,28 @@ class TestVersionRegistry:
     ) -> None:
 
         with self.patch_fetch(fetch_result):
-            versions1 = VersionRegistry(temp_cache, ttl_hours=0).list()
+            versions1 = VersionRegistry(temp_cache, ttl_hours=0).available()
 
-        with patch("mcward._versions._fetch", side_effect=httpx.HTTPError("Network error")):
-            versions2 = VersionRegistry(temp_cache, ttl_hours=0).list()
+        with patch("mcward._versions._fetch_remote", side_effect=httpx.HTTPError("Network error")):
+            versions2 = VersionRegistry(temp_cache, ttl_hours=0).available()
 
         assert versions1 == versions2
 
     def test_network_error_no_cache_raises(self, registry: VersionRegistry) -> None:
 
-        with patch("mcward._versions._fetch", side_effect=httpx.HTTPError("Network error")):
+        with patch("mcward._versions._fetch_remote", side_effect=httpx.HTTPError("Network error")):
             with pytest.raises(VersionError, match="Network error"):
-                registry.list()
+                registry.available()
 
     def test_garbage_response_falls_back_to_cache(
         self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
     ) -> None:
         """A broken API body is treated like a broken network."""
         with self.patch_fetch(fetch_result):
-            versions1 = VersionRegistry(temp_cache, ttl_hours=0).list()
+            versions1 = VersionRegistry(temp_cache, ttl_hours=0).available()
 
-        with patch("mcward._versions._fetch", side_effect=ValueError("not json")):
-            versions2 = VersionRegistry(temp_cache, ttl_hours=0).list()
+        with patch("mcward._versions._fetch_remote", side_effect=ValueError("not json")):
+            versions2 = VersionRegistry(temp_cache, ttl_hours=0).available()
 
         assert versions1 == versions2
 
@@ -372,7 +372,7 @@ class TestVersionRegistry:
     ) -> None:
         """The cache file appears fully formed, with no partial sibling."""
         with self.patch_fetch(fetch_result):
-            registry.list()
+            registry.available()
 
         assert [f.name for f in temp_cache.iterdir()] == ["versions.json"]
 
@@ -380,14 +380,14 @@ class TestVersionRegistry:
         self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
     ) -> None:
         with self.patch_fetch(fetch_result) as mock_fetch:
-            registry.list()
+            registry.available()
             registry.refresh()
             assert mock_fetch.call_count == 2
 
     def test_versions_without_format_are_dropped(self, registry: VersionRegistry) -> None:
         result = ({"26.1.2": 81}, [Version.parse("26.1.2"), Version.parse("26.1.1")])
         with self.patch_fetch(result):
-            assert [v.name for v in registry.list()] == ["26.1.2"]
+            assert [v.name for v in registry.available()] == ["26.1.2"]
 
     def test_get_specific_version(
         self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]

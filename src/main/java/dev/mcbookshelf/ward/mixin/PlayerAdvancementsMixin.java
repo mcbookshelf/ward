@@ -8,19 +8,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.server.PlayerAdvancements;
 
-import dev.mcbookshelf.ward.DataCoverage;
+import dev.mcbookshelf.ward.coverage.Coverage;
+import dev.mcbookshelf.ward.coverage.DataCoverage;
 
 @Mixin(PlayerAdvancements.class)
 public class PlayerAdvancementsMixin {
 	/**
-	 * Only newly awarded criteria count, so the numbers stay deterministic when an event matches an already granted criterion.
+	 * Only a newly awarded criterion counts: an event can match one that is already granted.
 	 */
 	@Inject(method = "award", at = @At("RETURN"))
 	private void recordCriterion(
 			AdvancementHolder holder,
 			String criterion,
-			CallbackInfoReturnable<Boolean> cir) {
-		if (cir.getReturnValueZ()) {
+			CallbackInfoReturnable<Boolean> info) {
+		if (Coverage.isEnabled() && info.getReturnValueZ()) {
 			DataCoverage.recordCriterion(holder.id().toString(), criterion);
 		}
 	}

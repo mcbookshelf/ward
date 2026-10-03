@@ -1,20 +1,23 @@
 package dev.mcbookshelf.ward.dummy;
 
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import com.mojang.authlib.GameProfile;
+import org.jspecify.annotations.Nullable;
 
 import net.minecraft.advancements.triggers.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
 import net.minecraft.network.protocol.game.ClientboundRotateHeadPacket;
 import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerLoadedPacket;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ClientInformation;
@@ -27,20 +30,22 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A fake server-side player with a no-op network connection.
- * Dummies are never saved and keep their stats and advancements in memory.
- * Inspired by <a href="https://github.com/gnembon/fabric-carpet">Carpet</a>.
+ * Inspired by the fake player of Carpet (https://github.com/gnembon/fabric-carpet).
  */
 public class Dummy extends ServerPlayer {
+	public final ResourceKey<Level> spawnDimension;
 	public final Vec3 spawnPosition;
 	public final Vec2 spawnRotation;
 
@@ -49,7 +54,7 @@ public class Dummy extends ServerPlayer {
 		String username;
 
 		do {
-			username = "dummy-" + level.getRandom().nextInt(1_000_000_000, Integer.MAX_VALUE);
+			username = "dummy-" + ThreadLocalRandom.current().nextInt(1_000_000_000, Integer.MAX_VALUE);
 		} while (players.getPlayerByName(username) != null);
 		return Dummy.create(username, level, position, rotation);
 	}
@@ -59,12 +64,12 @@ public class Dummy extends ServerPlayer {
 		MinecraftServer server = level.getServer();
 		GameProfile profile = new GameProfile(UUID.randomUUID(), username);
 		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
-		Dummy instance = new Dummy(server, level, profile, cookie.clientInformation(), position, rotation);
+		Dummy instance = new Dummy(server, level, profile, cookie.clientInformation(), level.dimension(), position, rotation);
 		FakeConnection connection = new FakeConnection(PacketFlow.SERVERBOUND);
-		level.getServer().getPlayerList().placeNewPlayer(connection, instance, cookie);
+		server.getPlayerList().placeNewPlayer(connection, instance, cookie);
+		instance.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
 		instance.teleportTo(level, position.x, position.y, position.z, Set.of(), rotation.y, rotation.x, true);
-		instance.setHealth(20);
-		instance.unsetRemoved();
+		instance.setOnGround(true);
 		instance.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
 		server.getPlayerList().broadcastAll(new ClientboundRotateHeadPacket(instance, (byte) (instance.yHeadRot * 256 / 360)), level.dimension());
 		server.getPlayerList().broadcastAll(ClientboundEntityPositionSyncPacket.of(instance), level.dimension());
@@ -77,22 +82,28 @@ public class Dummy extends ServerPlayer {
 			ServerLevel level,
 			GameProfile gameProfile,
 			ClientInformation clientInformation,
+			ResourceKey<Level> spawnDimension,
 			Vec3 spawnPosition,
 			Vec2 spawnRotation) {
 		super(server, level, gameProfile, clientInformation);
+		this.spawnDimension = spawnDimension;
 		this.spawnPosition = spawnPosition;
 		this.spawnRotation = spawnRotation;
 	}
 
 	public void leave(Component reason) {
-		MinecraftServer server = Objects.requireNonNull(this.level().getServer());
-		server.getPlayerList().remove(this);
-		this.connection.onDisconnect(new DisconnectionDetails(reason));
+		this.connection.disconnect(reason);
 	}
 
 	public void respawn() {
-		MinecraftServer server = Objects.requireNonNull(this.level().getServer());
-		server.getPlayerList().respawn(this, false, Entity.RemovalReason.KILLED);
+		this.connection.handleClientCommand(new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+		this.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
+	}
+
+	public void press(boolean sneak, boolean sprint) {
+		Input input = this.getLastClientInput();
+		this.connection.handlePlayerInput(new ServerboundPlayerInputPacket(
+				new Input(input.forward(), input.backward(), input.left(), input.right(), input.jump(), sneak, sprint)));
 	}
 
 	public boolean useItem() {
@@ -108,9 +119,10 @@ public class Dummy extends ServerPlayer {
 	}
 
 	public boolean useOnBlock(Vec3 pos, Direction direction) {
+		BlockHitResult blockHit = new BlockHitResult(pos, direction, BlockPos.containing(pos), false);
+
 		for (InteractionHand hand : InteractionHand.values()) {
 			ItemStack handItem = getItemInHand(hand);
-			BlockHitResult blockHit = new BlockHitResult(pos, direction, BlockPos.containing(pos), false);
 
 			if (gameMode.useItemOn(this, level(), handItem, hand, blockHit).consumesAction()) {
 				// The trigger normally fires from the network handler, which dummies bypass
@@ -141,19 +153,23 @@ public class Dummy extends ServerPlayer {
 	}
 
 	@Override
-	public String getIpAddress() {
-		return "127.0.0.1";
+	public TeleportTransition findRespawnPositionAndUseSpawnBlock(boolean consumeSpawnBlock, TeleportTransition.PostTeleportTransition postTeleportTransition) {
+		ServerLevel level = this.level().getServer().getLevel(this.spawnDimension);
+
+		if (this.getRespawnConfig() == null && level != null) {
+			return new TeleportTransition(level, this.spawnPosition, Vec3.ZERO, this.spawnRotation.y, this.spawnRotation.x, postTeleportTransition);
+		}
+
+		return super.findRespawnPositionAndUseSpawnBlock(consumeSpawnBlock, postTeleportTransition);
 	}
 
 	@Override
 	public BlockPos adjustSpawnLocation(ServerLevel level, BlockPos spawnSuggestion) {
-		// No safe-spot search: the test placed the dummy on purpose
 		return BlockPos.containing(this.spawnPosition);
 	}
 
 	@Override
 	public void onEquipItem(EquipmentSlot slot, ItemStack previous, ItemStack stack) {
-		// Suppress equipment change packets while consuming items
 		if (!isUsingItem()) {
 			super.onEquipItem(slot, previous, stack);
 		}
@@ -164,25 +180,30 @@ public class Dummy extends ServerPlayer {
 		super.die(cause);
 
 		if (this.level().getGameRules().get(GameRules.IMMEDIATE_RESPAWN)) {
-			MinecraftServer server = Objects.requireNonNull(this.level().getServer());
-			server.schedule(new TickTask(server.getTickCount(), () -> this.connection.handleClientCommand(
-					new ServerboundClientCommandPacket(ServerboundClientCommandPacket.Action.PERFORM_RESPAWN))));
+			MinecraftServer server = this.level().getServer();
+			server.schedule(new TickTask(server.getTickCount(), () -> {
+				if (server.getPlayerList().getPlayer(this.getUUID()) == this) {
+					this.respawn();
+				}
+			}));
 		}
 	}
 
 	@Override
+	public @Nullable ServerPlayer teleport(TeleportTransition transition) {
+		ServerPlayer player = super.teleport(transition);
+		this.hasChangedDimension();
+		return player;
+	}
+
+	@Override
 	public void tick() {
-		// Every 10 ticks: prevent "moved too quickly" disconnect checks
 		if (this.level().getServer().getTickCount() % 10 == 0) {
 			this.connection.resetPosition();
 			this.level().getChunkSource().move(this);
 		}
 
-		try {
-			super.tick();
-			this.doTick();
-		} catch (NullPointerException _) {
-			// NPE can occur during respawn transition when dummy is in inconsistent state
-		}
+		super.tick();
+		this.doTick();
 	}
 }

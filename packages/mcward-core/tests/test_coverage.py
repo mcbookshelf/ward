@@ -1,5 +1,6 @@
 """Tests for coverage line mapping and report resolution."""
 
+import json
 import zipfile
 from pathlib import Path
 
@@ -7,13 +8,13 @@ import pytest
 
 from mcward import (
     Coverage,
+    CoverageConfig,
     CoverageIgnores,
     FunctionCoverage,
     IgnoreRule,
     WardError,
     command_lines,
     ignored_lines,
-    json_offsets,
     json_spans,
     resolve_functions,
     resolve_resources,
@@ -85,6 +86,81 @@ class TestScanFunctions:
         (tests / "case.mcfunction").write_text("assert entity @s\n", encoding="utf-8")
 
         assert scan_functions([tmp_path / "pack", tmp_path / "absent"]) == {}
+
+
+def write_overlay_pack(pack: Path) -> None:
+    """A pack whose function and predicate exist at the root and in three overlays."""
+    entries = [
+        {"directory": "old", "formats": [48, 81]},
+        {"directory": "wide", "min_format": 82, "max_format": 200},
+        {"directory": "minor", "min_format": [119, 1], "max_format": 119},
+    ]
+    pack.mkdir(parents=True)
+    meta = {"pack": {"min_format": 82, "max_format": 200}, "overlays": {"entries": entries}}
+    (pack / "pack.mcmeta").write_text(json.dumps(meta), encoding="utf-8")
+    for folder in ("", "old", "wide", "minor"):
+        data = pack / folder / "data" / "demo"
+        (data / "function").mkdir(parents=True)
+        (data / "function" / "main.mcfunction").write_text(f"say {folder}\n", encoding="utf-8")
+        (data / "predicate").mkdir()
+        (data / "predicate" / "gate.json").write_text("{}", encoding="utf-8")
+
+
+class TestOverlays:
+    """Test reading the sources a server loaded from the overlays of a pack."""
+
+    @pytest.mark.parametrize(
+        ("pack_format", "folder"),
+        [
+            (None, ""),  # an older mod does not say: the root, as before
+            ((81, 0), ""),  # entries without min_format and max_format never apply
+            ((119, 0), "wide"),
+            ((119, 1), "minor"),  # the last entry that applies wins
+            ((119, 7), "minor"),  # an upper bound without a minor covers every minor
+            ((120, 0), "wide"),
+            ((201, 0), ""),
+        ],
+    )
+    def test_the_overlay_that_applies_wins(
+        self, tmp_path: Path, pack_format: tuple[int, int] | None, folder: str
+    ) -> None:
+        pack = tmp_path / "pack"
+        write_overlay_pack(pack)
+        coverage = Coverage(
+            functions={},
+            conditions={"minecraft:predicate": {"demo:gate": {"": (1, 0)}}},
+            pack_format=pack_format,
+        )
+
+        function = scan_functions([pack], pack_format)["demo:main"]
+        assert function.path == pack / folder / "data/demo/function/main.mcfunction"
+        (resource,) = resolve_resources(coverage, [pack])
+        assert resource.file is not None
+        assert resource.file.path == pack / folder / "data/demo/predicate/gate.json"
+
+    def test_zipped_pack(self, tmp_path: Path) -> None:
+        write_overlay_pack(tmp_path / "pack")
+        archive = tmp_path / "pack.zip"
+        with zipfile.ZipFile(archive, "w") as file:
+            for path in (tmp_path / "pack").rglob("*"):
+                file.write(path, path.relative_to(tmp_path / "pack").as_posix())
+        coverage = Coverage(
+            functions={"demo:main": FunctionCoverage((1,), (1,))}, pack_format=(119, 0)
+        )
+
+        (report,) = resolve_functions(coverage, [archive])
+        assert report.file is not None
+        assert report.file.member == "wide/data/demo/function/main.mcfunction"
+
+    def test_broken_metadata_means_no_overlay(self, tmp_path: Path) -> None:
+        pack = tmp_path / "pack"
+        write_overlay_pack(pack)
+        (pack / "pack.mcmeta").write_text(
+            '{"overlays": {"entries": "not-a-list"}}', encoding="utf-8"
+        )
+
+        function = scan_functions([pack], (119, 0))["demo:main"]
+        assert function.path == pack / "data/demo/function/main.mcfunction"
 
 
 class TestResolveFunctions:
@@ -244,7 +320,7 @@ class TestCoverageIgnores:
             encoding="utf-8",
         )
 
-        ignores = CoverageIgnores.load(tmp_path)
+        ignores = CoverageConfig.load(tmp_path).ignores
         assert ignores.element("function", "demo:debug/dump")
         assert not ignores.element("function", "demo:main")
         assert ignores.node("loot_table", "demo:box", "pools[0]")
@@ -253,12 +329,30 @@ class TestCoverageIgnores:
         assert ignores.lines("demo:fill") == {5, 6}
 
     def test_load_without_file_is_empty(self, tmp_path: Path) -> None:
-        assert CoverageIgnores.load(tmp_path) == CoverageIgnores()
+        assert CoverageConfig.load(tmp_path).ignores == CoverageIgnores()
 
     def test_load_rejects_bad_shapes(self, tmp_path: Path) -> None:
         (tmp_path / "ward.toml").write_text("[coverage]\nignore = 1\n", encoding="utf-8")
         with pytest.raises(WardError):
-            CoverageIgnores.load(tmp_path)
+            CoverageConfig.load(tmp_path)
+
+    def test_load_reads_the_minimum(self, tmp_path: Path) -> None:
+        (tmp_path / "ward.toml").write_text("[coverage]\nminimum = 80.5\n", encoding="utf-8")
+
+        assert CoverageConfig.load(tmp_path).minimum == 80.5
+        assert CoverageConfig.load(tmp_path / "absent").minimum is None
+
+    @pytest.mark.parametrize("value", ['"80"', "true", "101", "-1"])
+    def test_load_rejects_a_bad_minimum(self, tmp_path: Path, value: str) -> None:
+        (tmp_path / "ward.toml").write_text(f"[coverage]\nminimum = {value}\n", encoding="utf-8")
+
+        with pytest.raises(WardError, match="minimum is a number from 0 to 100"):
+            CoverageConfig.load(tmp_path)
+
+
+def lines_of(text: str) -> dict[str, tuple[int, int]]:
+    """The line span of every JSON object, without its character span."""
+    return {path: lines for path, (lines, _) in json_spans(text).items()}
 
 
 class TestJsonSpans:
@@ -266,26 +360,32 @@ class TestJsonSpans:
 
     def test_nested_objects_and_arrays(self) -> None:
         text = '{\n  "terms": [\n    {\n      "a": 1\n    },\n    {"b": 2}\n  ]\n}\n'
-        assert json_spans(text) == {"": (1, 8), "terms[0]": (3, 5), "terms[1]": (6, 6)}
+        assert lines_of(text) == {"": (1, 8), "terms[0]": (3, 5), "terms[1]": (6, 6)}
 
     def test_minified_document_spans_one_line(self) -> None:
-        spans = json_spans('{"type":"any_of","terms":[{"type":"inverted","term":{"x":true}}]}')
+        spans = lines_of('{"type":"any_of","terms":[{"type":"inverted","term":{"x":true}}]}')
         assert spans == {"": (1, 1), "terms[0]": (1, 1), "terms[0].term": (1, 1)}
 
     def test_escaped_keys_match_decoded_form(self) -> None:
-        assert json_spans('{"a\\"b": {}}') == {"": (1, 1), 'a"b': (1, 1)}
+        assert lines_of('{"a\\"b": {}}') == {"": (1, 1), 'a"b': (1, 1)}
 
     def test_strings_and_numbers_are_skipped(self) -> None:
         text = '{"s": "no } brace", "n": -1.5e3, "b": false}'
-        assert json_spans(text) == {"": (1, 1)}
+        assert lines_of(text) == {"": (1, 1)}
 
     def test_truncated_document_is_rejected(self) -> None:
         with pytest.raises(ValueError):
             json_spans('{"open": [1, 2')
 
+    @pytest.mark.parametrize("text", ["[}", '{"a": [}', '{"a": [1, }'])
+    def test_misplaced_bracket_is_rejected(self, text: str) -> None:
+        """A value of no length must not leave the scan on the same spot forever."""
+        with pytest.raises(ValueError):
+            json_spans(text)
+
     def test_offsets_address_exact_characters(self) -> None:
         text = '{"terms": [{"a": 1}, {"b": 2}]}'
-        assert json_offsets(text) == {
+        assert {path: offsets for path, (_, offsets) in json_spans(text).items()} == {
             "": (0, 31),
             "terms[0]": (11, 19),
             "terms[1]": (21, 29),

@@ -112,9 +112,9 @@ class TestBeetTestCommand:
             return SimpleNamespace(version=version)
 
         with (
-            patch("mcward.beet.commands.start_environments", side_effect=lambda envs: envs),
-            patch("mcward.beet.commands.live.run", side_effect=fake_run_tests_live),
-            patch("mcward.beet.commands.manager") as mock_manager,
+            patch("mcward.cli.session.start_environments", side_effect=lambda envs: envs),
+            patch("mcward.cli.session.live.run", side_effect=fake_run_tests_live),
+            patch("mcward.cli.session.manager") as mock_manager,
         ):
             mock_manager.get.side_effect = fake_get
             result = runner.invoke(beet_cli, args, obj=Project())
@@ -158,6 +158,12 @@ class TestBeetTestCommand:
         assert result.exit_code == 0, result.output
         assert calls.coverage is True
 
+    def test_coverage_min_implies_coverage(self, project_dir: Path, runner: CliRunner) -> None:
+        result, calls = self.invoke(runner, ["test", "-v", "26.1.2", "--coverage-min", "80"])
+
+        assert result.exit_code == 0, result.output
+        assert calls.coverage is True
+
     def test_junit_xml_writes_results(
         self, project_dir: Path, runner: CliRunner, tmp_path: Path
     ) -> None:
@@ -171,9 +177,7 @@ class TestBeetTestCommand:
         self, project_dir: Path, runner: CliRunner
     ) -> None:
         """Without -v, compatible versions come from the built pack's format range."""
-        with patch(
-            "mcward.beet.commands.select_compatible", return_value=["26.1.2"]
-        ) as mock_select:
+        with patch("mcward.cli.session.select_compatible", return_value=["26.1.2"]) as mock_select:
             result, calls = self.invoke(runner, ["test"])
 
         assert result.exit_code == 0, result.output

@@ -3,7 +3,6 @@ package dev.mcbookshelf.ward.commands.assertions;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -13,7 +12,8 @@ import net.minecraft.core.Holder;
 import net.minecraft.server.commands.ExecuteCommand;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class PredicateAssertion implements Assertion {
 	@Override
@@ -24,17 +24,14 @@ class PredicateAssertion implements Assertion {
 			Mode mode) {
 		root.then(Commands.literal("predicate")
 				.then(Commands.argument("predicate", ResourceOrIdArgument.lootPredicate(context))
-						.executes(ctx -> run(ctx, mode))));
+						.executes(ctx -> mode.check(ctx, PredicateAssertion::check))));
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
-		CommandSourceStack source = context.getSource();
+	private static AssertResult check(CommandContext<CommandSourceStack> context) {
+		Holder<LootItemCondition> predicate = ResourceOrIdArgument.getLootPredicate(context, "predicate");
 
-		return mode.check(() -> {
-			Holder<LootItemCondition> predicate = ResourceOrIdArgument.getLootPredicate(context, "predicate");
-
-			return AssertResult.of(ExecuteCommand.checkCustomPredicate(source, predicate) ? 1 : 0, "predicate",
-					predicate.getRegisteredName());
-		});
+		return AssertResult.of(ExecuteCommand.checkCustomPredicate(context.getSource(), predicate), negated -> Messages.translatable(
+				negated ? "ward.assert.not_predicate" : "ward.assert.predicate",
+				Assertion.getRawArgument(context, "predicate")));
 	}
 }

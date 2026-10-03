@@ -2,10 +2,10 @@ package dev.mcbookshelf.ward.mixin;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import org.jspecify.annotations.Nullable;
@@ -14,23 +14,24 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderOwner;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 
-import dev.mcbookshelf.ward.LoadDiagnostic;
-import dev.mcbookshelf.ward.ReportManager;
+import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
-import dev.mcbookshelf.ward.accessor.MappedRegistryAccessor;
+import dev.mcbookshelf.ward.test.MappedRegistryAccessor;
 
-/**
- * Allows unfreezing and clearing registries, so TEST_INSTANCE and TEST_FUNCTION can be reloaded without a server restart.
- */
 @Mixin(MappedRegistry.class)
 public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T>, HolderOwner<T> {
 	@Shadow
@@ -52,10 +53,13 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 	@Final
 	private Map<ResourceKey<T>, RegistrationInfo> registrationInfos;
 	@Shadow
+	@Final
+	private Map<TagKey<T>, HolderSet.Named<T>> frozenTags;
+	@Shadow
 	private boolean frozen;
 
 	@Shadow
-	MappedRegistry.TagSet<T> allTags;
+	private MappedRegistry.TagSet<T> allTags;
 
 	@Shadow
 	public abstract ResourceKey<? extends Registry<T>> key();
@@ -97,7 +101,6 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 			T value = holder.value();
 			byLocation.remove(key.identifier());
 			byValue.remove(value);
-			toId.removeInt(value);
 			registrationInfos.remove(key);
 		}
 	}
@@ -116,21 +119,34 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 		}
 	}
 
-	/**
-	 * Reports references to missing elements and lets the registry freeze anyway.
-	 * Vanilla would throw instead, dropping the whole registry and crashing later lookups.
-	 */
-	@WrapOperation(method = "freeze", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z", ordinal = 0))
-	private boolean reportUnboundValues(List<Identifier> unboundEntries, Operation<Boolean> original) {
-		if (!original.call(unboundEntries)) {
-			String registry = this.key().identifier().toString();
-			unboundEntries.forEach(id -> {
-				Ward.LOGGER.error("Unbound value in registry {}: {} is referenced but never defined", registry, id);
-				ReportManager.report(LoadDiagnostic.error(
-						registry, id.toString(), "Referenced but not defined in any loaded data pack"));
-			});
+	@Inject(method = "freeze", at = @At("HEAD"))
+	private void dropDanglingReferences(CallbackInfoReturnable<Registry<T>> info) {
+		if (this.frozen) {
+			return;
 		}
 
-		return true;
+		String registry = this.key().identifier().toString();
+		Set<Holder.Reference<T>> dangling = this.byKey.values().stream()
+				.filter(holder -> !this.byLocation.containsKey(holder.key().identifier()))
+				.collect(Collectors.toSet());
+
+		for (Holder.Reference<T> holder : dangling) {
+			Identifier id = holder.key().identifier();
+			Ward.LOGGER.error("Unbound value in registry {}: {} is referenced but never defined", registry, id);
+			Reporter.loadError(registry, id.toString(), "Referenced but not defined in any loaded data pack");
+			this.byKey.remove(holder.key());
+		}
+
+		String kind = "minecraft:" + Registries.tagsDirPath(this.key());
+
+		for (HolderSet.Named<T> tag : this.frozenTags.values()) {
+			if (!tag.isBound()) {
+				Ward.LOGGER.error("Unbound tag in registry {}: #{} is referenced but never defined", registry, tag.key().location());
+				Reporter.loadError(kind, tag.key().location().toString(), "Referenced but not defined in any loaded data pack");
+				tag.bind(List.of());
+			} else if (!dangling.isEmpty() && tag.stream().anyMatch(dangling::contains)) {
+				tag.bind(tag.stream().filter(holder -> !dangling.contains(holder)).toList());
+			}
+		}
 	}
 }

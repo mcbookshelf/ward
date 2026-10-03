@@ -16,103 +16,11 @@ from mcward import (
     TestStatus,
     Version,
     VersionOutcome,
-    json_offsets,
 )
 
-_STYLE = """
-/* The OS preference picks the scheme; the toggle pins one on the root */
-:root { color-scheme: light dark; }
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"] { color-scheme: dark; }
-:root {
-  --bg: light-dark(#fff, #0d1117);
-  --fg: light-dark(#222, #e6edf3);
-  --muted: light-dark(#888, #8b949e);
-  --faint: light-dark(#bbb, #6e7681);
-  --border: light-dark(#e5e5e5, #30363d);
-  --rule: light-dark(#f2f2f2, #21262d);
-  --chip: light-dark(#f0f0f0, #21262d);
-  --green: light-dark(#008608, #44c35e);
-  --red: light-dark(#be000d, #f85149);
-  --yellow: light-dark(#9a6700, #d29922);
-  --hit: light-dark(#ddf0dcbb, #1f4129bb);
-  --guard: light-dark(#fff8debb, #614a24bb);
-  --miss: light-dark(#ffebe9bb, #4c2327bb);
-  --hit-edge: light-dark(#00860880, #44c35e80);
-  --guard-edge: light-dark(#d8a20080, #d2992280);
-  --miss-edge: light-dark(#be000d80, #f8514980);
-  --track: light-dark(#e9e5e5, #30363d);
-  --fill: light-dark(#1a7f37, #238636);
-  --kw: light-dark(#0550ae, #79c0ff);
-  --str: light-dark(#0a3069, #a5d6ff);
-  --sel: light-dark(#8250df, #d2a8ff);
-  --num: light-dark(#953800, #ffa657);
-  --mac: light-dark(#cf222e, #ff7b72);
-  --cm: light-dark(#6e7781, #8b949e);
-}
-
-html { background: var(--bg); }
-body { font: 14px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 60rem;
-       padding: 0 1rem; color: var(--fg); }
-h1 { font-size: 1.3rem; }
-h1 em { color: var(--muted); font-style: normal; font-weight: normal; }
-#theme { float: right; padding: .35rem; line-height: 0; border: 1px solid var(--border);
-         border-radius: .4rem; background: var(--chip); color: var(--muted); cursor: pointer; }
-#theme:hover { color: var(--fg); }
-#theme svg[hidden] { display: none; }
-.counts span { margin-right: 1rem; }
-.passed { color: var(--green); } .failed { color: var(--red); } .skipped { color: var(--yellow); }
-.errors li { margin: .3rem 0; } .errors .message { color: var(--red); }
-input { margin: 1rem 0 .5rem; padding: .4rem; width: 20rem; }
-.legend { color: var(--muted); font-size: .85rem; margin: .5rem 0 1rem; }
-.legend span { padding: .1rem .65rem; margin-right: .5rem; color: var(--fg); }
-/* A colored edge tells the tints apart even where they look alike */
-.hit { background: var(--hit); box-shadow: inset 3px 0 var(--hit-edge); }
-.guard { background: var(--guard); box-shadow: inset 3px 0 var(--guard-edge); }
-.miss { background: var(--miss); box-shadow: inset 3px 0 var(--miss-edge); }
-
-summary { cursor: pointer; list-style: none; }
-summary::-webkit-details-marker { display: none; }
-.group { border: 1px solid var(--border); border-radius: 6px; margin: .5rem 0; }
-.group > summary { display: grid; grid-template-columns: 1fr 8rem 2fr 3.5rem; gap: 1rem;
-                   align-items: center; padding: .5rem .75rem; }
-.group > summary b { font-family: monospace; }
-.group > summary b::before { content: "\\25B8  "; color: var(--muted); }
-.group[open] > summary b::before { content: "\\25BE  "; }
-.group[open] > summary { border-bottom: 1px solid var(--border); }
-.bar { height: .5rem; border-radius: .25rem; background: var(--track); overflow: hidden; }
-.bar span { display: block; height: 100%; background: var(--fill); }
-div.fn, .fn > summary { display: grid; grid-template-columns: 1fr 6rem 3.5rem; gap: 1rem;
-                        padding: .25rem .75rem; font: 13px/1.5 ui-monospace, monospace; }
-.fn { border-top: 1px solid var(--rule); }
-.fn em { font-style: normal; color: var(--muted); text-align: right; }
-.fn em + span { text-align: right; }
-.fn.zero .name { color: var(--red); }
-.fn.part .name { color: var(--yellow); }
-.fn.full .name { color: var(--muted); }
-.fn > summary:hover .name { text-decoration: underline; }
-/* inline-block keeps the hover underline off the badge */
-.badge { display: inline-block; margin-left: .6rem; padding: 0 .35rem; border-radius: .5rem;
-         background: var(--chip); color: var(--muted); font-weight: normal; font-size: .85em; }
-.group > summary em { font-style: normal; color: var(--muted); text-align: right; }
-.group > summary em + span { text-align: right; }
-
-pre { font: 12.5px/1.45 ui-monospace, monospace; margin: 0; padding: .25rem 0;
-      overflow-x: auto; counter-reset: line; }
-pre span { display: block; padding: 0 .5rem; counter-increment: line; }
-pre span::before { content: counter(line); display: inline-block; width: 4ch;
-                   margin-right: 1.5ch; color: var(--faint); text-align: right; }
-::highlight(hit) { background-color: var(--hit); }
-::highlight(guard) { background-color: var(--guard); }
-::highlight(miss) { background-color: var(--miss); }
-::highlight(kw) { color: var(--kw); }
-::highlight(key) { color: var(--kw); }
-::highlight(str) { color: var(--str); }
-::highlight(sel) { color: var(--sel); }
-::highlight(num) { color: var(--num); }
-::highlight(mac) { color: var(--mac); }
-::highlight(cm) { color: var(--cm); }
-"""
+_RESOURCES = Path(__file__).parent
+_STYLE = (_RESOURCES / "coverage.css").read_text(encoding="utf-8")
+_SCRIPT = (_RESOURCES / "coverage.js").read_text(encoding="utf-8")
 
 _ICON = (
     '<svg class="{name}" width="16" height="16" viewBox="0 0 24 24" fill="none" '
@@ -130,140 +38,6 @@ _THEME_BUTTON = '<button id="theme" type="button">' + (
     )
     + "</button>"
 )
-
-_SCRIPT = """
-const theme = document.getElementById('theme');
-const prefersDark = matchMedia('(prefers-color-scheme: dark)');
-const isDark = () => {
-  const pinned = document.documentElement.dataset.theme;
-  return pinned ? pinned === 'dark' : prefersDark.matches;
-};
-const relabel = () => {
-  const dark = isDark();
-  theme.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
-  theme.querySelector('.sun').toggleAttribute('hidden', !dark);
-  theme.querySelector('.moon').toggleAttribute('hidden', dark);
-};
-theme.addEventListener('click', () => {
-  document.documentElement.dataset.theme = isDark() ? 'light' : 'dark';
-  relabel();
-});
-prefersDark.addEventListener('change', relabel);
-relabel();
-
-const filter = document.getElementById('filter');
-filter.addEventListener('input', () => {
-  const query = filter.value.toLowerCase();
-  for (const fn of document.querySelectorAll('.fn')) {
-    fn.hidden = !fn.dataset.name.includes(query);
-  }
-  for (const group of document.querySelectorAll('.group')) {
-    group.hidden = !group.querySelector('.fn:not([hidden])');
-    if (query) group.open = !group.hidden;
-  }
-});
-
-function reveal() {
-  const target = location.hash && document.querySelector(location.hash);
-  if (target && target.classList.contains('fn')) {
-    target.closest('.group').open = true;
-    target.open = true;
-    target.scrollIntoView();
-  }
-}
-addEventListener('hashchange', reveal);
-reveal();
-
-// Syntax colors through the CSS custom highlight API: ranges over the existing
-// text nodes, no extra markup. Sources are tokenized when first opened.
-if (CSS.highlights) {
-  const commandRules = [
-    ['cm', /^\\s*#.*/g],
-    ['sel', /@[a-z]+(?:\\[[^\\]]*\\])?/g],
-    ['str', /"(?:\\\\.|[^"\\\\])*"|'[^']*'/g],
-    ['mac', /\\$\\(\\w+\\)/g],
-    ['kw', /(?<=^\\s*\\$?|\\brun\\s)[a-z][a-z_]*/g],
-    ['num', /(?<![\\w.-])-?\\d[\\w.]*|[~^]-?[\\d.]*/g],
-  ];
-  const jsonRules = [
-    ['key', /"(?:\\\\.|[^"\\\\])*"(?=\\s*:)|\\b(?:true|false|null)\\b/g],
-    ['str', /"(?:\\\\.|[^"\\\\])*"/g],
-    ['num', /-?\\d[\\w.]*/g],
-  ];
-  for (const [name] of [...commandRules, ...jsonRules]) {
-    if (!CSS.highlights.has(name)) CSS.highlights.set(name, new Highlight());
-  }
-  for (const status of ['hit', 'guard', 'miss']) CSS.highlights.set(status, new Highlight());
-
-  // Coverage tints for JSON sources: the pre carries non-overlapping character
-  // segments, so a condition is marked exactly, even inside a minified line
-  function paint(pre) {
-    const lines = [...pre.children];
-    let offset = 0;
-    const starts = lines.map(line => {
-      const start = offset;
-      offset += (line.firstChild ? line.firstChild.data.length : 0) + 1;
-      return start;
-    });
-    const locate = target => {
-      let index = starts.length - 1;
-      while (index > 0 && starts[index] > target) index--;
-      const length = lines[index].firstChild ? lines[index].firstChild.data.length : 0;
-      return [lines[index], Math.min(target - starts[index], length)];
-    };
-    for (const [start, end, status] of JSON.parse(pre.dataset.marks || '[]')) {
-      const range = new Range();
-      const [startLine, startColumn] = locate(start);
-      const [endLine, endColumn] = locate(end);
-      if (startLine.firstChild) range.setStart(startLine.firstChild, startColumn);
-      else range.setStart(startLine, 0);
-      if (endLine.firstChild) range.setEnd(endLine.firstChild, endColumn);
-      else range.setEnd(endLine, 0);
-      CSS.highlights.get(status).add(range);
-    }
-  }
-
-  function tokenize(pre) {
-    const rules = pre.classList.contains('json') ? jsonRules : commandRules;
-    let continued = false;
-    for (const line of pre.children) {
-      const node = line.firstChild;
-      const continuation = continued;
-      continued = node ? /\\\\\\s*$/.test(node.data) : false;
-      if (!node) continue;
-      const claimed = [];
-      for (const [name, rule] of rules) {
-        for (const match of node.data.matchAll(rule)) {
-          const [start, end] = [match.index, match.index + match[0].length];
-          // A continuation line starts mid-command: its first word is no
-          // keyword, and a leading # is no comment
-          if (continuation && name === 'cm') continue;
-          if (continuation && name === 'kw' && !/\\brun\\s$/.test(node.data.slice(0, start))) {
-            continue;
-          }
-          if (claimed.some(([s, e]) => start < e && end > s)) continue;
-          claimed.push([start, end]);
-          const range = new Range();
-          range.setStart(node, start);
-          range.setEnd(node, end);
-          CSS.highlights.get(name).add(range);
-        }
-      }
-    }
-  }
-
-  for (const fn of document.querySelectorAll('details.fn')) {
-    fn.addEventListener('toggle', () => {
-      if (fn.open && !fn.dataset.lit) {
-        fn.dataset.lit = '1';
-        const pre = fn.querySelector('pre');
-        tokenize(pre);
-        if (pre.dataset.marks) paint(pre);
-      }
-    });
-  }
-}
-"""
 
 
 def write_html(
@@ -284,7 +58,8 @@ def write_html(
 <head>
 <meta charset="utf-8">
 <title>Ward coverage ({escape(version.name)})</title>
-<style>{_STYLE}</style>
+<style>
+{_STYLE}</style>
 </head>
 <body>
 {_header(session, version, coverage)}
@@ -292,7 +67,8 @@ def write_html(
 <p class="legend"><span class="hit">covered</span><span class="guard">guarded: fork or
 condition never passed</span><span class="miss">never ran</span></p>
 {"\n".join(sections)}
-<script>{_SCRIPT}</script>
+<script>
+{_SCRIPT}</script>
 </body>
 </html>
 """
@@ -444,29 +220,22 @@ def _source(report: FunctionReport) -> str | None:
 def _resource_source(resource: ResourceReport) -> str | None:
     if resource.file is None or (source := resource.file.read()) is None:
         return None
-    try:
-        offsets = json_offsets(source)
-    except ValueError:
-        return None
 
     # Conditions are marked as character ranges through the highlight API, so
     # the tints land on the exact chunk even inside minified one-line files
-    marks = json.dumps(_mark_segments(resource, offsets), separators=(",", ":"))
+    marks = json.dumps(_mark_segments(resource), separators=(",", ":"))
     rows = "".join(f"<span>{escape(content)}</span>" for content in source.splitlines())
     return f'<pre class="json" data-marks="{escape(marks)}">{rows}</pre>'
 
 
-def _mark_segments(
-    resource: ResourceReport,
-    offsets: dict[str, tuple[int, int]],
-) -> list[tuple[int, int, str]]:
+def _mark_segments(resource: ResourceReport) -> list[tuple[int, int, str]]:
     """Non-overlapping [start, end, status) character segments."""
-    statuses = [(node.path, "hit" if node.evaluated else "miss") for node in resource.nodes]
+    statuses = [(node.offsets, "hit" if node.evaluated else "miss") for node in resource.nodes]
     statuses += [
-        (run.path, "hit" if run.ran else ("guard" if run.reached else "miss"))
+        (run.offsets, "hit" if run.ran else ("guard" if run.reached else "miss"))
         for run in resource.runs
     ]
-    spanned = [(span, status) for path, status in statuses if (span := offsets.get(path))]
+    spanned = [(span, status) for span, status in statuses if span]
     spanned.sort(key=lambda item: (item[0][0], -item[0][1]))
 
     segments: list[tuple[int, int, str]] = []

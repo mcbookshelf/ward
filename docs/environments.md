@@ -11,7 +11,7 @@ it in your tests:
 ```
 
 Tests without the directive use the built-in `minecraft:default` environment.
-Tests that share an environment run together, in one batch.
+Tests that share an environment and a dimension run together, in batches.
 
 These are the vanilla
 [test environment definitions](https://minecraft.wiki/w/Test_environment_definition).
@@ -38,8 +38,8 @@ Sets game rules for the batch and restores them afterwards.
 {
   "type": "minecraft:game_rules",
   "rules": {
-    "doDaylightCycle": false,
-    "randomTickSpeed": 0
+    "minecraft:advance_time": false,
+    "minecraft:random_tick_speed": 0
   }
 }
 ```

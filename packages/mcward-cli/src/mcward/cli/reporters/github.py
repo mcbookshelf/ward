@@ -62,7 +62,9 @@ def annotations(session: TestSession, resolve: FileResolver) -> list[str]:
 def _annotate_test(result: TestResult, resolve: FileResolver) -> str:
     failed = result.status is TestStatus.FAILED
     versions = [
-        version for version in result.versions if result.outcomes[version].status is result.status
+        version
+        for version in result.versions
+        if (outcome := result.outcomes.get(version)) and outcome.status is result.status
     ]
     outcome = result.outcomes[versions[0]]
     word = "failed" if failed else "skipped"

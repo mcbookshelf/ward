@@ -4,7 +4,7 @@ import rich_click as click
 
 from mcward import Version
 
-from ..environments import curate_versions, manager
+from ..environments import curate_versions, manager, version_labels
 from ..ui import console
 
 
@@ -44,7 +44,7 @@ def _print_remote(installed: list[Version], available: list[Version]) -> None:
         if version.name not in available_names:
             _print_version(version, color="yellow")
 
-    labels = _version_labels(curated)
+    labels = version_labels(curated)
     for version in curated[:10]:
         color, marker = ("green", "✓") if version.name in installed_names else ("blue", "○")
         _print_version(version, marker, color, labels.get(version, ""))
@@ -52,16 +52,6 @@ def _print_remote(installed: list[Version], available: list[Version]) -> None:
     console.print(
         "\n[dim]Showing curated list. Full list: https://modrinth.com/mod/ward/versions[/]\n"
     )
-
-
-def _version_labels(curated: list[Version]) -> dict[Version, str]:
-    """Label the newest release as latest and the newest snapshot as snapshot."""
-    labels = {}
-    if latest := max((v for v in curated if not v.is_snapshot), default=None):
-        labels[latest] = "latest"
-    if snapshot := max((v for v in curated if v.is_snapshot), default=None):
-        labels[snapshot] = "snapshot"
-    return labels
 
 
 def _print_version(

@@ -1,7 +1,7 @@
 package dev.mcbookshelf.ward.mixin;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,10 +14,10 @@ import dev.mcbookshelf.ward.dummy.Dummy;
 @Mixin(Player.class)
 public abstract class PlayerMixin {
 	/**
-	 * Makes attacks knockback dummies who have no client.
+	 * Vanilla leaves the knockback of a player to its client, and a dummy has none.
 	 */
-	@WrapOperation(method = "causeExtraKnockback", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/Entity;syncVelocity:Z", opcode = Opcodes.GETFIELD))
-	private boolean velocityModifiedAndNotDummy(Entity target, Operation<Boolean> original) {
-		return original.call(target) && !(target instanceof Dummy);
+	@ModifyExpressionValue(method = "causeExtraKnockback", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/Entity;syncVelocity:Z", opcode = Opcodes.GETFIELD))
+	private boolean syncVelocityAndNotDummy(boolean syncVelocity, @Local(argsOnly = true) Entity target) {
+		return syncVelocity && !(target instanceof Dummy);
 	}
 }

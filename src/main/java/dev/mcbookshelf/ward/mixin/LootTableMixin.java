@@ -13,7 +13,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.LootTable;
 
-import dev.mcbookshelf.ward.accessor.RunCounterHolder;
+import dev.mcbookshelf.ward.coverage.RunCounterHolder;
 
 @Mixin(LootTable.class)
 public class LootTableMixin implements RunCounterHolder {
@@ -21,21 +21,15 @@ public class LootTableMixin implements RunCounterHolder {
 	private int @Nullable [] ward$runCounters;
 
 	@Override
-	public int @Nullable [] ward$runCounters() {
-		return this.ward$runCounters;
-	}
-
-	@Override
 	public void ward$runCounters(int[] counters) {
 		this.ward$runCounters = counters;
 	}
 
 	/**
-	 * Counts rolls for coverage: every roll funnels through the raw entry point.
-	 * Tables without counters (vanilla data, or coverage off) record nothing.
+	 * Every roll goes through this entry point.
 	 */
 	@Inject(method = "getRandomItemsRaw(Lnet/minecraft/world/level/storage/loot/LootContext;Ljava/util/function/Consumer;)V", at = @At("HEAD"))
-	private void recordRoll(LootContext context, Consumer<ItemStack> output, CallbackInfo ci) {
+	private void recordRoll(LootContext context, Consumer<ItemStack> output, CallbackInfo info) {
 		if (this.ward$runCounters != null) {
 			this.ward$runCounters[0]++;
 			this.ward$runCounters[1]++;

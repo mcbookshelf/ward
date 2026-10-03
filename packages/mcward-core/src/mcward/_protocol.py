@@ -11,22 +11,15 @@ from ._exceptions import ProcessConnectionError
 
 @dataclass(frozen=True)
 class TestsStarted:
-    """A test run began, with the number of tests it will execute.
-
-    ``pos`` is the world position the run's structure grid spawns at.
-    """
+    """A test run began, with the number of tests it will execute."""
 
     total: int
-    pos: tuple[int, int, int]
+    pos: tuple[int, int, int] | None
 
 
 @dataclass(frozen=True)
 class BatchStarted:
-    """Tests of the given game-test environment begin.
-
-    ``total`` is the number of tests the batch will run, when the server
-    reports it.
-    """
+    """Tests of the given game-test environment begin."""
 
     environment: str
     dimension: str | None = None
@@ -85,40 +78,55 @@ class FunctionCoverage:
 
 @dataclass(frozen=True)
 class Coverage:
-    """Coverage recorded during the run.
-
-    A command is *reached* when it starts executing and *executed* when its
-    final command dispatches with at least one source: an ``execute`` line
-    whose fork or condition dropped every source is reached but not executed.
-
-    ``conditions`` counts data-driven conditionals: registry id, then element
-    id, then the condition's path within the element's JSON to its
-    ``(times_true, times_false)`` outcomes. ``runs`` counts the gated blocks
-    themselves (loot entries, item modifier functions) with the same keys,
-    holding ``(times_reached, times_ran)``.
-    """
+    """Coverage recorded during the run, with the data pack format of the server
+    as (major, minor). An older mod does not send the format."""
 
     functions: dict[str, FunctionCoverage]
     conditions: dict[str, dict[str, dict[str, tuple[int, int]]]] = field(default_factory=dict)
     runs: dict[str, dict[str, dict[str, tuple[int, int]]]] = field(default_factory=dict)
+    pack_format: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
 class TestsFinished:
-    """The run completed, with its aggregate counts."""
+    """The run completed."""
 
-    total: int
-    passed: int
-    failed: int
-    skipped: int
+    total: int | None
+    passed: int | None
+    failed: int | None
+    skipped: int | None
+    elapsed: int
+
+
+@dataclass(frozen=True)
+class BenchResult:
+    """One benchmarked command: batch times in nanoseconds, or why it was not measured."""
+
+    index: int
+    name: str
+    batch: int = 0
+    samples: tuple[int, ...] = ()
+    commands: int | None = None
+    allocated: int | None = None
+    error: str | None = None
+    failed: str | None = None
+
+
+@dataclass(frozen=True)
+class BenchFinished:
+    """Every command of the bench was handled."""
+
     elapsed: int
 
 
 @dataclass(frozen=True)
 class Status:
-    """Response to a status request."""
+    """Response to a status request. An older mod only sends `ready`."""
 
     ready: bool
+    protocol: int | None = None
+    mod: str | None = None
+    minecraft: str | None = None
 
 
 @dataclass(frozen=True)
@@ -137,6 +145,8 @@ type Event = (
     | Diagnostic
     | Coverage
     | TestsFinished
+    | BenchResult
+    | BenchFinished
     | Status
     | StreamError
 )
@@ -159,8 +169,8 @@ def parse_event(data: dict[str, Any]) -> Event | None:
     try:
         match kind:
             case "tests_started":
-                x, y, z = data["pos"]
-                return TestsStarted(total=data["total"], pos=(x, y, z))
+                pos = data.get("pos")
+                return TestsStarted(total=data["total"], pos=tuple(pos) if pos else None)
             case "batch_started":
                 return BatchStarted(
                     environment=data["environment"],
@@ -198,17 +208,36 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                     },
                     conditions=_node_counts(data.get("conditions", {})),
                     runs=_node_counts(data.get("runs", {})),
+                    pack_format=tuple(data["pack_format"]) if "pack_format" in data else None,
                 )
             case "tests_finished":
                 return TestsFinished(
-                    total=data["total"],
-                    passed=data["passed"],
-                    failed=data["failed"],
-                    skipped=data["skipped"],
+                    total=data.get("total"),
+                    passed=data.get("passed"),
+                    failed=data.get("failed"),
+                    skipped=data.get("skipped"),
                     elapsed=data["elapsed"],
                 )
+            case "bench_result":
+                return BenchResult(
+                    index=data["index"],
+                    name=data["name"],
+                    batch=data.get("batch", 0),
+                    samples=tuple(data.get("samples", ())),
+                    commands=data.get("commands"),
+                    allocated=data.get("allocated"),
+                    error=data.get("error"),
+                    failed=data.get("failed"),
+                )
+            case "bench_finished":
+                return BenchFinished(elapsed=data["elapsed"])
             case "status":
-                return Status(ready=data["ready"])
+                return Status(
+                    ready=data["ready"],
+                    protocol=data.get("protocol"),
+                    mod=data.get("mod"),
+                    minecraft=data.get("minecraft"),
+                )
             case "error":
                 return StreamError(message=data["message"])
             case _:

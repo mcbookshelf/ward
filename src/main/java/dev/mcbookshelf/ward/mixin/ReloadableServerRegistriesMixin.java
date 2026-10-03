@@ -14,28 +14,23 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.server.ReloadableServerRegistries;
 import net.minecraft.util.ProblemReporter;
 
-import dev.mcbookshelf.ward.CoverageRecorder;
-import dev.mcbookshelf.ward.DataCoverage;
-import dev.mcbookshelf.ward.LoadDiagnostic;
-import dev.mcbookshelf.ward.ReportManager;
+import dev.mcbookshelf.ward.Reporter;
+import dev.mcbookshelf.ward.coverage.Coverage;
+import dev.mcbookshelf.ward.coverage.DataCoverage;
 
 @Mixin(ReloadableServerRegistries.class)
 public class ReloadableServerRegistriesMixin {
 	/**
-	 * Fabric's loot API may rebuild loot tables after decode, dropping the roll counters
-	 * stamped on the original instance: re-stamp the ones that actually got registered.
+	 * Fabric's loot API can rebuild a table after its decode: only the registered instance rolls.
 	 */
 	@Inject(method = "validateLootRegistries", at = @At("HEAD"))
-	private static void stampLootTables(HolderLookup.Provider registries, CallbackInfo ci) {
-		if (!CoverageRecorder.isEnabled()) {
+	private static void stampLootTables(HolderLookup.Provider registries, CallbackInfo info) {
+		if (!Coverage.isEnabled()) {
 			return;
 		}
 
-		registries.lookup(Registries.LOOT_TABLE).ifPresent(lookup -> lookup.listElements().forEach(
-				holder -> DataCoverage.stampRegistered(
-						holder.key().registry().toString(),
-						holder.key().identifier().toString(),
-						holder.value())));
+		registries.lookup(Registries.LOOT_TABLE).ifPresent(tables -> tables.listElements()
+				.forEach(table -> DataCoverage.stampRegistered(table.key(), table.value())));
 	}
 
 	@WrapOperation(method = "validateLootRegistries", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ProblemReporter$Collector;forEach(Ljava/util/function/BiConsumer;)V"))
@@ -43,14 +38,23 @@ public class ReloadableServerRegistriesMixin {
 			ProblemReporter.Collector collector,
 			BiConsumer<String, ProblemReporter.Problem> consumer,
 			Operation<Void> original) {
-		original.call(collector, consumer);
-		collector.forEach((id, problem) -> {
+		original.call(collector, consumer.andThen((path, problem) -> {
 			// Problem paths render as "{<element id>@<registry>}<path>", e.g. "{blocks/stone@minecraft:loot_table}.pools[0]" (RootElementPathElement)
-			int end = id.indexOf('}');
-			String path = id.substring(end + 2);
-			String[] parts = id.substring(id.indexOf('{') + 1, end).split("@");
-			String message = String.format("%s (at %s)", problem.description(), path);
-			ReportManager.report(LoadDiagnostic.warn(parts[1], parts[0], message));
-		});
+			int start = path.indexOf('{');
+			int end = path.indexOf('}', start + 1);
+			int at = start < 0 || end < 0 ? -1 : path.indexOf('@', start);
+			boolean rooted = at >= 0 && at < end;
+			String kind = rooted ? path.substring(at + 1, end) : "loot";
+			String id = rooted ? path.substring(start + 1, at) : path;
+			String message = rooted && end + 2 < path.length()
+					? String.format("%s (at %s)", problem.description(), path.substring(end + 2))
+					: problem.description();
+
+			if (problem.isFatal()) {
+				Reporter.loadError(kind, id, message);
+			} else {
+				Reporter.loadWarning(kind, id, message);
+			}
+		}));
 	}
 }
