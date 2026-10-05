@@ -1,6 +1,7 @@
 """The test run that mcward test and beet test share."""
 
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import rich_click as click
@@ -29,7 +30,7 @@ def run_session(
 ) -> TestSession:
     """Pick the versions, start them, run the tests and write the reports.
 
-    ``coverage_min`` replaces the minimum of ward.toml for this run.
+    ``coverage_min`` replaces the total minimum of ward.toml for this run.
     """
     low, high = format_range(datapacks)
     selected = versions or select_compatible(low, high)
@@ -39,6 +40,9 @@ def run_session(
 
     try:
         config = CoverageConfig.load()
+        minimum = config.minimum
+        if coverage_min is not None:
+            minimum = replace(minimum, total=coverage_min)
         envs = start_environments([manager.get(v) for v in selected])
         console.print()
         session = run(paths, envs, selector, coverage=coverage, verbose=verbose, resolve=resolve)
@@ -51,7 +55,7 @@ def run_session(
             selector=selector,
             ignores=config.ignores,
             coverage=coverage,
-            minimum=config.minimum if coverage_min is None else coverage_min,
+            minimum=minimum,
         )
     except WardError as e:
         raise click.ClickException(str(e)) from e

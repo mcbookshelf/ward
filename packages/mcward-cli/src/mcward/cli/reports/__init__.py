@@ -7,6 +7,7 @@ import rich_click as click
 
 from mcward import (
     CoverageIgnores,
+    CoverageMinimum,
     CoverageTotals,
     ResolvedCoverage,
     TestSession,
@@ -52,7 +53,7 @@ def report_session(
     selector: str = "*:*",
     ignores: CoverageIgnores | None = None,
     coverage: bool = False,
-    minimum: float | None = None,
+    minimum: CoverageMinimum | None = None,
 ) -> None:
     """Render the coverage summary and write the requested report files.
 
@@ -88,20 +89,38 @@ def report_session(
 def coverage_shortfalls(
     session: TestSession,
     resolved: Mapping[Version, ResolvedCoverage],
-    minimum: float,
+    minimum: CoverageMinimum,
 ) -> list[str]:
-    """One line per version whose coverage does not reach the minimum percentage."""
+    """One line for each figure under its minimum: the run's, then each namespace's."""
+    if minimum.total is None and minimum.namespace is None:
+        return []
+
     lines = [
-        f"No coverage from {version.name} to check against the minimum of {minimum:g}%"
+        f"No coverage from {version.name} to check against the minimum"
         for version in missing_coverage(session)
     ]
     for version, coverage in resolved.items():
-        ratio = CoverageTotals.of(coverage.reports).ratio
-        # Compared as it is printed, so a figure shown as 80.0% reaches a minimum of 80
-        if ratio is not None and round(ratio * 100, 1) < minimum:
-            where = f" on {version.name}" if len(session.versions) > 1 else ""
-            lines.append(f"Coverage {ratio:.1%}{where} is below the minimum of {minimum:g}%")
+        where = f" on {version.name}" if len(session.versions) > 1 else ""
+        total = CoverageTotals.of(coverage.reports)
+        if _is_below(total, minimum.total):
+            lines.append(
+                f"Coverage {total.ratio:.1%}{where} is below the minimum of {minimum.total:g}%"
+            )
+        for namespace in sorted({report.namespace for report in coverage.reports}):
+            own = CoverageTotals.of(r for r in coverage.reports if r.namespace == namespace)
+            if _is_below(own, minimum.namespace):
+                lines.append(
+                    f"Coverage {own.ratio:.1%} of {namespace}{where} is below "
+                    f"the minimum of {minimum.namespace:g}% per namespace"
+                )
     return lines
+
+
+def _is_below(totals: CoverageTotals, minimum: float | None) -> bool:
+    """Compared as it is printed, so a figure shown as 80.0% reaches a minimum of 80."""
+    if minimum is None or totals.ratio is None:
+        return False
+    return round(totals.ratio * 100, 1) < minimum
 
 
 def missing_coverage(session: TestSession) -> list[Version]:

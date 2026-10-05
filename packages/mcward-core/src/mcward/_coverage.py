@@ -23,6 +23,9 @@ from ._sources import (
 
 _COMBINATORS = frozenset({"any_of", "all_of", "inverted"})
 _PATH_SEGMENTS = re.compile(r"\[(\d+)\]|\.?([^.\[\]]+)")
+_MINIMUM_SHAPE = (
+    "[coverage] minimum is a number from 0 to 100, or a table like { total = 80, namespace = 60 }"
+)
 _IGNORE_SHAPE = (
     "[coverage] ignore entries are id globs "
     'or tables like { kind = "loot_table", id = "ns:path", nodes = [...] }'
@@ -75,12 +78,21 @@ class CoverageIgnores:
 
 
 @dataclass(frozen=True)
+class CoverageMinimum:
+    """The percentages a run has to reach: for everything it reports together,
+    and for each namespace on its own."""
+
+    total: float | None = None
+    namespace: float | None = None
+
+
+@dataclass(frozen=True)
 class CoverageConfig:
     """The ``[coverage]`` table of ``ward.toml``: what to leave out of the
-    report, and the percentage a run has to reach."""
+    report, and the percentages a run has to reach."""
 
     ignores: CoverageIgnores = CoverageIgnores()
-    minimum: float | None = None
+    minimum: CoverageMinimum = CoverageMinimum()
 
     @classmethod
     def load(cls, directory: Path | None = None) -> CoverageConfig:
@@ -98,15 +110,27 @@ class CoverageConfig:
         entries = table.get("ignore", [])
         if not isinstance(entries, list):
             raise WardError(f"Invalid {file.name}: {_IGNORE_SHAPE}")
-        minimum = table.get("minimum")
-        if minimum is not None and not _is_percentage(minimum):
-            raise WardError(f"Invalid {file.name}: [coverage] minimum is a number from 0 to 100")
         rules = tuple(_parse_rule(file.name, entry) for entry in entries)
-        return cls(CoverageIgnores(rules), minimum)
+        return cls(CoverageIgnores(rules), _parse_minimum(file.name, table.get("minimum")))
 
 
-def _is_percentage(value: object) -> bool:
-    return isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 100
+def _parse_minimum(source: str, value: object) -> CoverageMinimum:
+    """A number is the short form of ``{ total = number }``."""
+    scopes = value if isinstance(value, dict) else {"total": value}
+    if set(scopes) - {"total", "namespace"}:
+        raise WardError(f"Invalid {source}: {_MINIMUM_SHAPE}")
+    return CoverageMinimum(
+        _parse_percentage(source, scopes.get("total")),
+        _parse_percentage(source, scopes.get("namespace")),
+    )
+
+
+def _parse_percentage(source: str, value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 100:
+        raise WardError(f"Invalid {source}: {_MINIMUM_SHAPE}")
+    return value
 
 
 def _parse_rule(source: str, entry: object) -> IgnoreRule:

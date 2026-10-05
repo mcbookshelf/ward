@@ -57,6 +57,27 @@ several versions, each one has to reach it.
 `--coverage-min 90` sets the minimum for one run, whatever the file says. It
 turns coverage on by itself.
 
+### Per namespace
+
+A good total can hide a namespace that is barely tested. Give `minimum` a
+table to also set what each namespace has to reach on its own:
+
+```toml
+[coverage]
+minimum = { total = 80, namespace = 60 }
+```
+
+```
+Coverage: 84.1% (420/500, 61/70 files)
+  bs.health   91.0%   91/100  12/12 files
+  bs.math     52.3%   68/130   9/14 files
+
+Coverage 52.3% of bs.math is below the minimum of 60% per namespace
+```
+
+Either key can be left out. `minimum = 80` is the short form of
+`{ total = 80 }`, and `--coverage-min` only replaces the total.
+
 ## Ignore code
 
 Some commands never run during tests. Mark them in the function file:

@@ -10,6 +10,7 @@ from mcward import (
     Coverage,
     CoverageConfig,
     CoverageIgnores,
+    CoverageMinimum,
     FunctionCoverage,
     IgnoreRule,
     WardError,
@@ -339,10 +340,27 @@ class TestCoverageIgnores:
     def test_load_reads_the_minimum(self, tmp_path: Path) -> None:
         (tmp_path / "ward.toml").write_text("[coverage]\nminimum = 80.5\n", encoding="utf-8")
 
-        assert CoverageConfig.load(tmp_path).minimum == 80.5
-        assert CoverageConfig.load(tmp_path / "absent").minimum is None
+        assert CoverageConfig.load(tmp_path).minimum == CoverageMinimum(total=80.5)
+        assert CoverageConfig.load(tmp_path / "absent").minimum == CoverageMinimum()
 
-    @pytest.mark.parametrize("value", ['"80"', "true", "101", "-1"])
+    @pytest.mark.parametrize(
+        ("text", "minimum"),
+        [
+            ("[coverage]\nminimum = { total = 80, namespace = 60 }\n", CoverageMinimum(80, 60)),
+            ("[coverage]\nminimum = { namespace = 60 }\n", CoverageMinimum(None, 60)),
+            ("[coverage.minimum]\ntotal = 80\nnamespace = 60\n", CoverageMinimum(80, 60)),
+        ],
+    )
+    def test_load_reads_a_minimum_per_scope(
+        self, tmp_path: Path, text: str, minimum: CoverageMinimum
+    ) -> None:
+        (tmp_path / "ward.toml").write_text(text, encoding="utf-8")
+
+        assert CoverageConfig.load(tmp_path).minimum == minimum
+
+    @pytest.mark.parametrize(
+        "value", ['"80"', "true", "101", "-1", "{ file = 80 }", '{ namespace = "60" }']
+    )
     def test_load_rejects_a_bad_minimum(self, tmp_path: Path, value: str) -> None:
         (tmp_path / "ward.toml").write_text(f"[coverage]\nminimum = {value}\n", encoding="utf-8")
 
