@@ -35,6 +35,16 @@ def curate_versions(versions: Iterable[Version]) -> list[Version]:
     return curated
 
 
+def version_labels(versions: Sequence[Version]) -> dict[Version, str]:
+    """Label the newest release as latest and the newest snapshot as snapshot."""
+    labels = {}
+    if latest := max((v for v in versions if not v.is_snapshot), default=None):
+        labels[latest] = "latest"
+    if snapshot := max((v for v in versions if v.is_snapshot), default=None):
+        labels[snapshot] = "snapshot"
+    return labels
+
+
 def get_environment(version: str) -> Environment:
     try:
         return manager.get(version)
@@ -58,12 +68,8 @@ def select_available(message: str) -> str:
     if not curated:
         raise click.ClickException("No versions available")
 
-    snapshot = next((v for v in curated if v.is_snapshot), None)
-    latest = next((v for v in curated if not v.is_snapshot), None)
-    options = []
-    for version in curated:
-        hint = "(latest)" if version == latest else "(snapshot)" if version == snapshot else ""
-        options.append(Option(version.name, hint))
+    labels = version_labels(curated)
+    options = [Option(v.name, f"({labels[v]})" if v in labels else "") for v in curated]
     return select(message, options)
 
 

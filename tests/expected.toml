@@ -15,29 +15,61 @@ passed = [
   "ward:assert_stopwatch",
   "ward:chat_server",
   "ward:chat_delayed",
+  "ward:chat_broadcast",
+  "ward:chat_isolation_sender",
+  "ward:chat_isolation_reader",
+  "ward:chat_players",
+  "ward:assert_function_tag",
+  "ward:succeed_chain",
   "ward:await_entity",
   "ward:await_delay",
   "ward:await_limit",
   "ward:await_run",
+  "ward:await_function",
+  "ward:await_nested",
+  "ward:await_error",
   "ward:await_score",
   "ward:execute_modifiers",
   "ward:succeed_early",
   "ward:dummy_actions",
   "ward:dummy_lifecycle",
+  "ward:dummy_respawn",
+  "ward:dummy_immediate_respawn",
+  "ward:dummy_respawn_await_run",
+  "ward:dummy_respawn_place",
+  "ward:dummy_torch",
+  "ward:dummy_input",
+  "ward:coverage_modifier",
+  "ward:environment_game_rules",
+  "ward:environment_missing_function",
+  "ward:dummy_ghost",
+  "ward:dummy_dimension",
+  "ward:dummy_rotation",
   "ward:dummy_items",
   "ward:dummy_world",
   "ward:environment_directive",
   "ward:dimension_nether",
+  "ward:dimension_end",
+  "ward:dimension_custom",
   "ward:max_ticks_alias",
   "ward:directives_combined",
+  "ward:directive_header",
+  "ward:nested/inside",
+  "ward:line_continuation",
+  "ward:empty",
+  "ward:template_empty_3x3x3",
+  "ward:template_empty_5x5x5",
+  "ward:template_empty_9x9x9",
   "ward:flaky_retry",
   "ward:flaky_successes",
+  "ward:tick_freeze",
   "ward:use_block_advancement",
   "ward:use_entity_advancement",
   "ward:forceload_during",
   "ward:forceload_kept",
   "ward:coverage_branches",
   "ward:coverage_conditions",
+  "ward:coverage_overlay",
 ]
 
 # Never in any report: excluded by tests/ward.toml, muted by @coverage off
@@ -46,10 +78,21 @@ absent = ["ward:coverage/excluded", "ward:coverage/muted"]
 [failed]
 "ward:fail_expected" = "ward intentional failure"
 "ward:assert_fail_expected" = "Expected block"
-"ward:timeout_expected" = "Expected entity matching"
+"ward:timeout_expected" = { message = "Await timed out: Expected entity matching", line = 2, tick = 40 }
 "ward:errored_expected" = "Unknown scoreboard objective"
 "ward:error_order" = "first failure"
 "ward:flaky_exhausted" = "flaky ran out of attempts"
+"ward:errored_function" = "Unknown function 'ward:helper/missing'"
+"ward:negated_count_expected" = "found 1"
+"ward:deadline_expected" = { message = "at the deadline", line = 4, tick = 20 }
+"ward:predicate_inline_expected" = "random_chance"
+"ward:result_none_expected" = "the command did not run"
+"ward:run_error_expected" = "Expected command to succeed: No entity was found"
+"ward:chain_limit_expected" = "limit of 5 commands"
+"ward:instance_timeout_expected" = "Exceeded 20 tick limit"
+"ward:await_error_expected" = "Unknown scoreboard objective"
+"ward:data_mismatch_expected" = "found {value:0b} at path.to.test"
+"ward:data_missing_expected" = "found {test:{value:0b}} at path.to"
 
 [skipped]
 "ward:optional_expected" = "Fail command invoked"
@@ -71,6 +114,12 @@ executed = [1]
 executed = []
 unreached = [1]
 
+# The lines of the overlay the server loaded, not of the root file it replaces
+[coverage."ward:coverage/overlaid"]
+executed = [2, 4]
+guarded = [3]
+unreached = []
+
 # Marker-excluded lines (4 and 6) drop out even though they ran
 [coverage."ward:coverage/markers"]
 executed = [2]
@@ -86,6 +135,11 @@ unreached = []
 
 [conditions."ward:coverage/blocked"]
 "" = [0, 1]
+
+# The condition of an enchantment effect. Nothing attacks, so it is never evaluated.
+# In audit mode the enchantment is also encoded for a client, which takes the condition back out of its delegate
+[conditions."ward:coverage/conditional"]
+"effects.minecraft:damage[0].requirements" = [0, 0]
 
 [conditions."ward:coverage/unused"]
 "" = [0, 0]
@@ -108,6 +162,10 @@ unreached = []
 "" = [1, 1]
 "pools[0].entries[0]" = [1, 1]
 "pools[0].entries[1]" = [1, 0]
+
+# An item modifier is one loot function: applying it once runs it once
+[runs."ward:coverage/double"]
+"" = [1, 1]
 
 [runs."ward:coverage/rolls"]
 "" = [1, 1]
@@ -138,11 +196,43 @@ unreached = []
 [runs."ward:feed_cow"]
 "criteria.feed" = [1, 1]
 
-[diagnostics]
-"minecraft:function" = ["ward:broken"]
-"minecraft:tags/function" = ["ward:broken"]
-"minecraft:loot_table" = ["ward:broken", "ward:invalid", "ward:ref_missing"]
-"minecraft:advancement" = ["ward:broken"]
-"minecraft:worldgen/biome" = ["ward:broken"]
-"ward:test" = ["ward:invalid_test", "ward:invalid_environment"]
-"pack.mcmeta" = ["broken", "overlay"]
+# Load diagnostics by kind: the id, and a part of the message
+[diagnostics."minecraft:function"]
+"ward:broken" = "Unknown or incomplete command"
+
+[diagnostics."minecraft:tags/function"]
+"ward:broken" = "Missing references: ward:this_function_does_not_exist"
+
+[diagnostics."minecraft:loot_table"]
+"ward:broken" = "malformed JSON"
+"ward:invalid" = "Not a json array"
+"ward:ref_missing" = "unbound value"
+"ward:this_table_does_not_exist" = "Referenced but not defined"
+
+# A tag that names a missing element: the reference is dropped, or no client could join
+[diagnostics."minecraft:enchantment"]
+"ward:missing_in_tag" = "Referenced but not defined"
+
+[diagnostics."minecraft:test_environment"]
+"ward:missing_setup" = "Unknown function 'ward:helper/does_not_exist'"
+
+[diagnostics."minecraft:advancement"]
+"ward:broken" = "requirements did not exactly match"
+
+[diagnostics."minecraft:worldgen/biome"]
+"ward:broken" = "No key features"
+
+[diagnostics."ward:test"]
+"ward:invalid_test" = "Unknown or incomplete command"
+"ward:invalid_environment" = "ward:does_not_exist"
+"ward:invalid_directive" = "Value must be true or false"
+"ward:invalid_dimension" = "Unknown dimension 'ward:does_not_exist'"
+"ward:invalid_macro" = "tests take no macro arguments"
+"ward:invalid_slash" = "preceding forwards slash"
+"ward:invalid_number" = "Value must be a whole number"
+"ward:invalid_successes" = "@required_successes is above @max_attempts"
+"ward:unknown_directive" = "Invalid directive @does_not_exist on line 1: Unknown directive"
+
+[diagnostics."pack.mcmeta"]
+"broken" = "malformed JSON"
+"overlay" = "not-a-range"

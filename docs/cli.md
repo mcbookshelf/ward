@@ -15,8 +15,8 @@ mcward test
 
 `mcward` alone, or `ward`, does the same thing.
 
-Ward finds your packs on its own. It looks for a `pack.mcmeta` in the current
-folder, its children, and `datapacks/*`.
+Ward finds your packs on its own. It looks at the current folder, its children,
+and `datapacks/*`.
 
 It picks Minecraft versions from the `pack_format` range of your packs. Each
 version is installed on first use, then runs the full suite. When the range
@@ -37,12 +37,21 @@ mcward test [-p <pack>]... [-v <version>]... [selector]
 ### Coverage
 
 `--coverage` shows which parts of your packs the tests run.
-`--coverage-report html` writes the detail to a file. See [coverage](coverage.md).
+`--coverage-report html` writes the detail to a file.
+`--coverage-min 80` fails the run when coverage is below 80%. See [coverage](coverage.md).
 
 ### Result files
 
 `--junit-xml results.xml` writes the results as JUnit XML, one `<testsuite>`
 per version. Most CI services can display this file.
+
+## Time commands
+
+```sh
+mcward bench "function mypack:a" "function mypack:b"
+```
+
+See [benchmarks](bench.md).
 
 ## Run in CI
 

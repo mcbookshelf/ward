@@ -13,13 +13,10 @@ import dev.mcbookshelf.ward.Ward;
 
 @Mixin(SavedDataStorage.class)
 public class SavedDataStorageMixin {
-	/**
-	 * Drops saved-data writes (scoreboard, raids, ...) in daemon mode.
-	 */
 	@Inject(method = "scheduleSave", at = @At("HEAD"), cancellable = true)
-	private void skipSave(CallbackInfoReturnable<CompletableFuture<?>> cir) {
+	private void skipSave(CallbackInfoReturnable<CompletableFuture<?>> info) {
 		if (Ward.DAEMON) {
-			cir.setReturnValue(CompletableFuture.completedFuture(null));
+			info.setReturnValue(CompletableFuture.completedFuture(null));
 		}
 	}
 }

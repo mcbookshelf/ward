@@ -1,0 +1,6 @@
+{
+  "type": "minecraft:game_rules",
+  "rules": {
+    "minecraft:max_command_sequence_length": 5
+  }
+}

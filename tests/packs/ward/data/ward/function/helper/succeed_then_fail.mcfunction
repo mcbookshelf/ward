@@ -1,0 +1,2 @@
+succeed
+fail "after succeed"

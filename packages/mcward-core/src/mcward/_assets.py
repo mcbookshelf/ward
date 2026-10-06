@@ -1,6 +1,7 @@
 """Environment installation: every asset a Ward test server needs."""
 
 import asyncio
+import json
 import platform
 import shutil
 import sys
@@ -29,7 +30,6 @@ from ._exceptions import (
     DownloadFailedError,
     InstallError,
     JavaNotFoundError,
-    WardError,
 )
 from ._versions import Version
 
@@ -73,7 +73,8 @@ async def install(directory: Path, version: Version) -> None:
             async with asyncio.TaskGroup() as group:
                 for task in tasks:
                     group.create_task(task)
-        except* WardError as errors:
+        except* Exception as errors:
+            # The first failure as itself: a group would hide a WardError from its handlers
             raise errors.exceptions[0] from None
 
 
@@ -89,7 +90,9 @@ async def _install_server(client: httpx.AsyncClient, minecraft: str, file: Path)
 
 async def _install_mod(client: httpx.AsyncClient, project: str, minecraft: str, file: Path) -> None:
     """Download the newest Modrinth release of a project for this Minecraft."""
-    releases = await _get_json(client, f"{MODRINTH_API}/project/{project}/version")
+    # Filtered by the server: the full list of a project like fabric-api is over a megabyte
+    url = f"{MODRINTH_API}/project/{project}/version"
+    releases = await _get_json(client, url, game_versions=json.dumps([minecraft]))
     for release in releases:
         if minecraft in release["game_versions"]:
             files = release["files"]
@@ -131,14 +134,17 @@ async def _download_file(client: httpx.AsyncClient, url: str, file: Path) -> Non
     except httpx.HTTPError as e:
         partial.unlink(missing_ok=True)
         raise DownloadFailedError(url, str(e)) from e
+    except OSError as e:
+        partial.unlink(missing_ok=True)
+        raise InstallError(f"Could not write {file}: {e}") from e
 
     partial.replace(file)
 
 
-async def _get_json(client: httpx.AsyncClient, url: str) -> Any:
+async def _get_json(client: httpx.AsyncClient, url: str, **params: str) -> Any:
     """GET a JSON document; network and HTTP errors become DownloadFailedError."""
     try:
-        response = await client.get(url)
+        response = await client.get(url, params=params)
         response.raise_for_status()
     except httpx.HTTPError as e:
         raise DownloadFailedError(url, str(e)) from e

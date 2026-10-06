@@ -12,6 +12,7 @@ from pathlib import Path
 from ._exceptions import WardError
 from ._protocol import Coverage, FunctionCoverage
 from ._sources import (
+    JsonSpans,
     SourceFile,
     command_lines,
     find_resource,
@@ -22,6 +23,9 @@ from ._sources import (
 
 _COMBINATORS = frozenset({"any_of", "all_of", "inverted"})
 _PATH_SEGMENTS = re.compile(r"\[(\d+)\]|\.?([^.\[\]]+)")
+_MINIMUM_SHAPE = (
+    "[coverage] minimum is a number from 0 to 100, or a table like { total = 80, namespace = 60 }"
+)
 _IGNORE_SHAPE = (
     "[coverage] ignore entries are id globs "
     'or tables like { kind = "loot_table", id = "ns:path", nodes = [...] }'
@@ -50,24 +54,6 @@ class CoverageIgnores:
 
     rules: tuple[IgnoreRule, ...] = ()
 
-    @classmethod
-    def load(cls, directory: Path | None = None) -> CoverageIgnores:
-        """The exclusions declared in the directory's ward.toml, if present."""
-        file = (directory or Path.cwd()) / "ward.toml"
-        try:
-            text = file.read_text(encoding="utf-8")
-        except OSError:
-            return cls()
-        try:
-            data = tomllib.loads(text)
-        except tomllib.TOMLDecodeError as e:
-            raise WardError(f"Invalid {file.name}: {e}") from e
-
-        entries = data.get("coverage", {}).get("ignore", [])
-        if not isinstance(entries, list):
-            raise WardError(f"Invalid {file.name}: {_IGNORE_SHAPE}")
-        return cls(tuple(_parse_rule(file.name, entry) for entry in entries))
-
     def element(self, kind: str, name: str) -> bool:
         """Whether the whole element is ignored."""
         return any(
@@ -89,6 +75,62 @@ class CoverageIgnores:
             if rule.lines and rule.matches("function", name)
             for line in rule.lines
         )
+
+
+@dataclass(frozen=True)
+class CoverageMinimum:
+    """The percentages a run has to reach: for everything it reports together,
+    and for each namespace on its own."""
+
+    total: float | None = None
+    namespace: float | None = None
+
+
+@dataclass(frozen=True)
+class CoverageConfig:
+    """The ``[coverage]`` table of ``ward.toml``: what to leave out of the
+    report, and the percentages a run has to reach."""
+
+    ignores: CoverageIgnores = CoverageIgnores()
+    minimum: CoverageMinimum = CoverageMinimum()
+
+    @classmethod
+    def load(cls, directory: Path | None = None) -> CoverageConfig:
+        """The settings of the directory's ward.toml, or the defaults without one."""
+        file = (directory or Path.cwd()) / "ward.toml"
+        try:
+            text = file.read_text(encoding="utf-8")
+        except OSError:
+            return cls()
+        try:
+            table = tomllib.loads(text).get("coverage", {})
+        except tomllib.TOMLDecodeError as e:
+            raise WardError(f"Invalid {file.name}: {e}") from e
+
+        entries = table.get("ignore", [])
+        if not isinstance(entries, list):
+            raise WardError(f"Invalid {file.name}: {_IGNORE_SHAPE}")
+        rules = tuple(_parse_rule(file.name, entry) for entry in entries)
+        return cls(CoverageIgnores(rules), _parse_minimum(file.name, table.get("minimum")))
+
+
+def _parse_minimum(source: str, value: object) -> CoverageMinimum:
+    """A number is the short form of ``{ total = number }``."""
+    scopes = value if isinstance(value, dict) else {"total": value}
+    if set(scopes) - {"total", "namespace"}:
+        raise WardError(f"Invalid {source}: {_MINIMUM_SHAPE}")
+    return CoverageMinimum(
+        _parse_percentage(source, scopes.get("total")),
+        _parse_percentage(source, scopes.get("namespace")),
+    )
+
+
+def _parse_percentage(source: str, value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float) or not 0 <= value <= 100:
+        raise WardError(f"Invalid {source}: {_MINIMUM_SHAPE}")
+    return value
 
 
 def _parse_rule(source: str, entry: object) -> IgnoreRule:
@@ -232,6 +274,7 @@ class ConditionNode:
     passed: int
     failed: int
     combinator: bool = False
+    offsets: tuple[int, int] | None = None
 
     @property
     def counts(self) -> tuple[int, int]:
@@ -252,6 +295,7 @@ class RunNode:
     lines: tuple[int, int] | None
     reached: int
     ran: int
+    offsets: tuple[int, int] | None = None
 
     @property
     def counts(self) -> tuple[int, int]:
@@ -326,7 +370,7 @@ def resolve_functions(
     """
     ignores = ignores or CoverageIgnores()
     scope = _scope_pattern(selector)
-    sources = scan_functions(datapacks)
+    sources = scan_functions(datapacks, coverage.pack_format)
     reports = []
 
     for name in sorted(sources.keys() | coverage.functions.keys()):
@@ -401,25 +445,18 @@ def resolve_resources(
             runs = {p: c for p, c in runs.items() if not ignores.node(kind, element, p)}
             if not conditions and not runs:
                 continue
-        file = find_resource(datapacks, kind, element)
+        file = find_resource(datapacks, kind, element, coverage.pack_format)
         spans, document = _resource_source(file)
-        reports.append(
-            ResourceReport(
-                element,
-                kind,
-                file,
-                tuple(
-                    ConditionNode(
-                        path, spans.get(path), passed, failed, _is_combinator(document, path)
-                    )
-                    for path, (passed, failed) in sorted(conditions.items())
-                ),
-                tuple(
-                    RunNode(path, spans.get(path), reached, ran)
-                    for path, (reached, ran) in sorted(runs.items())
-                ),
-            )
-        )
+        nodes = []
+        for path, (passed, failed) in sorted(conditions.items()):
+            lines, offsets = spans.get(path, (None, None))
+            combinator = _is_combinator(document, path)
+            nodes.append(ConditionNode(path, lines, passed, failed, combinator, offsets))
+        blocks = []
+        for path, (reached, ran) in sorted(runs.items()):
+            lines, offsets = spans.get(path, (None, None))
+            blocks.append(RunNode(path, lines, reached, ran, offsets))
+        reports.append(ResourceReport(element, kind, file, tuple(nodes), tuple(blocks)))
 
     reports.sort(key=lambda report: (report.kind, report.name))
     return reports
@@ -439,8 +476,8 @@ def _registry_folder(registry: str) -> str:
     return path if namespace == "minecraft" else f"{namespace}/{path}"
 
 
-def _resource_source(file: SourceFile | None) -> tuple[dict[str, tuple[int, int]], object]:
-    """A resource's node line spans and its parsed document, best effort."""
+def _resource_source(file: SourceFile | None) -> tuple[JsonSpans, object]:
+    """Where a resource's nodes are and its parsed document, best effort."""
     text = file.read() if file is not None else None
     if text is None:
         return {}, None

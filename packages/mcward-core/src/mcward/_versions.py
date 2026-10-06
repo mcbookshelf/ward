@@ -81,7 +81,6 @@ class Version:
         )
 
 
-type _Versions = list[Version]
 type _Entries = list[tuple[Version, int]]
 
 
@@ -108,11 +107,11 @@ class VersionRegistry:
             return max((v for v, _ in entries if not v.is_snapshot), default=None)
         return next((v for v, _ in entries if v.name == name), None)
 
-    def list(self) -> _Versions:
+    def available(self) -> list[Version]:
         """Every version in the registry, in registry order."""
         return [v for v, _ in self._load()]
 
-    def list_in_range(self, min_fmt: int, max_fmt: int) -> _Versions:
+    def list_in_range(self, min_fmt: int, max_fmt: int) -> list[Version]:
         """Every version whose pack format falls inside the range."""
         return [v for v, fmt in self._load() if min_fmt <= fmt <= max_fmt]
 
@@ -141,7 +140,7 @@ class VersionRegistry:
         import httpx  # deferred: most runs never fetch
 
         try:
-            formats, versions = asyncio.run(_fetch())
+            formats, versions = asyncio.run(_fetch_remote())
         except (httpx.HTTPError, ValueError) as e:
             raise VersionError(f"Could not fetch version data: {e}") from e
         # A version without a known pack format is left out
@@ -171,7 +170,7 @@ class VersionRegistry:
         return datetime.now() - mtime > self._ttl
 
 
-async def _fetch() -> tuple[dict[str, int], list[Version]]:
+async def _fetch_remote() -> tuple[dict[str, int], list[Version]]:
     """Fetch formats and versions in parallel."""
     import asyncio
 

@@ -1,18 +1,20 @@
 # Test directives
 
-Directives set how a test runs. Write them as comments at the top of the test file:
+Directives set how a test runs. Write them as comments at the top of the test
+file, before the first command:
 
 ```mcfunction
 # @max_ticks 200
 # @dimension minecraft:the_nether
 # @environment ward:no_ticks
-# @dummy 8 1 8
+# @dummy ~ ~ ~
 
 say running as a dummy in the nether
 ```
 
 A typo in a directive, or a command that does not parse, fails the whole file
-when the pack loads.
+when the pack loads. After the first command, a comment is never read as a
+directive, whatever it starts with.
 
 ## Reference
 
@@ -33,3 +35,36 @@ when the pack loads.
 
 Boolean directives can be bare: `# @optional` means `true`.
 `# @dummy` without a position spawns at `~ ~ ~`.
+Names ignore case, and a directive written twice keeps its last value.
+
+## Test world
+
+Each run starts in a new world, and nothing is saved. No experiment is
+enabled: villager trades and loot are the ones of a default world.
+
+The three vanilla dimensions are flat: grass in the overworld (plains), basalt
+in the Nether (basalt deltas) and end stone in the End. The test area sits a
+few blocks above that floor.
+
+## Empty templates
+
+The default template, `minecraft:empty`, is a single block of air. Minecraft
+closes the test area with barriers: a floor, four walls, and a ceiling unless
+`@skyaccess` is set.
+
+Test areas sit in rows of 8, a few blocks apart, and the tests of a batch all
+run at the same time. So a test that builds outside its own area can reach
+the area of another test.
+
+Ward comes with larger empty templates for tests that need room:
+`ward:empty/3x3x3`, `ward:empty/5x5x5` and `ward:empty/9x9x9`.
+
+```mcfunction
+# @template ward:empty/5x5x5
+
+fill ~1 ~ ~1 ~3 ~ ~3 minecraft:stone
+assert block ~2 ~ ~2 minecraft:stone
+```
+
+`~ ~ ~` is the north-west bottom corner of the template, not its center.
+The center of a `3x3x3` template is `~1 ~ ~1`.

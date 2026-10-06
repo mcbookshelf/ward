@@ -1,40 +1,44 @@
 package dev.mcbookshelf.ward.mixin;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.llamalad7.mixinextras.sugar.Local;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.Decoder;
-import com.mojang.serialization.DynamicOps;
+import java.util.Map;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.RegistryLoadTask;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.resources.ResourceManagerRegistryLoadTask;
 
-import dev.mcbookshelf.ward.DataCoverage;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.Reporter;
+import dev.mcbookshelf.ward.Ward;
 
-@Mixin(targets = "net.minecraft.resources.RegistryLoadTask$PendingRegistration")
+@Mixin(RegistryLoadTask.class)
 public class RegistryLoadTaskMixin {
 	/**
-	 * Tags the element decode with its file, so nodes decoded from its JSON attribute their coverage to it.
+	 * Every element is loaded by the time the first registry freezes, so the shared map holds all their errors.
 	 */
-	@WrapOperation(method = "loadFromResource", at = @At(value = "INVOKE", target = "Lcom/mojang/serialization/Decoder;parse(Lcom/mojang/serialization/DynamicOps;Ljava/lang/Object;)Lcom/mojang/serialization/DataResult;"))
-	private static DataResult<?> tagElementDecode(
-			Decoder<?> decoder,
-			DynamicOps<?> ops,
-			Object json,
-			Operation<DataResult<?>> original,
-			@Local(argsOnly = true) ResourceKey<?> elementKey,
-			@Local(argsOnly = true) Resource resource) {
-		DataCoverage.beginElement(elementKey, resource, json);
-
-		try {
-			DataResult<?> result = original.call(decoder, ops, json);
-			result.result().ifPresent(DataCoverage::completeElement);
-			return result;
-		} finally {
-			DataCoverage.endElement();
+	@Inject(method = "freezeRegistry", at = @At("HEAD"))
+	private void reportElementErrors(Map<ResourceKey<?>, Exception> loadingErrors, CallbackInfoReturnable<Boolean> info) {
+		if (!((Object) this instanceof ResourceManagerRegistryLoadTask<?>)) {
+			return;
 		}
+
+		loadingErrors.entrySet().removeIf(entry -> {
+			ResourceKey<?> key = entry.getKey();
+
+			if (key.registry().equals(Registries.ROOT_REGISTRY_NAME)) {
+				return false;
+			}
+
+			Exception error = entry.getValue();
+			Ward.LOGGER.error("Failed to load {} from {}", key.registry(), key.identifier(), error);
+			String reason = error.getCause() == null ? "" : ": " + Messages.describe(error.getCause());
+			Reporter.loadError(key.registry().toString(), key.identifier().toString(), Messages.describe(error) + reason);
+			return true;
+		});
 	}
 }

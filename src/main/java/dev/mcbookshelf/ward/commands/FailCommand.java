@@ -11,7 +11,8 @@ import net.minecraft.commands.arguments.ComponentArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentUtils;
 
-import dev.mcbookshelf.ward.TestExecutor;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.TestExecutor;
 
 public final class FailCommand {
 	private FailCommand() {
@@ -20,17 +21,16 @@ public final class FailCommand {
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
 		dispatcher.register(Commands.literal("fail")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-				.executes(_ -> fail(Component.translatable("ward.fail")))
+				.executes(_ -> fail(Messages.translatable("ward.fail")))
 				.then(Commands.argument("message", ComponentArgument.textComponent(context))
-						.executes(FailCommand::failWithArgument)));
+						.executes(FailCommand::fail)));
 	}
 
 	private static int fail(Component message) throws CommandSyntaxException {
-		TestExecutor.current().fail(message);
-		return 0;
+		throw TestExecutor.current().failure(message);
 	}
 
-	private static int failWithArgument(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+	private static int fail(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		try {
 			return fail(ComponentArgument.getResolvedComponent(context, "message"));
 		} catch (CommandSyntaxException e) {

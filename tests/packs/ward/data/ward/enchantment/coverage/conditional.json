@@ -1,0 +1,18 @@
+{
+  "description": "Ward coverage fixture",
+  "supported_items": "minecraft:stick",
+  "weight": 1,
+  "max_level": 1,
+  "min_cost": { "base": 1, "per_level_above_first": 0 },
+  "max_cost": { "base": 1, "per_level_above_first": 0 },
+  "anvil_cost": 1,
+  "slots": ["mainhand"],
+  "effects": {
+    "minecraft:damage": [
+      {
+        "effect": { "type": "minecraft:add", "value": 1 },
+        "requirements": { "type": "minecraft:random_chance", "chance": 1 }
+      }
+    ]
+  }
+}

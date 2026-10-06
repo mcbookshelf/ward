@@ -19,7 +19,8 @@ import net.minecraft.world.scores.ReadOnlyScoreInfo;
 import net.minecraft.world.scores.ScoreHolder;
 import net.minecraft.world.scores.Scoreboard;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class ScoreAssertion implements Assertion {
 	@Override
@@ -39,7 +40,7 @@ class ScoreAssertion implements Assertion {
 								.then(buildScore(mode, (a, b) -> a >= b, ">="))
 								.then(Commands.literal("matches")
 										.then(Commands.argument("range", RangeArgument.intRange())
-												.executes(ctx -> runRange(ctx, mode)))))));
+												.executes(ctx -> mode.check(ctx, ScoreAssertion::checkRange)))))));
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> buildScore(
@@ -50,52 +51,43 @@ class ScoreAssertion implements Assertion {
 				.then(Commands.argument("source", ScoreHolderArgument.scoreHolder())
 						.suggests(ScoreHolderArgument.SUGGEST_SCORE_HOLDERS)
 						.then(Commands.argument("source_objective", ObjectiveArgument.objective())
-								.executes(ctx -> run(ctx, mode, predicate, op))));
+								.executes(ctx -> mode.check(ctx, attempt -> check(attempt, predicate, op)))));
 	}
 
-	private static int run(
-			CommandContext<CommandSourceStack> context,
-			Mode mode,
-			BiPredicate<Integer, Integer> operation,
-			String op) throws CommandSyntaxException {
+	private static AssertResult check(CommandContext<CommandSourceStack> context, BiPredicate<Integer, Integer> operation, String op) throws CommandSyntaxException {
 		Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
+		ScoreHolder target = ScoreHolderArgument.getName(context, "target");
+		ScoreHolder source = ScoreHolderArgument.getName(context, "source");
+		Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
+		Objective sourceObjective = ObjectiveArgument.getObjective(context, "source_objective");
+		ReadOnlyScoreInfo targetScore = scoreboard.getPlayerScoreInfo(target, targetObjective);
+		ReadOnlyScoreInfo sourceScore = scoreboard.getPlayerScoreInfo(source, sourceObjective);
+		boolean holds = targetScore != null && sourceScore != null && operation.test(targetScore.value(), sourceScore.value());
 
-		return mode.check(() -> {
-			ScoreHolder target = ScoreHolderArgument.getName(context, "target");
-			ScoreHolder source = ScoreHolderArgument.getName(context, "source");
-			Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
-			Objective sourceObjective = ObjectiveArgument.getObjective(context, "source_objective");
-			ReadOnlyScoreInfo targetScore = scoreboard.getPlayerScoreInfo(target, targetObjective);
-			ReadOnlyScoreInfo sourceScore = scoreboard.getPlayerScoreInfo(source, sourceObjective);
-			int count = (targetScore != null && sourceScore != null && operation.test(targetScore.value(), sourceScore.value())) ? 1 : 0;
-
-			return AssertResult.of(count, "score",
-					target.getScoreboardName(),
-					targetObjective.getName(),
-					op,
-					source.getScoreboardName(),
-					sourceObjective.getName(),
-					targetScore != null ? targetScore.value() : "undefined",
-					op,
-					sourceScore != null ? sourceScore.value() : "undefined");
-		});
+		return AssertResult.of(holds, negated -> Messages.translatable(
+				negated ? "ward.assert.not_score" : "ward.assert.score",
+				target.getScoreboardName(),
+				targetObjective.getName(),
+				op,
+				source.getScoreboardName(),
+				sourceObjective.getName(),
+				targetScore != null ? targetScore.value() : "undefined",
+				op,
+				sourceScore != null ? sourceScore.value() : "undefined"));
 	}
 
-	private static int runRange(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult checkRange(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		MinMaxBounds.Ints range = RangeArgument.Ints.getRange(context, "range");
 		Scoreboard scoreboard = context.getSource().getServer().getScoreboard();
+		ScoreHolder target = ScoreHolderArgument.getName(context, "target");
+		Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
+		ReadOnlyScoreInfo scoreInfo = scoreboard.getPlayerScoreInfo(target, targetObjective);
 
-		return mode.check(() -> {
-			ScoreHolder target = ScoreHolderArgument.getName(context, "target");
-			Objective targetObjective = ObjectiveArgument.getObjective(context, "target_objective");
-			ReadOnlyScoreInfo scoreInfo = scoreboard.getPlayerScoreInfo(target, targetObjective);
-			int count = (scoreInfo != null && range.matches(scoreInfo.value())) ? 1 : 0;
-
-			return AssertResult.of(count, "score_range",
-					target.getScoreboardName(),
-					targetObjective.getName(),
-					Assertion.getRawArgument(context, "range"),
-					scoreInfo != null ? scoreInfo.value() : "undefined");
-		});
+		return AssertResult.of(scoreInfo != null && range.matches(scoreInfo.value()), negated -> Messages.translatable(
+				negated ? "ward.assert.not_score_range" : "ward.assert.score_range",
+				target.getScoreboardName(),
+				targetObjective.getName(),
+				Assertion.getRawArgument(context, "range"),
+				scoreInfo != null ? scoreInfo.value() : "undefined"));
 	}
 }

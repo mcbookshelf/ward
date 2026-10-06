@@ -8,8 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import net.minecraft.server.ServerAdvancementManager;
 
-import dev.mcbookshelf.ward.LoadDiagnostic;
-import dev.mcbookshelf.ward.ReportManager;
+import dev.mcbookshelf.ward.Reporter;
 
 @Mixin(ServerAdvancementManager.class)
 public class ServerAdvancementManagerMixin {
@@ -21,6 +20,6 @@ public class ServerAdvancementManagerMixin {
 			Object report,
 			Operation<Void> original) {
 		original.call(logger, message, id, report);
-		ReportManager.report(LoadDiagnostic.warn("minecraft:advancement", id.toString(), report.toString()));
+		Reporter.loadWarning("minecraft:advancement", id.toString(), report.toString());
 	}
 }

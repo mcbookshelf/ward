@@ -1,6 +1,7 @@
 package dev.mcbookshelf.ward.mixin.server;
 
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import java.nio.file.Path;
+
 import com.llamalad7.mixinextras.sugar.Local;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -8,50 +9,23 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.server.Main;
-import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.server.dedicated.DedicatedServerSettings;
 
 import dev.mcbookshelf.ward.Ward;
-import dev.mcbookshelf.ward.WardDaemon;
+import dev.mcbookshelf.ward.daemon.WardDaemon;
 
 @Mixin(Main.class)
 public class MainMixin {
-	@ModifyExpressionValue(method = "main", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/Eula;hasAgreedToEULA()Z"))
-	private static boolean isEulaAgreedTo(boolean isEulaAgreedTo) {
-		return Ward.DAEMON || isEulaAgreedTo;
-	}
-
 	/**
-	 * Exits with a non-zero code when the server fails to start.
+	 * The EULA check is the last step before vanilla creates what only a dedicated server needs.
 	 */
-	@Inject(method = "main", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Lorg/slf4j/Marker;Ljava/lang/String;Ljava/lang/Throwable;)V", shift = At.Shift.AFTER))
-	private static void exitOnError(CallbackInfo info) {
-		if (Ward.DAEMON) {
-			System.exit(-1);
-		}
-	}
-
-	/**
-	 * Exports the command tree instead of starting the server.
-	 */
-	@Inject(method = "main", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/Eula;hasAgreedToEULA()Z"))
-	private static void exportCommandTree(CallbackInfo info) {
+	@Inject(method = "main", cancellable = true, allow = 1, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/Eula;hasAgreedToEULA()Z"))
+	private static void runWard(String[] args, CallbackInfo info, @Local DedicatedServerSettings settings) {
 		if (Ward.GENERATE_COMMANDS != null) {
-			Ward.exportCommandTree();
+			Ward.exportCommandTree(Path.of(Ward.GENERATE_COMMANDS));
 			info.cancel();
-		}
-	}
-
-	/**
-	 * Starts the test daemon instead of the normal dedicated server.
-	 */
-	@Inject(method = "main", cancellable = true, at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/server/packs/repository/ServerPacksSource;createPackRepository(Lnet/minecraft/world/level/storage/LevelStorageSource$LevelStorageAccess;)Lnet/minecraft/server/packs/repository/PackRepository;"))
-	private static void runWardDaemon(
-			String[] args,
-			CallbackInfo info,
-			@Local LevelStorageSource source,
-			@Local LevelStorageSource.LevelStorageAccess storage) {
-		if (Ward.DAEMON) {
-			WardDaemon.launch(source, storage);
+		} else if (Ward.DAEMON) {
+			WardDaemon.launch(settings.getProperties().levelName);
 			info.cancel();
 		}
 	}

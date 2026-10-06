@@ -8,6 +8,9 @@ A test runs its commands in order. `/await` pauses the test until its
 condition holds. The test passes when the last command has run and nothing is
 still waiting. You only need `/succeed` to end a test early.
 
+A line of a test that runs more commands than the `max_command_sequence_length`
+game rule allows fails the test.
+
 ## `/assert` and `/await`
 
 Both commands take the same conditions:
@@ -37,14 +40,14 @@ Set the timeout with the [`@max_ticks` directive](directives.md).
 | `data storage <id> <path>` | the NBT path exists in command storage |
 | `dimension <dimension>` | the test runs in that dimension |
 | `entity <selector>` | the selector matches at least one entity |
-| `entity <selector> inside` | it matches an entity inside the test area |
+| `entity <selector> inside` | it matches an entity inside the test area, grown by one block on each side |
 | `function <function>` | the function (id or `#tag`) returns a nonzero result |
 | `items entity <selector> <slots> <item>` | matching items exist in those entity slots |
 | `items block <pos> <slots> <item>` | matching items exist in those container slots |
 | `loaded <pos>` | the chunk at `pos` is fully loaded |
 | `predicate <predicate>` | the predicate (id or inline) passes |
 | `result <range> run <command>` | the command's result is in the range |
-| `run <command>` | the command succeeds |
+| `run <command>` | the command succeeds. A function call only counts when the function returns a value |
 | `score <target> <objective> <op> <source> <objective>` | the comparison holds (`=`, `<`, `<=`, `>`, `>=`) |
 | `score <target> <objective> matches <range>` | the score is in the range (`3`, `5..10`, `..0`) |
 | `slots entity <selector> <slots>` | those entity slots exist |
@@ -56,7 +59,7 @@ Set the timeout with the [`@max_ticks` directive](directives.md).
 ```
 fail                 fails the test
 fail <message>       fails the test with a message (text component)
-succeed              passes the test and skips the remaining commands
+succeed              passes the test and skips the rest of the test file
 ```
 
 ## `/dummy`

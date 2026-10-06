@@ -2,6 +2,7 @@
 
 import json
 import re
+import sys
 import zipfile
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
@@ -9,7 +10,9 @@ from functools import lru_cache
 from pathlib import Path
 
 _IGNORE_MARKER = re.compile(r"#\s*@coverage\s+(ignore|off|on)")
-_SOURCE_SUFFIXES = (".mcfunction", ".json")
+_SOURCE_SUFFIXES = (".mcfunction", ".json", ".mcmeta")
+
+type PackFormat = tuple[int, int]
 
 
 @dataclass(frozen=True)
@@ -78,34 +81,88 @@ def _entries(source: str) -> Iterator[tuple[int, str]]:
         i += 1
 
 
-def scan_functions(datapacks: Sequence[Path]) -> dict[str, SourceFile]:
+def scan_functions(
+    datapacks: Sequence[Path],
+    pack_format: PackFormat | None = None,
+) -> dict[str, SourceFile]:
     """Map function ids to their sources across the given datapacks.
 
-    Later packs win id collisions, matching datapack stacking order.
+    Later packs win id collisions, matching datapack stacking order. With the
+    pack format of the server, the overlays it loaded are read on top of each pack.
     """
     functions: dict[str, SourceFile] = {}
     for pack in datapacks:
-        if pack.is_file():
-            sources = ((member, SourceFile(pack, member)) for member in _zip_sources(pack))
-        else:
-            files = pack.glob("data/*/function/**/*.mcfunction")
-            sources = ((file.relative_to(pack).as_posix(), SourceFile(file)) for file in files)
-        for member, source in sources:
-            if (name := _function_id(member)) is not None:
-                functions[name] = source
+        for folder in _data_folders(pack, pack_format):
+            if pack.is_file():
+                members = (member for member in _zip_sources(pack) if member.startswith(folder))
+                sources = ((m.removeprefix(folder), SourceFile(pack, m)) for m in members)
+            else:
+                root = pack / folder
+                files = root.glob("data/*/function/**/*.mcfunction")
+                sources = ((file.relative_to(root).as_posix(), SourceFile(file)) for file in files)
+            for member, source in sources:
+                if (name := _function_id(member)) is not None:
+                    functions[name] = source
     return functions
 
 
-def find_resource(datapacks: Sequence[Path], kind: str, element: str) -> SourceFile | None:
-    """The element's JSON source in the pack (or zip) that wins the stack."""
+def find_resource(
+    datapacks: Sequence[Path],
+    kind: str,
+    element: str,
+    pack_format: PackFormat | None = None,
+) -> SourceFile | None:
+    """The element's JSON source in the pack (or zip), and the overlay, that wins the stack."""
     namespace, _, path = element.partition(":")
-    member = f"data/{namespace}/{kind}/{path}.json"
     for pack in reversed(datapacks):
-        if pack.is_file():
-            if member in _zip_sources(pack):
-                return SourceFile(pack, member)
-        elif (file := pack / member).is_file():
-            return SourceFile(file)
+        for folder in reversed(_data_folders(pack, pack_format)):
+            member = f"{folder}data/{namespace}/{kind}/{path}.json"
+            if pack.is_file():
+                if member in _zip_sources(pack):
+                    return SourceFile(pack, member)
+            elif (file := pack / member).is_file():
+                return SourceFile(file)
+    return None
+
+
+def _data_folders(pack: Path, pack_format: PackFormat | None) -> list[str]:
+    """The folders of a pack that hold a data folder for the pack format, as path
+    prefixes, the one that wins last: the root, then each overlay that applies."""
+    if pack_format is None:
+        return [""]
+    source = SourceFile(pack, "pack.mcmeta") if pack.is_file() else SourceFile(pack / "pack.mcmeta")
+    try:
+        metadata = json.loads(source.read() or "")
+    except ValueError:
+        return [""]
+    return ["", *(f"{overlay}/" for overlay in _overlays(metadata, pack_format))]
+
+
+def _overlays(metadata: object, pack_format: PackFormat) -> Iterator[str]:
+    """The overlay directories of a pack.mcmeta whose format range has the pack format.
+
+    An entry without min_format and max_format only covers formats older than any Ward runs on.
+    """
+    match metadata:
+        case {"overlays": {"entries": [*entries]}}:
+            for entry in entries:
+                match entry:
+                    case {"directory": str(directory), "min_format": low, "max_format": high}:
+                        low, high = _format_bound(low, 0), _format_bound(high, sys.maxsize)
+                        if low and high and low <= pack_format <= high:
+                            yield directory
+
+
+def _format_bound(value: object, minor: int) -> PackFormat | None:
+    """A pack format of pack.mcmeta: a number, or a [major, minor] list.
+
+    Without a minor, a lower bound starts at 0 and an upper bound covers every minor.
+    """
+    match value:
+        case int(major) | [int(major)]:
+            return major, minor
+        case [int(major), int(given), *_]:
+            return major, given
     return None
 
 
@@ -143,20 +200,14 @@ def _read_zip_sources(pack: Path, mtime_ns: int, size: int) -> dict[str, bytes]:
         return {}
 
 
-def json_spans(text: str) -> dict[str, tuple[int, int]]:
-    """1-based line spans of every JSON object in the document, keyed by its
-    NBT-style path (``pools[0].entries[2]``)."""
-    return {path: (start, end) for path, (start, end, _, _) in _scan_json(text).items()}
+type JsonSpans = dict[str, tuple[tuple[int, int], tuple[int, int]]]
 
 
-def json_offsets(text: str) -> dict[str, tuple[int, int]]:
-    """Character spans of every JSON object, as half-open offsets into the text."""
-    return {path: (start, end) for path, (_, _, start, end) in _scan_json(text).items()}
-
-
-def _scan_json(text: str) -> dict[str, tuple[int, int, int, int]]:
-    """Every JSON object's (start_line, end_line, start_offset, end_offset) by path."""
-    spans: dict[str, tuple[int, int, int, int]] = {}
+def json_spans(text: str) -> JsonSpans:
+    """Where every JSON object of the document is, keyed by its NBT-style path
+    (``pools[0].entries[2]``): its 1-based line span, then its character span
+    as half-open offsets into the text."""
+    spans: JsonSpans = {}
     pos = 0
     line = 1
 
@@ -199,7 +250,7 @@ def _scan_json(text: str) -> dict[str, tuple[int, int, int, int]]:
                     pos += 1
                     skip_whitespace()
             expect("}")
-            spans[path] = (start_line, line, start_pos, pos)
+            spans[path] = ((start_line, line), (start_pos, pos))
         elif text[pos] == "[":
             pos += 1
             skip_whitespace()
@@ -215,8 +266,12 @@ def _scan_json(text: str) -> dict[str, tuple[int, int, int, int]]:
         elif text[pos] == '"':
             scan_string()
         else:
+            start = pos
             while pos < len(text) and text[pos] not in ",}] \t\r\n":
                 pos += 1
+            # A value of no length would leave the enclosing array scanning the same spot forever
+            if pos == start:
+                raise ValueError(f"expected a value at position {pos}")
 
     scan_value("")
     return spans

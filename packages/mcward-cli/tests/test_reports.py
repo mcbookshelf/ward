@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element, fromstring
 import pytest
 import rich_click as click
 
-from mcward import ResolvedCoverage, Version, resolve_coverage
+from mcward import CoverageMinimum, ResolvedCoverage, Version, resolve_coverage
 from mcward._protocol import (
     BatchStarted,
     Coverage,
@@ -19,6 +19,7 @@ from mcward._runner import TestSession as Session
 from mcward.cli.reports import (
     missing_coverage,
     parse_coverage_report,
+    report_session,
     write_coverage_reports,
     write_junit,
     write_lcov,
@@ -240,6 +241,89 @@ class TestWriteCoverageReports:
         session = self.coverage_session(V1, V2)
         files = write_coverage_reports(session, resolved(session, pack), specs)
         assert [file.name for file in files] == ["cov-26.1.2.lcov", "cov-26.1.1.lcov"]
+
+
+class TestMinimumCoverage:
+    """Test the coverage a run has to reach."""
+
+    def make_pack(self, tmp_path: Path) -> Path:
+        folder = tmp_path / "pack" / "data" / "demo" / "function"
+        folder.mkdir(parents=True)
+        (folder / "main.mcfunction").write_text("say a\nsay b\nsay c\n", encoding="utf-8")
+        return tmp_path / "pack"
+
+    def report(
+        self,
+        session: Session,
+        pack: Path,
+        total: float | None = None,
+        coverage: bool = True,
+        namespace: float | None = None,
+    ) -> None:
+        minimum = CoverageMinimum(total, namespace)
+        report_session(session, [pack], coverage=coverage, minimum=minimum)
+
+    def cover(self, session: Session, version: Version, executed: tuple[int, ...]) -> None:
+        session._dispatch(
+            version, Coverage(functions={"demo:main": FunctionCoverage(executed, executed)})
+        )
+
+    def test_below_the_minimum_is_an_error(self, tmp_path: Path) -> None:
+        session = make_session(V1)
+        self.cover(session, V1, (1, 0, 0))
+
+        with pytest.raises(click.ClickException) as error:
+            self.report(session, self.make_pack(tmp_path), 50)
+
+        assert error.value.message == "Coverage 33.3% is below the minimum of 50%"
+
+    def test_the_printed_figure_is_what_counts(self, tmp_path: Path) -> None:
+        """One command of three prints as 33.3%, which reaches a minimum of 33.3."""
+        session = make_session(V1)
+        self.cover(session, V1, (1, 0, 0))
+
+        self.report(session, self.make_pack(tmp_path), 33.3)
+
+    def test_each_version_has_to_reach_it(self, tmp_path: Path) -> None:
+        session = make_session(V1, V2)
+        self.cover(session, V1, (1, 1, 1))
+        self.cover(session, V2, (1, 1, 0))
+
+        with pytest.raises(click.ClickException) as error:
+            self.report(session, self.make_pack(tmp_path), 80)
+
+        assert error.value.message == "Coverage 66.7% on 26.1.1 is below the minimum of 80%"
+
+    def test_a_version_without_coverage_cannot_reach_it(self, tmp_path: Path) -> None:
+        session = make_session(V1, V2)
+        self.cover(session, V1, (1, 1, 1))
+
+        with pytest.raises(click.ClickException, match="No coverage from 26.1.1"):
+            self.report(session, self.make_pack(tmp_path), 80)
+
+    def test_each_namespace_has_to_reach_its_own(self, tmp_path: Path) -> None:
+        """Two namespaces at 100% and 33.3%: 66.7% in total, which hides the weak one."""
+        pack = self.make_pack(tmp_path)
+        other = pack / "data" / "lib" / "function"
+        other.mkdir(parents=True)
+        (other / "main.mcfunction").write_text("say a\nsay b\nsay c\n", encoding="utf-8")
+        session = make_session(V1)
+        hits = {
+            "demo:main": FunctionCoverage((1, 1, 1), (1, 1, 1)),
+            "lib:main": FunctionCoverage((1, 0, 0), (1, 0, 0)),
+        }
+        session._dispatch(V1, Coverage(functions=hits))
+
+        self.report(session, pack, total=60)
+        with pytest.raises(click.ClickException) as error:
+            self.report(session, pack, total=60, namespace=50)
+
+        assert error.value.message == (
+            "Coverage 33.3% of lib is below the minimum of 50% per namespace"
+        )
+
+    def test_nothing_is_checked_without_coverage(self, tmp_path: Path) -> None:
+        self.report(make_session(V1), self.make_pack(tmp_path), 80, coverage=False)
 
 
 class TestWriteLcov:

@@ -21,7 +21,8 @@ import net.minecraft.server.commands.item.EntityItemAccessor;
 import net.minecraft.server.commands.item.ItemAccessor;
 import net.minecraft.world.item.ItemStack;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class ItemsAssertion implements Assertion {
 	@Override
@@ -34,21 +35,21 @@ class ItemsAssertion implements Assertion {
 				.then(Commands.literal("entity").then(Commands.argument("entities", EntityArgument.entities())
 						.then(Commands.argument("slots", SlotSourceArgument.slotSource(context))
 								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(context))
-										.executes(ctx -> runForEntity(ctx, mode))))))
+										.executes(ctx -> mode.check(ctx, ItemsAssertion::countForEntity))))))
 				.then(Commands.literal("block").then(Commands.argument("pos", BlockPosArgument.blockPos())
 						.then(Commands.argument("slots", SlotSourceArgument.slotSource(context))
 								.then(Commands.argument("predicate", ItemPredicateArgument.itemPredicate(context))
-										.executes(ctx -> runForBlock(ctx, mode)))))));
+										.executes(ctx -> mode.check(ctx, ItemsAssertion::countForBlock)))))));
 	}
 
-	private static int runForEntity(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult countForBlock(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		return count(context, new BlockItemAccessor(BlockPosArgument.getLoadedBlockPos(context, "pos")));
+	}
+
+	private static AssertResult countForEntity(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		EntitySelector selector = context.getArgument("entities", EntitySelector.class);
 
-		return mode.check(() -> count(context, new EntityItemAccessor(selector.findEntities(context.getSource()))));
-	}
-
-	private static int runForBlock(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
-		return mode.check(() -> count(context, new BlockItemAccessor(BlockPosArgument.getLoadedBlockPos(context, "pos"))));
+		return count(context, new EntityItemAccessor(selector.findEntities(context.getSource())));
 	}
 
 	private static AssertResult count(CommandContext<CommandSourceStack> context, ItemAccessor<?> accessor) throws CommandSyntaxException {
@@ -56,6 +57,8 @@ class ItemsAssertion implements Assertion {
 		Predicate<ItemStack> predicate = ItemPredicateArgument.getItemPredicate(context, "predicate");
 		int count = ExecuteCommand.countItems(context.getSource(), accessor, slots, predicate);
 
-		return AssertResult.of(count, "items", Assertion.getRawArgument(context, "predicate"), count);
+		return AssertResult.of(count, negated -> Messages.translatable(
+				negated ? "ward.assert.not_items" : "ward.assert.items",
+				Assertion.getRawArgument(context, "predicate"), count));
 	}
 }

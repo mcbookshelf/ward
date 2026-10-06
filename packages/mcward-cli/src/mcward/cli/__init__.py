@@ -4,7 +4,7 @@ import sys
 
 import rich_click as click
 
-from .commands import clean, install, list_versions, start, status, stop, test
+from .commands import bench, clean, install, list_versions, start, status, stop, test
 from .ui import console
 
 click.rich_click.TEXT_MARKUP = "rich"
@@ -36,6 +36,7 @@ def cli() -> None:
     pass
 
 
+cli.add_command(bench)
 cli.add_command(clean)
 cli.add_command(install)
 cli.add_command(list_versions)

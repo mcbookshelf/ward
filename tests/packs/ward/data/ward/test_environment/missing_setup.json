@@ -1,0 +1,4 @@
+{
+  "type": "minecraft:function",
+  "setup": "ward:helper/does_not_exist"
+}

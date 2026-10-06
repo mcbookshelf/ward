@@ -16,11 +16,9 @@ import sys
 from pathlib import Path
 
 import httpx
-from release import FABRIC_API_ID, MODRINTH_API, USER_AGENT
+from release import FABRIC_API_ID, FABRIC_META, MODRINTH_API, USER_AGENT, get_json
 
 ROOT = Path(__file__).resolve().parent.parent
-
-FABRIC_META = "https://meta.fabricmc.net/v2"
 
 RELEASE_PATTERN = re.compile(r"\d+\.\d+\.\d+")
 MINECRAFT_PATTERN = re.compile(r"\d+\.\d+(\.\d+)?(-[\w.-]+)?")
@@ -93,12 +91,6 @@ def set_gradle_property(name: str, value: str) -> None:
         raise SystemExit(f"bump: {name} not found in gradle.properties")
     path.write_text(content, encoding="utf-8")
     print(f"bump: {name} set to {value}", file=sys.stderr)
-
-
-def get_json(client: httpx.Client, url: str):
-    response = client.get(url)
-    response.raise_for_status()
-    return response.json()
 
 
 if __name__ == "__main__":

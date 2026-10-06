@@ -1,5 +1,6 @@
 """Tests for test run orchestration and result aggregation."""
 
+import time
 from collections.abc import Iterator
 from typing import cast
 
@@ -206,6 +207,38 @@ class TestRunTests:
         result = next(r for b in session.batches for r in b.results)
         assert result.status is None
         assert not session.summary.done
+
+    def test_failure_shows_whatever_the_version_order(self) -> None:
+        """A version that never reports does not hide a failure on another one."""
+        for versions in ([V1, V2], [V2, V1]):
+            session = Session(versions)
+            session._dispatch(V1, BatchStarted(environment="default"))
+            session._dispatch(
+                V1, Failed("a:one", time=5, error="boom", required=True, line=None, tick=None)
+            )
+            session._dispatch(V2, StreamError("server crashed"))
+
+            result = next(r for b in session.batches for r in b.results)
+            assert result.status is Status.FAILED
+            assert session.summary.failed == 1
+
+    def test_tick_yields_between_events(self) -> None:
+        """A display that asks for a tick gets frames while a version says nothing."""
+
+        class SlowEnvironment(FakeEnvironment):
+            def test(self, *args, **kwargs) -> Iterator[Event]:
+                time.sleep(0.2)
+                yield from super().test(*args, **kwargs)
+
+        events = events_for(["a:one"], {})
+        without = sum(
+            1 for _ in run_tests([], [cast("RunningEnvironment", SlowEnvironment(V1, events))])
+        )
+        ticking = run_tests(
+            [], [cast("RunningEnvironment", SlowEnvironment(V1, events))], tick=0.02
+        )
+
+        assert sum(1 for _ in ticking) > without
 
     def test_batches_carry_their_announced_total(self) -> None:
         session = Session([V1])

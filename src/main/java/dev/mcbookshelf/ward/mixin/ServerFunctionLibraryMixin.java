@@ -8,13 +8,12 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import net.minecraft.server.ServerFunctionLibrary;
 
-import dev.mcbookshelf.ward.LoadDiagnostic;
-import dev.mcbookshelf.ward.ReportManager;
+import dev.mcbookshelf.ward.Reporter;
 
 @Mixin(ServerFunctionLibrary.class)
 public class ServerFunctionLibraryMixin {
 	/**
-	 * Reports functions that fail to compile, from the "Failed to load function" handler lambda in {@code reload}.
+	 * The lambda of reload that logs "Failed to load function".
 	 */
 	@WrapOperation(method = "lambda$reload$7", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
 	private static void catchFunctionError(
@@ -24,6 +23,6 @@ public class ServerFunctionLibraryMixin {
 			Object e,
 			Operation<Void> original) {
 		original.call(logger, message, id, e);
-		ReportManager.report(LoadDiagnostic.error("minecraft:function", id.toString(), LoadDiagnostic.describe((Throwable) e)));
+		Reporter.loadError("minecraft:function", id.toString(), (Throwable) e);
 	}
 }

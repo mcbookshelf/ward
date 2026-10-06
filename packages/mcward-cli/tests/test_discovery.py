@@ -21,6 +21,7 @@ def write_datapack(
     directory.mkdir(parents=True, exist_ok=True)
     meta = {"pack": {"min_format": min_format, "max_format": max_format}}
     (directory / "pack.mcmeta").write_text(json.dumps(meta), encoding="utf-8")
+    (directory / "data").mkdir(exist_ok=True)
     return directory
 
 
@@ -32,6 +33,7 @@ def write_zipped_datapack(
     meta = {"pack": {"min_format": min_format, "max_format": max_format}}
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("pack.mcmeta", json.dumps(meta))
+        archive.writestr("data/ns/function/f.mcfunction", "")
     return path
 
 
@@ -130,6 +132,32 @@ class TestDiscoverDatapacks:
 
         assert discover_datapacks(DEFAULT_PATTERNS) == []
 
+    def test_resource_packs_are_ignored(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A pack.mcmeta without a data folder next to it is not a datapack."""
+        write_datapack(tmp_path / "datapack", 81, 81)
+        resources = tmp_path / "resourcepack"
+        (resources / "assets").mkdir(parents=True)
+        (resources / "pack.mcmeta").write_text('{"pack": {"pack_format": 64}}', encoding="utf-8")
+        with zipfile.ZipFile(tmp_path / "resources.zip", "w") as archive:
+            archive.writestr("pack.mcmeta", '{"pack": {"pack_format": 64}}')
+            archive.writestr("assets/ns/lang/en_us.json", "{}")
+        monkeypatch.chdir(tmp_path)
+
+        assert [dp.path.name for dp in discover_datapacks(DEFAULT_PATTERNS)] == ["datapack"]
+
+    def test_packs_come_in_stacking_order(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The game sorts deployed packs by file name, where pack-extras.zip is before pack.zip."""
+        for name in ("pack", "alpha", "pack-extras"):
+            write_datapack(tmp_path / name, 81, 81)
+        monkeypatch.chdir(tmp_path)
+
+        names = [dp.path.name for dp in discover_datapacks(["pack", "pack-extras", "alpha"])]
+        assert names == ["alpha", "pack-extras", "pack"]
+
 
 class TestParseDatapack:
     """Test pack.mcmeta format parsing."""
@@ -162,11 +190,14 @@ class TestParseDatapack:
         pack.mkdir()
         (pack / "pack.mcmeta").write_text(json.dumps({"pack": {}}), encoding="utf-8")
 
-        with pytest.raises(click.ClickException):
+        with pytest.raises(click.ClickException) as error:
             parse_datapack(pack)
+
+        assert str(pack) in error.value.message
+        assert "missing 'min_format'" in error.value.message
 
     def test_empty_format_list_raises_click_exception(self, tmp_path: Path) -> None:
         pack = write_datapack(tmp_path / "pack", [], [])
 
-        with pytest.raises(click.ClickException, match="Invalid pack format"):
+        with pytest.raises(click.ClickException, match="unexpected pack format"):
             parse_datapack(pack)

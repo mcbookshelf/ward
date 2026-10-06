@@ -2,7 +2,7 @@ package dev.mcbookshelf.ward.commands.assertions;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -11,32 +11,27 @@ import com.mojang.brigadier.context.ContextChain;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import net.minecraft.commands.CommandBuildContext;
-import net.minecraft.commands.CommandResultCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.FunctionInstantiationException;
 import net.minecraft.commands.arguments.item.FunctionArgument;
 import net.minecraft.commands.execution.ChainModifiers;
 import net.minecraft.commands.execution.CustomCommandExecutor;
-import net.minecraft.commands.execution.ExecutionContext;
+import net.minecraft.commands.execution.EntryAction;
 import net.minecraft.commands.execution.ExecutionControl;
 import net.minecraft.commands.execution.tasks.CallFunction;
 import net.minecraft.commands.execution.tasks.FallthroughTask;
 import net.minecraft.commands.execution.tasks.IsolatedCall;
 import net.minecraft.commands.functions.CommandFunction;
 import net.minecraft.commands.functions.InstantiatedFunction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.server.commands.ExecuteCommand;
 import net.minecraft.server.commands.FunctionCommand;
 
-import dev.mcbookshelf.ward.AssertResult;
-import dev.mcbookshelf.ward.TestExecutor;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
+import dev.mcbookshelf.ward.test.TestExecutor;
 
-/**
- * The first call runs through the command engine.
- * A retrying await calls the functions itself, so each step has a queued and a polled form.
- */
 class FunctionAssertion implements Assertion {
 	@Override
 	public void attach(
@@ -58,7 +53,7 @@ class FunctionAssertion implements Assertion {
 				ChainModifiers modifiers,
 				ExecutionControl<CommandSourceStack> output) {
 			try {
-				this.runGuarded(sender, currentStep, output);
+				runGuarded(sender, currentStep, output);
 			} catch (CommandSyntaxException e) {
 				sender.handleError(e, modifiers.isForked(), output.tracer());
 				sender.callback().onFailure();
@@ -71,70 +66,35 @@ class FunctionAssertion implements Assertion {
 				ExecutionControl<CommandSourceStack> output) throws CommandSyntaxException {
 			TestExecutor test = TestExecutor.current();
 			CommandContext<CommandSourceStack> context = currentStep.getTopContext().copyFor(sender);
-			CommandSourceStack functionContext = FunctionCommand.modifySenderForExecution(sender.clearCallbacks());
 			String name = Assertion.getRawArgument(context, "function");
-			List<InstantiatedFunction<CommandSourceStack>> functions = instantiate(context, sender.dispatcher());
+			List<InstantiatedFunction<CommandSourceStack>> functions;
 
-			queueFunctions(output, functionContext, functions, name, result ->
-					this.mode.check(test, result, () -> pollFunctions(functionContext, functions, name)));
-		}
-
-		private static void queueFunctions(
-				ExecutionControl<CommandSourceStack> output,
-				CommandSourceStack functionContext,
-				List<InstantiatedFunction<CommandSourceStack>> functions,
-				String name,
-				Consumer<AssertResult> onResult) {
-			int[] passing = {0};
-			int[] found = {0};
-
-			output.queueNext(new IsolatedCall<>(control -> {
-				for (InstantiatedFunction<CommandSourceStack> function : functions) {
-					control.queueNext(new CallFunction<>(function, control.currentFrame().returnValueConsumer(), true).bind(functionContext));
-				}
-
-				control.queueNext(FallthroughTask.instance());
-			}, (success, result) -> {
-				found[0] = result;
-
-				if (result != 0) {
-					passing[0]++;
-				}
-			}));
-
-			output.queueNext(new IsolatedCall<>(control -> {
-				onResult.accept(functionResult(name, passing[0], found[0]));
-				control.queueNext(FallthroughTask.instance());
-			}, CommandResultCallback.EMPTY));
-		}
-
-		private static AssertResult pollFunctions(
-				CommandSourceStack functionContext,
-				List<InstantiatedFunction<CommandSourceStack>> functions,
-				String name) {
-			int passing = 0;
-			int found = 0;
-
-			for (InstantiatedFunction<CommandSourceStack> function : functions) {
-				int[] value = {0};
-
-				// The function reports its return through the sender's callback
-				CommandSourceStack capturing = functionContext.withCallback((success, result) -> value[0] = result);
-				Commands.executeCommandInContext(capturing, ctx -> ExecutionContext.queueInitialFunctionCall(ctx, function, capturing, CommandResultCallback.EMPTY));
-
-				found = value[0];
-
-				if (value[0] != 0) {
-					passing++;
-				}
+			try {
+				functions = instantiate(context, sender.dispatcher());
+			} catch (CommandSyntaxException e) {
+				throw test.failure(ComponentUtils.fromMessage(e.getRawMessage()));
 			}
 
-			return functionResult(name, passing, found);
-		}
+			int[] returned = {0};
+			Function<CommandSourceStack, EntryAction<CommandSourceStack>> call = source -> {
+				CommandSourceStack functionSource = FunctionCommand.modifySenderForExecution(source.clearCallbacks());
 
-		private static AssertResult functionResult(String name, int passing, int found) {
-			Identifier id = Identifier.parse(name.startsWith("#") ? name.substring(1) : name);
-			return AssertResult.of(passing, "function", Component.translationArg(id), found);
+				return new IsolatedCall<>(control -> {
+					returned[0] = 0;
+
+					for (InstantiatedFunction<CommandSourceStack> function : functions) {
+						control.queueNext(new CallFunction<>(function, control.currentFrame().returnValueConsumer(), true).bind(functionSource));
+					}
+
+					control.queueNext(FallthroughTask.instance());
+				}, (success, result) -> returned[0] = result);
+			};
+
+			this.mode.check(test, sender, output, call, () -> {
+				return AssertResult.of(returned[0] != 0, negated -> Messages.translatable(
+						negated ? "ward.assert.not_function" : "ward.assert.function",
+						name, returned[0]));
+			});
 		}
 
 		private static List<InstantiatedFunction<CommandSourceStack>> instantiate(

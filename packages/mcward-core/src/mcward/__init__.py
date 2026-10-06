@@ -3,9 +3,12 @@
 import sys
 from pkgutil import extend_path
 
+from ._bench import BenchComparison, BenchReport, compare, run_bench
 from ._coverage import (
     ConditionNode,
+    CoverageConfig,
     CoverageIgnores,
+    CoverageMinimum,
     CoverageReport,
     CoverageTotals,
     FunctionReport,
@@ -48,7 +51,6 @@ from ._sources import (
     SourceFile,
     command_lines,
     ignored_lines,
-    json_offsets,
     json_spans,
     scan_functions,
 )
@@ -56,9 +58,13 @@ from ._versions import Version, VersionRegistry
 
 __all__ = [
     "AssetNotFoundError",
+    "BenchComparison",
+    "BenchReport",
     "ConditionNode",
     "Coverage",
+    "CoverageConfig",
     "CoverageIgnores",
+    "CoverageMinimum",
     "CoverageReport",
     "CoverageTotals",
     "DeployError",
@@ -96,13 +102,14 @@ __all__ = [
     "VersionRegistry",
     "WardError",
     "command_lines",
+    "compare",
     "find_java",
     "ignored_lines",
-    "json_offsets",
     "json_spans",
     "resolve_coverage",
     "resolve_functions",
     "resolve_resources",
+    "run_bench",
     "run_tests",
     "scan_functions",
 ]

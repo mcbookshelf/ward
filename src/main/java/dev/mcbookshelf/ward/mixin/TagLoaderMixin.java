@@ -1,27 +1,27 @@
 package dev.mcbookshelf.ward.mixin;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.mojang.datafixers.util.Either;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.Registry;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagEntry;
 import net.minecraft.tags.TagLoader;
 
-import dev.mcbookshelf.ward.LoadDiagnostic;
-import dev.mcbookshelf.ward.ReportManager;
-import dev.mcbookshelf.ward.WardRegistries;
+import dev.mcbookshelf.ward.Reporter;
+import dev.mcbookshelf.ward.test.TestRegistries;
 
 @Mixin(TagLoader.class)
 public class TagLoaderMixin {
@@ -29,26 +29,6 @@ public class TagLoaderMixin {
 	@Final
 	private String directory;
 
-	@Unique
-	private static final ThreadLocal<String> ward$currentDirectory = new ThreadLocal<>();
-
-	@Inject(method = "build", at = @At("HEAD"))
-	private void captureDirectory(
-			Map<Identifier, List<TagLoader.EntryWithSource>> builders,
-			CallbackInfoReturnable<Map<Identifier, List<?>>> cir) {
-		ward$currentDirectory.set(this.directory);
-	}
-
-	@Inject(method = "build", at = @At("RETURN"))
-	private void clearDirectory(
-			Map<Identifier, List<TagLoader.EntryWithSource>> builders,
-			CallbackInfoReturnable<Map<Identifier, List<?>>> cir) {
-		ward$currentDirectory.remove();
-	}
-
-	/**
-	 * Reports tag files that fail to read.
-	 */
 	@WrapOperation(method = "load", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;[Ljava/lang/Object;)V"))
 	private void catchLoadError(
 			Logger logger,
@@ -58,32 +38,34 @@ public class TagLoaderMixin {
 		original.call(logger, message, args);
 
 		if (args.length > 0 && args[args.length - 1] instanceof Throwable throwable) {
-			String error = LoadDiagnostic.describe(throwable);
-			ReportManager.report(LoadDiagnostic.error("minecraft:" + this.directory, args[0].toString(), error));
+			Reporter.loadError("minecraft:" + this.directory, args[0].toString(), throwable);
 		}
 	}
 
 	/**
-	 * Reports tags with missing references, from the static "Couldn't load tag" lambda in {@code build}.
+	 * The lambda of build that resolves each tag.
 	 */
-	@WrapOperation(method = "lambda$build$2", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"))
-	private static void catchBuildError(
-			Logger logger,
-			String message,
-			Object id,
-			Object references,
-			Operation<Void> original) {
-		original.call(logger, message, id, references);
-		String error = String.format("Missing references: %s", references);
-		ReportManager.report(LoadDiagnostic.error("minecraft:" + ward$currentDirectory.get(), id.toString(), error));
+	@WrapOperation(method = "lambda$build$1", allow = 1, at = @At(value = "INVOKE", target = "Lnet/minecraft/tags/TagLoader;tryBuildTag(Lnet/minecraft/tags/TagEntry$Lookup;Ljava/util/List;)Lcom/mojang/datafixers/util/Either;"))
+	private Either<List<TagLoader.EntryWithSource>, List<?>> reportMissingReferences(
+			TagLoader<?> loader,
+			TagEntry.Lookup<?> lookup,
+			List<TagLoader.EntryWithSource> entries,
+			Operation<Either<List<TagLoader.EntryWithSource>, List<?>>> original,
+			@Local(argsOnly = true) Identifier id) {
+		Either<List<TagLoader.EntryWithSource>, List<?>> result = original.call(loader, lookup, entries);
+		result.ifLeft(missing -> Reporter.loadError(
+				"minecraft:" + this.directory,
+				id.toString(),
+				"Missing references: " + missing.stream().map(Objects::toString).collect(Collectors.joining(", "))));
+		return result;
 	}
 
 	/**
-	 * Drops the tags of the registries Ward reloads itself. Vanilla resolves these before the reload runs,
-	 * then applies them after it, which would bind them to holders the reload has already replaced.
+	 * Vanilla resolves these tags before the reload and applies them after it,
+	 * which would bind them to holders TestRegistries has already replaced.
 	 */
 	@ModifyReturnValue(method = "loadTagsForExistingRegistries", at = @At("RETURN"))
 	private static List<Registry.PendingTags<?>> dropReloadedRegistries(List<Registry.PendingTags<?>> tags) {
-		return tags.stream().filter(pending -> !WardRegistries.owns(pending.key())).toList();
+		return tags.stream().filter(pending -> !TestRegistries.owns(pending.key())).toList();
 	}
 }

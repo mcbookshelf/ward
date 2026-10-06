@@ -108,7 +108,7 @@ class TestEnvironmentManager:
             Version.parse("26.1.1"),
         ]
 
-        with patch.object(manager.versions, "list", return_value=mock_versions):
+        with patch.object(manager.versions, "available", return_value=mock_versions):
             versions = manager.list_available()
             assert versions == mock_versions
 
@@ -355,20 +355,38 @@ class TestIsRunning:
     def test_alive_ward_process(self, manager: EnvironmentManager, directory: Path) -> None:
         """A live Ward server counts as running and keeps its files."""
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
+        flag = f"-Dward.daemon={directory / 'ward.port'}"
+        mock_psutil.cmdline.return_value = ["java", flag, "-jar", "server.jar", "nogui"]
 
         with patch("psutil.Process", return_value=mock_psutil):
-            assert manager._is_running(directory)
+            assert manager._running_process(directory)
 
         assert (directory / "ward.pid").exists()
         assert (directory / "ward.port").exists()
+
+    def test_running_environments_need_no_registry(
+        self, manager: EnvironmentManager, directory: Path
+    ) -> None:
+        """What runs is read from disk, so status and stop work offline."""
+        flag = f"-Dward.daemon={directory / 'ward.port'}"
+        mock_psutil = Mock(spec=psutil.Process)
+        mock_psutil.cmdline.return_value = ["java", flag, "-jar", "server.jar", "nogui"]
+
+        with (
+            patch("psutil.Process", return_value=mock_psutil),
+            patch.object(manager.versions, "_load", side_effect=AssertionError("registry read")),
+        ):
+            [environment] = manager.running_environments()
+
+        assert environment.version.name == "26.1.2"
+        assert (environment.directory, environment.process.port) == (directory, 25565)
 
     def test_dead_process_cleans_stale_files(
         self, manager: EnvironmentManager, directory: Path
     ) -> None:
         """A dead pid is not running and its leftover files are removed."""
         with patch("psutil.Process", side_effect=psutil.NoSuchProcess(12345)):
-            assert not manager._is_running(directory)
+            assert not manager._running_process(directory)
 
         assert not (directory / "ward.pid").exists()
         assert not (directory / "ward.port").exists()
@@ -376,15 +394,15 @@ class TestIsRunning:
     def test_recycled_pid_cleans_stale_files(
         self, manager: EnvironmentManager, directory: Path
     ) -> None:
-        """An unrelated process reusing the pid counts as not running."""
+        """Another Minecraft server reusing the pid counts as not running."""
         mock_psutil = Mock(spec=psutil.Process)
-        mock_psutil.cmdline.return_value = ["python", "unrelated.py"]
+        mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
 
         with patch("psutil.Process", return_value=mock_psutil):
-            assert not manager._is_running(directory)
+            assert not manager._running_process(directory)
 
         assert not (directory / "ward.pid").exists()
 
     def test_missing_files(self, manager: EnvironmentManager, temp_dir: Path) -> None:
         """A directory without pid/port files is not running."""
-        assert not manager._is_running(temp_dir)
+        assert not manager._running_process(temp_dir)

@@ -4,7 +4,7 @@ import os
 import shutil
 import time
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -81,6 +81,32 @@ class RunningEnvironment:
             self.process.address,
             selector,
             coverage=coverage,
+            timeout=timeout,
+        )
+
+    def bench(
+        self,
+        datapacks: list[Path],
+        commands: Sequence[str],
+        setup: Sequence[str] = (),
+        prepare: Sequence[str] = (),
+        batch: int = 0,
+        warmup: int | None = None,
+        duration: int | None = None,
+        timeout: float | None = None,
+    ) -> Iterator[Event]:
+        """Deploy the given datapacks and stream a bench of the commands."""
+        _daemon.wait_idle(self.process.address)
+        _deploy(self.directory / "world" / "datapacks", datapacks)
+
+        return _daemon.stream_bench(
+            self.process.address,
+            commands,
+            setup,
+            prepare,
+            batch,
+            warmup=warmup,
+            duration=duration,
             timeout=timeout,
         )
 

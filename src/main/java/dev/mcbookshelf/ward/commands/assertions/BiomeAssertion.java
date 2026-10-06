@@ -16,7 +16,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.biome.Biome;
 
-import dev.mcbookshelf.ward.AssertResult;
+import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.test.AssertResult;
 
 class BiomeAssertion implements Assertion {
 	@Override
@@ -27,19 +28,17 @@ class BiomeAssertion implements Assertion {
 			Mode mode) {
 		root.then(Commands.literal("biome").then(Commands.argument("pos", BlockPosArgument.blockPos())
 				.then(Commands.argument("biome", ResourceOrTagArgument.resourceOrTag(context, Registries.BIOME))
-						.executes(ctx -> run(ctx, mode)))));
+						.executes(ctx -> mode.check(ctx, BiomeAssertion::check)))));
 	}
 
-	private static int run(CommandContext<CommandSourceStack> context, Mode mode) throws CommandSyntaxException {
+	private static AssertResult check(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		ServerLevel level = context.getSource().getLevel();
+		BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
+		ResourceOrTagArgument.Result<Biome> expect = ResourceOrTagArgument.getResourceOrTag(context, "biome", Registries.BIOME);
+		Holder<Biome> found = level.getBiome(pos);
 
-		return mode.check(() -> {
-			BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
-			ResourceOrTagArgument.Result<Biome> expect = ResourceOrTagArgument.getResourceOrTag(context, "biome", Registries.BIOME);
-			Holder<Biome> found = level.getBiome(pos);
-
-			return AssertResult.of(expect.test(found) ? 1 : 0, "biome",
-					expect.asPrintable(), pos.toShortString(), found.getRegisteredName());
-		});
+		return AssertResult.of(expect.test(found), negated -> Messages.translatable(
+				negated ? "ward.assert.not_biome" : "ward.assert.biome",
+				expect.asPrintable(), pos.toShortString(), found.getRegisteredName()));
 	}
 }
