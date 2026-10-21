@@ -10,6 +10,7 @@ Bumping is the release request: once the change lands, release.py publishes it.
 """
 
 import argparse
+import io
 import re
 import subprocess
 import sys
@@ -17,6 +18,8 @@ from pathlib import Path
 
 import httpx
 from release import FABRIC_API_ID, FABRIC_META, MODRINTH_API, USER_AGENT, get_json
+
+from mcward._assets import loader_minimum, select_loader
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -61,9 +64,6 @@ def bump_minecraft(minecraft: str) -> int:
         if not loaders:
             print(f"bump: fabric loader does not support {minecraft} yet", file=sys.stderr)
             return 2
-        # Loaders come newest-first, betas included, so prefer the newest stable one
-        entry = next((x for x in loaders if x["loader"]["stable"]), loaders[0])
-        loader = entry["loader"]["version"]
 
         versions = get_json(client, f"{MODRINTH_API}/project/{FABRIC_API_ID}/version")
         compatible = [v for v in versions if minecraft in v["game_versions"]]
@@ -71,6 +71,11 @@ def bump_minecraft(minecraft: str) -> int:
             print(f"bump: no fabric-api build published for {minecraft} yet", file=sys.stderr)
             return 2
         fabric_api = compatible[0]["version_number"]
+        files = compatible[0]["files"]
+        primary = next((x for x in files if x["primary"]), files[0])
+        jar = client.get(primary["url"], follow_redirects=True)
+        jar.raise_for_status()
+        loader = select_loader(loaders, loader_minimum(io.BytesIO(jar.content)))
 
     set_gradle_property("minecraft_version", minecraft)
     set_gradle_property("loader_version", loader)

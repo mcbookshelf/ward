@@ -10,7 +10,7 @@ import tempfile
 import zipfile
 from contextlib import suppress
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 import httpx
 
@@ -62,8 +62,7 @@ async def install(directory: Path, version: Version) -> None:
         mods = directory / "mods"
         ward = mods / "ward.jar"
         tasks = [
-            _install_server(client, minecraft, directory / "server.jar"),
-            _install_mod(client, "fabric-api", minecraft, mods / "fabric-api.jar"),
+            _install_fabric(client, minecraft, directory / "server.jar", mods / "fabric-api.jar"),
             _build_ward(mods) if version.is_dev else _install_mod(client, "ward", minecraft, ward),
         ]
         if _java.resolve() is None:
@@ -78,14 +77,48 @@ async def install(directory: Path, version: Version) -> None:
             raise errors.exceptions[0] from None
 
 
-async def _install_server(client: httpx.AsyncClient, minecraft: str, file: Path) -> None:
-    """Download the Fabric server launcher for the newest stable loader."""
+async def _install_fabric(
+    client: httpx.AsyncClient, minecraft: str, server: Path, fabric_api: Path
+) -> None:
+    """Download fabric-api, then the server launcher for a loader it accepts."""
+    await _install_mod(client, "fabric-api", minecraft, fabric_api)
+    await _install_server(client, minecraft, server, loader_minimum(fabric_api))
+
+
+async def _install_server(
+    client: httpx.AsyncClient, minecraft: str, file: Path, minimum: str | None = None
+) -> None:
+    """Download the Fabric server launcher for the loader select_loader picks."""
     loaders = await _get_json(client, f"{FABRIC_API}/versions/loader/{minecraft}")
     if not loaders:
         raise AssetNotFoundError("fabric loader", minecraft)
-    loader = next((x for x in loaders if x["loader"]["stable"]), loaders[0])["loader"]["version"]
+    loader = select_loader(loaders, minimum)
     url = f"{FABRIC_API}/versions/loader/{minecraft}/{loader}/{FABRIC_INSTALLER}/server/jar"
     await _download_file(client, url, file)
+
+
+def select_loader(loaders: list[dict[str, Any]], minimum: str | None = None) -> str:
+    """The newest stable loader at least the minimum, or else the newest one.
+
+    A mod can require a loader Fabric has not marked stable yet.
+    """
+    versions = [x["loader"] for x in loaders]
+    accepted = [
+        x for x in versions if minimum is None or _release(x["version"]) >= _release(minimum)
+    ]
+    return next((x for x in accepted if x["stable"]), versions[0])["version"]
+
+
+def loader_minimum(jar: Path | IO[bytes]) -> str | None:
+    """The lowest loader a mod jar accepts, from a ``>=`` fabricloader requirement."""
+    with zipfile.ZipFile(jar) as file:
+        metadata = json.loads(file.read("fabric.mod.json"))
+    requirement = metadata.get("depends", {}).get("fabricloader", "")
+    return next((x[2:] for x in str(requirement).split() if x.startswith(">=")), None)
+
+
+def _release(version: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in version.split("-")[0].split("+")[0].split("."))
 
 
 async def _install_mod(client: httpx.AsyncClient, project: str, minecraft: str, file: Path) -> None:
