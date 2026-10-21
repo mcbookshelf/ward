@@ -1,6 +1,7 @@
 """Tests for environment asset installation."""
 
 import asyncio
+import json
 import sys
 import zipfile
 from pathlib import Path
@@ -25,6 +26,8 @@ from mcward._assets import (
     _install_server,
     _unpack_runtime,
     install,
+    loader_minimum,
+    select_loader,
 )
 from mcward._constants import JAVA_VERSION
 from mcward._java import find_binary
@@ -120,6 +123,41 @@ class TestInstallServer:
 
         with pytest.raises(AssetNotFoundError):
             await _install_server(client, "99.99.99", tmp_path / "server.jar")
+
+
+class TestSelectLoader:
+    LOADERS = [
+        {"loader": {"version": "0.20.1", "stable": False}},
+        {"loader": {"version": "0.20.0", "stable": False}},
+        {"loader": {"version": "0.19.5", "stable": True}},
+    ]
+
+    def test_prefers_newest_stable_without_minimum(self) -> None:
+        assert select_loader(self.LOADERS) == "0.19.5"
+
+    def test_minimum_above_stable_takes_newest(self) -> None:
+        assert select_loader(self.LOADERS, "0.20.0") == "0.20.1"
+
+    def test_minimum_below_stable_keeps_stable(self) -> None:
+        assert select_loader(self.LOADERS, "0.19.2") == "0.19.5"
+
+    def test_unmet_minimum_takes_newest(self) -> None:
+        assert select_loader(self.LOADERS, "0.21.0") == "0.20.1"
+
+
+class TestLoaderMinimum:
+    def jar(self, tmp_path: Path, depends: dict) -> Path:
+        jar = tmp_path / "mod.jar"
+        with zipfile.ZipFile(jar, "w") as file:
+            file.writestr("fabric.mod.json", json.dumps({"depends": depends}))
+        return jar
+
+    def test_reads_lower_bound(self, tmp_path: Path) -> None:
+        jar = self.jar(tmp_path, {"fabricloader": ">=0.20.0", "java": ">=25"})
+        assert loader_minimum(jar) == "0.20.0"
+
+    def test_no_requirement(self, tmp_path: Path) -> None:
+        assert loader_minimum(self.jar(tmp_path, {"java": ">=25"})) is None
 
 
 class TestInstallMod:
@@ -349,6 +387,12 @@ class TestBuildWard:
 
 
 class TestInstall:
+    @pytest.fixture(autouse=True)
+    def no_loader_requirement(self):
+        # _install_mod is mocked, so there is no fabric-api jar to read
+        with patch("mcward._assets.loader_minimum", return_value=None):
+            yield
+
     @pytest.mark.anyio
     async def test_regular_version_installs_three_assets(self, tmp_path: Path) -> None:
         version = Version.parse("26.1.2")
@@ -442,8 +486,8 @@ class TestInstall:
         ):
             await install(tmp_path, version)
 
-        # All three started before any finished
-        assert order[:3] == ["start", "start", "start"]
+        # fabric-api and ward start together, the server waits for fabric-api
+        assert order[:2] == ["start", "start"]
 
 
 class TestInstallJava:
