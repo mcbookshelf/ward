@@ -35,6 +35,13 @@ class BatchFinished:
 
 
 @dataclass(frozen=True)
+class AttemptStarted:
+    """A test started an attempt; a retried test starts one per run."""
+
+    name: str
+
+
+@dataclass(frozen=True)
 class TestPassed:
     """A single test passed."""
 
@@ -56,6 +63,16 @@ class TestFailed:
     required: bool
     line: int | None
     tick: int | None
+
+
+@dataclass(frozen=True)
+class TestLog:
+    """A test ran ``/log``, at this line and tick."""
+
+    name: str
+    message: str
+    line: int
+    tick: int
 
 
 @dataclass(frozen=True)
@@ -140,8 +157,10 @@ type Event = (
     TestsStarted
     | BatchStarted
     | BatchFinished
+    | AttemptStarted
     | TestPassed
     | TestFailed
+    | TestLog
     | Diagnostic
     | Coverage
     | TestsFinished
@@ -192,6 +211,15 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                     required=data["required"],
                     line=data.get("line"),
                     tick=data.get("tick"),
+                )
+            case "attempt_started":
+                return AttemptStarted(name=data["name"])
+            case "test_log":
+                return TestLog(
+                    name=data["name"],
+                    message=data["message"],
+                    line=data["line"],
+                    tick=data["tick"],
                 )
             case "load_diagnostic":
                 return Diagnostic(

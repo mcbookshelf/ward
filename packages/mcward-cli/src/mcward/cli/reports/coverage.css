@@ -41,6 +41,7 @@ h1 em { color: var(--muted); font-style: normal; font-weight: normal; }
 .counts span { margin-right: 1rem; }
 .passed { color: var(--green); } .failed { color: var(--red); } .skipped { color: var(--yellow); }
 .errors li { margin: .3rem 0; } .errors .message { color: var(--red); }
+.errors .logs { margin: .2rem 0; color: var(--muted); } .errors .logs span { font-size: .85rem; }
 input { margin: 1rem 0 .5rem; padding: .4rem; width: 20rem; }
 .legend { color: var(--muted); font-size: .85rem; margin: .5rem 0 1rem; }
 .legend span { padding: .1rem .65rem; margin-right: .5rem; color: var(--fg); }

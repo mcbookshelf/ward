@@ -13,6 +13,7 @@ from mcward._protocol import (
     FunctionCoverage,
     StreamError,
     TestFailed as Failed,
+    TestLog as Log,
     TestPassed as Passed,
 )
 from mcward._runner import TestSession as Session
@@ -104,6 +105,18 @@ class TestWriteJunit:
         assert find(cases["a:bad"], "failure").get("message") == "boom"
         assert find(cases["a:opt"], "skipped").get("message") == "meh"
 
+    def test_logs_go_to_system_out(self, tmp_path: Path) -> None:
+        session = make_session(V1)
+        session._dispatch(V1, Log("a:bad", message="hello", line=2, tick=3))
+        session._dispatch(V1, Log("a:bad", message="again", line=4, tick=5))
+        out = tmp_path / "results.xml"
+        write_junit(session, out)
+
+        cases = {case.get("name"): case for case in fromstring(out.read_text("utf-8"))[0]}
+        output = find(cases["a:bad"], "system-out").text
+        assert output == "line 2, tick 3: hello\nline 4, tick 5: again\n"
+        assert cases["a:good"].find("system-out") is None
+
     def test_aborted_version_becomes_an_error(self, tmp_path: Path) -> None:
         session = Session([V1])
         session._dispatch(V1, StreamError("server died"))
@@ -154,6 +167,18 @@ class TestWriteCoverageReports:
         ) in page
         # The run summary carries the failing test
         assert "a:bad" in page and "boom" in page
+
+    def test_html_lists_the_logs_of_a_failure(self, tmp_path: Path) -> None:
+        pack = self.make_pack(tmp_path)
+        session = self.coverage_session(V1)
+        session._dispatch(V1, Log("a:bad", message="<state>", line=2, tick=3))
+        session._dispatch(V1, Log("a:good", message="quiet", line=1, tick=0))
+
+        specs = [("html", tmp_path / "cov.html")]
+        write_coverage_reports(session, resolved(session, pack), specs)
+        page = (tmp_path / "cov.html").read_text(encoding="utf-8")
+        assert '<ul class="logs"><li>&lt;state&gt; <span>(line 2, tick 3)</span></li></ul>' in page
+        assert "quiet" not in page
 
     def test_html_tints_continuation_lines(self, tmp_path: Path) -> None:
         folder = tmp_path / "pack" / "data" / "demo" / "function"

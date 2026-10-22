@@ -6,12 +6,14 @@ from typing import cast
 
 from mcward import RunningEnvironment, Version, run_tests
 from mcward._protocol import (
+    AttemptStarted,
     BatchFinished,
     BatchStarted,
     Diagnostic,
     Event,
     StreamError,
     TestFailed as Failed,
+    TestLog as Log,
     TestPassed as Passed,
     TestsFinished as Finished,
     TestsStarted as Started,
@@ -145,6 +147,35 @@ class TestRunTests:
 
         outcome = next(r for b in session.batches for r in b.results).outcomes[V1]
         assert (outcome.line, outcome.tick) == (7, 42)
+
+    def test_logs_are_kept_per_version_in_order(self) -> None:
+        """Logs arrive before the outcome and stay with their test and version."""
+        events: list[Event] = [
+            BatchStarted(environment="default"),
+            Log("a:one", message="first", line=1, tick=0),
+            Log("a:one", message="second", line=2, tick=3),
+            Passed(name="a:one", time=5),
+        ]
+        session = drain([FakeEnvironment(V1, events), FakeEnvironment(V2, events[2:])])
+
+        (result,) = (r for b in session.batches for r in b.results)
+        assert result.batch == "default"
+        assert [log.message for log in result.logs[V1]] == ["first", "second"]
+        assert [log.message for log in result.logs[V2]] == ["second"]
+
+    def test_a_new_attempt_drops_the_logs_of_the_previous_one(self) -> None:
+        events: list[Event] = [
+            BatchStarted(environment="default"),
+            AttemptStarted("a:one"),
+            Log("a:one", message="first try", line=1, tick=0),
+            AttemptStarted("a:one"),
+            Log("a:one", message="second try", line=1, tick=0),
+            Passed(name="a:one", time=5),
+        ]
+        session = drain([FakeEnvironment(V1, events)])
+
+        (result,) = (r for b in session.batches for r in b.results)
+        assert [log.message for log in result.logs[V1]] == ["second try"]
 
     def test_load_diagnostics_are_deduplicated_across_versions(self) -> None:
         diagnostic = Diagnostic("error", "minecraft:loot_table", "a:broken", "Missing type")

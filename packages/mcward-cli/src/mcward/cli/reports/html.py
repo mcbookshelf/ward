@@ -12,10 +12,11 @@ from mcward import (
     FunctionReport,
     ResolvedCoverage,
     ResourceReport,
+    TestLog,
+    TestResult,
     TestSession,
     TestStatus,
     Version,
-    VersionOutcome,
 )
 
 _RESOURCES = Path(__file__).parent
@@ -81,7 +82,8 @@ def _header(session: TestSession, version: Version, coverage: ResolvedCoverage) 
     files = CoverageTotals.of(coverage.reports)
     touched = f"{files.touched / files.files:.1%}" if files.files else "—"
 
-    outcomes = _outcomes(session, version)
+    results = _results(session, version)
+    outcomes = {name: result.outcomes[version] for name, result in results.items()}
     passed = sum(o.status is TestStatus.PASSED for o in outcomes.values())
     skipped = sum(o.status is TestStatus.SKIPPED for o in outcomes.values())
     failed = {name: o for name, o in outcomes.items() if o.status is TestStatus.FAILED}
@@ -104,20 +106,31 @@ def _header(session: TestSession, version: Version, coverage: ResolvedCoverage) 
     if failed:
         items = "".join(
             f"<li><code>{escape(name)}</code> "
-            f'<span class="message">{escape(outcome.error)}</span></li>'
+            f'<span class="message">{escape(outcome.error)}</span>'
+            f"{_logs(results[name].logs.get(version, []))}</li>"
             for name, outcome in failed.items()
         )
         parts.append(f'<ul class="errors">{items}</ul>')
     return "\n".join(parts)
 
 
-def _outcomes(session: TestSession, version: Version) -> dict[str, VersionOutcome]:
+def _results(session: TestSession, version: Version) -> dict[str, TestResult]:
     return {
-        result.name: outcome
+        result.name: result
         for batch in session.batches
         for result in batch.results
-        if (outcome := result.outcomes.get(version)) is not None
+        if version in result.outcomes
     }
+
+
+def _logs(logs: Sequence[TestLog]) -> str:
+    if not logs:
+        return ""
+    items = "".join(
+        f"<li>{escape(log.message)} <span>(line {log.line}, tick {log.tick})</span></li>"
+        for log in logs
+    )
+    return f'<ul class="logs">{items}</ul>'
 
 
 def _grouped(

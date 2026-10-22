@@ -221,6 +221,15 @@ def check_session(session: TestSession, expected: dict, coverage: bool) -> list[
     for name in results.keys() - tests.keys():
         problems.append(f"unexpected test in run: {name}")
 
+    logs = expected.get("logs", {})
+    for name, result in results.items():
+        found = [
+            {"message": log.message, "line": log.line, "tick": log.tick}
+            for log in result.logs.get(version, [])
+        ]
+        if found != logs.get(name, []):
+            problems.append(f"{name}: expected logs {logs.get(name, [])}, got {found}")
+
     diagnostics = list(session.diagnostics)
     for kind, messages in expected.get("diagnostics", {}).items():
         for id, message in messages.items():

@@ -37,7 +37,7 @@ from ._exceptions import (
 )
 from ._java import Java, find as find_java
 from ._manager import Environment, EnvironmentManager
-from ._protocol import Coverage, Diagnostic, FunctionCoverage, Status
+from ._protocol import Coverage, Diagnostic, FunctionCoverage, Status, TestLog
 from ._runner import (
     TestBatch,
     TestResult,
@@ -90,6 +90,7 @@ __all__ = [
     "SourceFile",
     "Status",
     "TestBatch",
+    "TestLog",
     "TestResult",
     "TestSession",
     "TestStatus",

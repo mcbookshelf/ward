@@ -27,6 +27,7 @@ import dev.mcbookshelf.ward.commands.AssertCommand;
 import dev.mcbookshelf.ward.commands.AwaitCommand;
 import dev.mcbookshelf.ward.commands.DummyCommand;
 import dev.mcbookshelf.ward.commands.FailCommand;
+import dev.mcbookshelf.ward.commands.LogCommand;
 import dev.mcbookshelf.ward.commands.SucceedCommand;
 
 public class Ward implements ModInitializer {
@@ -52,6 +53,7 @@ public class Ward implements ModInitializer {
 	public static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext context) {
 		FailCommand.register(dispatcher, context);
 		SucceedCommand.register(dispatcher, context);
+		LogCommand.register(dispatcher, context);
 		AssertCommand.register(dispatcher, context);
 		AwaitCommand.register(dispatcher, context);
 		DummyCommand.register(dispatcher, context);
