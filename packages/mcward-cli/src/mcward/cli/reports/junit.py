@@ -32,6 +32,11 @@ def write_junit(session: TestSession, path: Path) -> None:
                 elif outcome.status is TestStatus.SKIPPED:
                     skipped += 1
                     SubElement(case, "skipped", message=outcome.error)
+                if logs := result.logs.get(version):
+                    output = SubElement(case, "system-out")
+                    output.text = "".join(
+                        f"line {log.line}, tick {log.tick}: {log.message}\n" for log in logs
+                    )
 
         errors = 0
         if message := session.aborted.get(version):

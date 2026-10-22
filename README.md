@@ -27,7 +27,7 @@ Ward comes in two parts:
 <table>
   <tr>
     <td align="center" nowrap>🧩 <b>Mod</b> - <a href="https://modrinth.com/mod/ward">Modrinth</a></td>
-    <td>Adds the test commands (<code>/assert</code>, <code>/await</code>, <code>/fail</code>, <code>/succeed</code>, <code>/dummy</code>) and a headless test server that streams results live.</td>
+    <td>Adds the test commands (<code>/assert</code>, <code>/await</code>, <code>/fail</code>, <code>/succeed</code>, <code>/log</code>, <code>/dummy</code>) and a headless test server that streams results live.</td>
   </tr>
   <tr>
     <td align="center" nowrap>🐍 <b>CLI</b> - <a href="https://pypi.org/project/mcward/">PyPI</a></td>
@@ -63,7 +63,7 @@ Comments starting with `@` are [directives](docs/directives.md). They configure 
 
 ## Documentation
 
-- [Test commands](docs/commands.md): `/assert`, `/await`, `/fail`, `/succeed`
+- [Test commands](docs/commands.md): `/assert`, `/await`, `/fail`, `/succeed`, `/log`
 - [Test environments](docs/environments.md): world setup/teardown around tests
 - [Directives](docs/directives.md): `@max_ticks`, `@environment`, ...
 - [Dummies](docs/dummies.md): fake players and the `/dummy` command

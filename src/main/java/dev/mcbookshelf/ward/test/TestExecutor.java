@@ -8,6 +8,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import org.jspecify.annotations.Nullable;
 
@@ -31,6 +32,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
 import dev.mcbookshelf.ward.dummy.Dummy;
 
@@ -68,6 +70,11 @@ public class TestExecutor {
 	public void run(TestFunction function) {
 		CommandSourceStack source;
 		current = this;
+
+		// A rerun starts a fresh executor, so the client drops the logs of the previous attempt
+		JsonObject data = new JsonObject();
+		data.addProperty("name", this.info.id().toString());
+		Reporter.send("attempt_started", data);
 
 		try {
 			source = createCommandSourceStack(function);
@@ -118,6 +125,19 @@ public class TestExecutor {
 			int limit = this.helper.getLevel().getGameRules().get(GameRules.MAX_COMMAND_SEQUENCE_LENGTH);
 			throw failure(Messages.translatable("ward.limit", limit));
 		}
+	}
+
+	public void log(Component message) {
+		String name = this.info.id().toString();
+		String text = message.getString();
+		Ward.LOGGER.info("{} logged: {}", name, text);
+
+		JsonObject data = new JsonObject();
+		data.addProperty("name", name);
+		data.addProperty("message", text);
+		data.addProperty("line", this.line);
+		data.addProperty("tick", this.helper.getTick());
+		Reporter.send("test_log", data);
 	}
 
 	public void succeed() {

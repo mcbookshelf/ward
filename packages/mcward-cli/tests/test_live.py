@@ -8,6 +8,7 @@ from mcward._protocol import (
     Diagnostic,
     StreamError,
     TestFailed as Failed,
+    TestLog as Log,
     TestPassed as Passed,
     TestsFinished as Finished,
     TestsStarted as Started,
@@ -190,6 +191,30 @@ class TestRenderSession:
         finish_run(session, V1)
 
         assert any("boom (line 4, tick 12)" in line for line in rendered_lines(session))
+
+    def test_logs_show_under_a_failure(self) -> None:
+        session = Session([V1])
+        start_run(session, V1)
+        session._dispatch(V1, Log("a:one", message="hello", line=2, tick=3))
+        session._dispatch(V1, Failed("a:one", time=5, error="boom", required=True, line=4, tick=12))
+        finish_run(session, V1)
+
+        lines = rendered_lines(session)
+        failure = lines.index("    boom (line 4, tick 12)")
+        assert failure < lines.index("    log: hello (line 2, tick 3)")
+
+    def test_logs_of_a_passed_test_only_show_when_verbose(self) -> None:
+        session = Session([V1, V2])
+        start_run(session, V1, V2)
+        for version in (V1, V2):
+            session._dispatch(version, Log("a:one", message="hello", line=2, tick=3))
+            session._dispatch(version, Passed(name="a:one", time=5))
+        finish_run(session, V1, V2)
+
+        assert not any("hello" in line for line in rendered_lines(session))
+        verbose = render_session(session, verbose=True).plain.splitlines()
+        assert "    26.1.2: log: hello (line 2, tick 3)" in verbose
+        assert "    26.1.1: log: hello (line 2, tick 3)" in verbose
 
     def test_failure_position_shows_resolved_file(self) -> None:
         """With a resolver the position is the root-relative path:line."""

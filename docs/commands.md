@@ -1,8 +1,8 @@
 # Test commands
 
-The Ward mod adds five commands: `/assert`, `/await`, `/fail`, `/succeed` and
-`/dummy`. They need permission level 2. All of them except `/dummy` only work
-inside a running test.
+The Ward mod adds six commands: `/assert`, `/await`, `/fail`, `/succeed`,
+`/log` and `/dummy`. They need permission level 2. All of them except `/dummy`
+only work inside a running test.
 
 A test runs its commands in order. `/await` pauses the test until its
 condition holds. The test passes when the last command has run and nothing is
@@ -61,6 +61,20 @@ fail                 fails the test
 fail <message>       fails the test with a message (text component)
 succeed              passes the test and skips the rest of the test file
 ```
+
+## `/log`
+
+```
+log <message>        logs a message (text component) with its line and tick
+```
+
+The message is resolved like `/tellraw` text, so it can show a score or an
+entity name. When it fails to resolve, the error is logged instead.
+
+Logs show under a failed or skipped test, and under every test with
+`--verbose`. They also go to the JUnit `system-out` of their test, the HTML
+report and the GitHub annotation of a failure. A retried test keeps only the
+logs of its last attempt.
 
 ## `/dummy`
 

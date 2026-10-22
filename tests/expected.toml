@@ -70,6 +70,8 @@ passed = [
   "ward:coverage_branches",
   "ward:coverage_conditions",
   "ward:coverage_overlay",
+  "ward:log_messages",
+  "ward:log_retry",
 ]
 
 # Never in any report: excluded by tests/ward.toml, muted by @coverage off
@@ -96,6 +98,16 @@ absent = ["ward:coverage/excluded", "ward:coverage/muted"]
 
 [skipped]
 "ward:optional_expected" = "Fail command invoked"
+
+# What each test logged, in order. A component that fails to resolve logs its error
+[logs]
+"ward:log_messages" = [
+  { message = "plain text", line = 3, tick = 0 },
+  { message = "7", line = 4, tick = 0 },
+  { message = "Only one entity is allowed, but the provided selector allows more than one", line = 8, tick = 0 },
+  { message = "after await", line = 11, tick = 2 },
+]
+"ward:log_retry" = [{ message = "3", line = 4, tick = 0 }]
 
 # Line categories per function: executed (dispatched), guarded (reached but the
 # fork or condition never passed) and unreached

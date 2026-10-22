@@ -15,7 +15,7 @@ from mcward import (
 
 from ..datapacks import FileResolver, pack_resolver
 from ..ui import console
-from .live import describe_failure, render_header, render_session
+from .live import describe_failure, describe_log, render_header, render_session
 
 
 def run(
@@ -73,7 +73,9 @@ def _annotate_test(result: TestResult, resolve: FileResolver) -> str:
     file = resolve("test", result.name)
     line = outcome.line if file else None
     level = "error" if failed else "warning"
-    return _command(level, title, describe_failure(outcome), file=file, line=line)
+    logs = [describe_log(log) for log in result.logs.get(versions[0], [])]
+    message = "\n".join([describe_failure(outcome), *logs])
+    return _command(level, title, message, file=file, line=line)
 
 
 def _annotate_diagnostic(

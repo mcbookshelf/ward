@@ -4,10 +4,12 @@ import pytest
 
 from mcward import Coverage, Diagnostic, FunctionCoverage, ProcessConnectionError, Status
 from mcward._protocol import (
+    AttemptStarted,
     BatchFinished,
     BatchStarted,
     StreamError,
     TestFailed as Failed,
+    TestLog as Log,
     TestPassed as Passed,
     TestsFinished as Finished,
     TestsStarted as Started,
@@ -41,6 +43,11 @@ class TestParseEvent:
                 BatchFinished(environment="e", dimension="minecraft:the_nether"),
             ),
             ({"type": "test_passed", "name": "a:one", "time": 5}, Passed(name="a:one", time=5)),
+            ({"type": "attempt_started", "name": "a:one"}, AttemptStarted(name="a:one")),
+            (
+                {"type": "test_log", "name": "a:one", "message": "hi", "line": 3, "tick": 2},
+                Log(name="a:one", message="hi", line=3, tick=2),
+            ),
             (
                 {"type": "test_failed", "name": "a:one", "time": 5, "error": "x", "required": True},
                 Failed(name="a:one", time=5, error="x", required=True, line=None, tick=None),

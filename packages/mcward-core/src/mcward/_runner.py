@@ -9,6 +9,7 @@ from queue import Empty, Queue
 
 from ._environments import RunningEnvironment
 from ._protocol import (
+    AttemptStarted,
     BatchFinished,
     BatchStarted,
     Coverage,
@@ -16,6 +17,7 @@ from ._protocol import (
     Event,
     StreamError,
     TestFailed,
+    TestLog,
     TestPassed,
     TestsFinished,
     TestsStarted,
@@ -64,6 +66,7 @@ class TestResult:
     versions: tuple[Version, ...]
     outcomes: dict[Version, VersionOutcome] = field(default_factory=dict)
     dimension: str | None = None
+    logs: dict[Version, list[TestLog]] = field(default_factory=dict)
 
     @property
     def failed_versions(self) -> list[Version]:
@@ -206,6 +209,12 @@ class TestSession:
             ):
                 status = TestStatus.FAILED if required else TestStatus.SKIPPED
                 self._record(version, name, VersionOutcome(status, time, error, line, tick))
+            case AttemptStarted(name=name):
+                # Only the logs of the attempt that decides the outcome are kept
+                if name in self._results:
+                    self._results[name].logs.pop(version, None)
+            case TestLog(name=name) as log:
+                self._result(version, name).logs.setdefault(version, []).append(log)
             case Diagnostic() as diagnostic:
                 versions = self._diagnostics.setdefault(diagnostic, [])
                 if version not in versions:
@@ -218,13 +227,15 @@ class TestSession:
                 self._aborted[version] = message
 
     def _record(self, version: Version, name: str, outcome: VersionOutcome) -> None:
+        self._result(version, name).outcomes[version] = outcome
+
+    def _result(self, version: Version, name: str) -> TestResult:
         batch, dimension = self._current_batch.get(version, ("", None))
         if batch and (batch, dimension) not in self._batches:
             self._batches.append((batch, dimension))
         if name not in self._results:
             self._results[name] = TestResult(name, batch, self.versions, dimension=dimension)
-
-        self._results[name].outcomes[version] = outcome
+        return self._results[name]
 
 
 def run_tests(

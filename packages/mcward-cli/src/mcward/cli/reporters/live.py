@@ -10,6 +10,7 @@ from rich.text import Text
 from mcward import (
     RunningEnvironment,
     TestBatch,
+    TestLog,
     TestResult,
     TestSession,
     TestStatus,
@@ -75,6 +76,13 @@ def describe_failure(outcome: VersionOutcome, file: str | None = None) -> str:
     if file is None:
         return f"{outcome.error} (line {outcome.line}, tick {outcome.tick})"
     return f"{outcome.error} ({file}:{outcome.line}, tick {outcome.tick})"
+
+
+def describe_log(log: TestLog, file: str | None = None) -> str:
+    """The logged text, with its position the way failures show theirs."""
+    if file is None:
+        return f"log: {log.message} (line {log.line}, tick {log.tick})"
+    return f"log: {log.message} ({file}:{log.line}, tick {log.tick})"
 
 
 def render_header(datapacks: Sequence[str], versions: Sequence[Version]) -> Text:
@@ -219,6 +227,15 @@ def _render_result(text: Text, result: TestResult, resolve: FileResolver | None 
             if result.outcomes[version].status is TestStatus.SKIPPED
         ]
         _render_failure(text, result, skipped, "Skipped", "yellow", resolve)
+    _render_logs(text, result, resolve)
+
+
+def _render_logs(text: Text, result: TestResult, resolve: FileResolver | None = None) -> None:
+    file = resolve("test", result.name) if resolve and result.logs else None
+    for version in result.versions:
+        prefix = f"{version.name}: " if len(result.versions) > 1 else ""
+        for log in result.logs.get(version, ()):
+            text.append(f"    {prefix}{describe_log(log, file)}\n", "dim")
 
 
 def _render_failure(

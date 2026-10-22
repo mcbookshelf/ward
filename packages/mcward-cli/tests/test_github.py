@@ -12,6 +12,7 @@ from mcward._protocol import (
     Diagnostic,
     StreamError,
     TestFailed as Failed,
+    TestLog as Log,
     TestsStarted as Started,
 )
 from mcward._runner import TestSession as Session
@@ -137,6 +138,16 @@ class TestFailedTests:
 
         [command] = annotations(session, pack_resolver([]))
         assert command.endswith("::first%0Asecond")
+
+    def test_logs_follow_the_failure(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        session = Session([V1])
+        start_run(session, V1)
+        session._dispatch(V1, Log("ward:logged", message="hello", line=2, tick=3))
+        fail_test(session, V1, "ward:logged", "boom", line=4, tick=5)
+
+        [command] = annotations(session, pack_resolver([]))
+        assert command.endswith("::boom (line 4, tick 5)%0Alog: hello (line 2, tick 3)")
 
     def test_pack_outside_cwd_but_inside_workspace(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
