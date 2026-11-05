@@ -23,11 +23,11 @@ ward = "mcward:cli"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.27",
-    "pytest>=9.0.3",
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.15.13",
-    "ty>=0.0.56",
+    "ruff>=0.17.3",
+    "ty>=0.0.97",
 ]
 
 [tool.uv]
