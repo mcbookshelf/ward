@@ -67,6 +67,7 @@ that is loaded.
 | `dummy <name> sneak <true\|false>` | Start or stop sneaking | already in that state |
 | `dummy <name> sprint <true\|false>` | Start or stop sprinting | already in that state |
 | `dummy <name> mainhand <slot>` | Select hotbar slot `0` to `8` | already selected |
+| `dummy <name> selectslot <slot>` | Select hotbar slot `1` to `9`, like packtest: `selectslot 1` is `mainhand 0` | already selected |
 | `dummy <name> drop` | Drop one item from the main hand | |
 | `dummy <name> drop all` | Drop the whole main hand stack | |
 | `dummy <name> drop from <slot> [all]` | Drop from an inventory slot | |

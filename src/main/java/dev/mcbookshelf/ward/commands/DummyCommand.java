@@ -63,8 +63,8 @@ public final class DummyCommand {
 						.then(Commands.literal("mine").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(asPacket(DummyCommand::mine))))
 						.then(Commands.literal("sneak").then(Commands.argument("active", BoolArgumentType.bool()).executes(asPacket(DummyCommand::sneak))))
 						.then(Commands.literal("sprint").then(Commands.argument("active", BoolArgumentType.bool()).executes(asPacket(DummyCommand::sprint))))
-						.then(Commands.literal("mainhand").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(asPacket(DummyCommand::setMainHand))))
-						.then(Commands.literal("selectslot").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(asPacket(DummyCommand::setMainHand))))
+						.then(Commands.literal("mainhand").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(asPacket(ctx -> selectSlot(ctx, 0)))))
+						.then(Commands.literal("selectslot").then(Commands.argument("slot", IntegerArgumentType.integer(1, 9)).executes(asPacket(ctx -> selectSlot(ctx, 1)))))
 						.then(Commands.literal("drop")
 								.executes(asPacket(ctx -> dropFromMainHand(ctx, false)))
 								.then(Commands.literal("all").executes(asPacket(ctx -> dropFromMainHand(ctx, true))))
@@ -174,11 +174,14 @@ public final class DummyCommand {
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static int setMainHand(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+	/**
+	 * Selects a hotbar slot counted from {@code first}: 0 for mainhand, 1 for packtest's selectslot.
+	 */
+	private static int selectSlot(CommandContext<CommandSourceStack> context, int first) throws CommandSyntaxException {
 		Dummy dummy = getDummy(context);
 		int slot = IntegerArgumentType.getInteger(context, "slot");
-		if (dummy.getInventory().getSelectedSlot() == slot) throw Messages.error("ward.dummy.already_selected", dummy.getName(), slot);
-		dummy.getInventory().setSelectedSlot(slot);
+		if (dummy.getInventory().getSelectedSlot() == slot - first) throw Messages.error("ward.dummy.already_selected", dummy.getName(), slot);
+		dummy.getInventory().setSelectedSlot(slot - first);
 		return Command.SINGLE_SUCCESS;
 	}
 

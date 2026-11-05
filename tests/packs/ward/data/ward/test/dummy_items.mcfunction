@@ -12,6 +12,12 @@ assert items entity ward_items weapon.offhand minecraft:diamond
 item replace entity ward_items hotbar.3 with minecraft:emerald
 dummy ward_items mainhand 3
 assert items entity ward_items weapon.mainhand minecraft:emerald
+# selectslot counts from 1, like packtest: 9 is hotbar.8
+item replace entity ward_items hotbar.8 with minecraft:gold_ingot
+dummy ward_items selectslot 9
+assert items entity ward_items weapon.mainhand minecraft:gold_ingot
+dummy ward_items selectslot 4
+assert items entity ward_items weapon.mainhand minecraft:emerald
 
 dummy ward_items drop all
 assert not items entity ward_items weapon.mainhand minecraft:emerald
