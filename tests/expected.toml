@@ -26,6 +26,9 @@ passed = [
   "ward:dummy_lifecycle",
   "ward:dummy_items",
   "ward:dummy_world",
+  "ward:dummy_reward_place",
+  "ward:dummy_reward_place_stack",
+  "ward:dummy_reward_mine",
   "ward:environment_directive",
   "ward:dimension_nether",
   "ward:max_ticks_alias",
@@ -141,7 +144,7 @@ unreached = []
 [diagnostics]
 "minecraft:function" = ["ward:broken"]
 "minecraft:tags/function" = ["ward:broken"]
-"minecraft:loot_table" = ["ward:broken", "ward:invalid", "ward:ref_missing"]
+"minecraft:loot_table" = ["ward:broken", "ward:invalid", "ward:ref_missing", "ward:this_table_does_not_exist"]
 "minecraft:advancement" = ["ward:broken"]
 "minecraft:worldgen/biome" = ["ward:broken"]
 "ward:test" = ["ward:invalid_test", "ward:invalid_environment"]

@@ -142,6 +142,10 @@ def check_session(session: TestSession, expected_file: Path) -> int:
         for id in ids:
             if not any(kind in d.kind and id in d.id for d in diagnostics):
                 problems.append(f"missing diagnostic: {kind} for {id}")
+    known = [(kind, id) for kind, ids in expected.get("diagnostics", {}).items() for id in ids]
+    for d in diagnostics:
+        if not any(kind in d.kind and id in d.id for kind, id in known):
+            problems.append(f"unexpected diagnostic: {d.kind} {d.id}: {d.message}")
 
     coverage = expected.get("coverage", {})
     problems += check_coverage(session, version, coverage)
