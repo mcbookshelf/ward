@@ -1,0 +1,15 @@
+{
+  "criteria": {
+    "break_tool": {
+      "trigger": "minecraft:item_durability_changed",
+      "conditions": {
+        "durability": {
+          "max": 0
+        }
+      }
+    }
+  },
+  "rewards": {
+    "function": "ward:helper/held_item"
+  }
+}
