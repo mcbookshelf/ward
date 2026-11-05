@@ -21,6 +21,7 @@ import net.minecraft.commands.arguments.SlotArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.commands.arguments.selector.EntitySelector;
+import net.minecraft.commands.execution.ExecutionContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -80,34 +81,50 @@ public final class DummyCommand {
 		dispatcher.register(Commands.literal("dummy")
 				.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Commands.argument("name", EntityArgument.player()).suggests(SUGGEST_NAME)
-						.then(Commands.literal("spawn").executes(DummyCommand::spawn))
-						.then(Commands.literal("leave").executes(DummyCommand::leave))
-						.then(Commands.literal("respawn").executes(DummyCommand::respawn))
-						.then(Commands.literal("jump").executes(DummyCommand::jump))
-						.then(Commands.literal("swap").executes(DummyCommand::swap))
-						.then(Commands.literal("attack").then(Commands.argument("entity", EntityArgument.entity()).executes(DummyCommand::attack)))
-						.then(Commands.literal("mine").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(DummyCommand::mine)))
-						.then(Commands.literal("sneak").then(Commands.argument("active", BoolArgumentType.bool()).executes(DummyCommand::sneak)))
-						.then(Commands.literal("sprint").then(Commands.argument("active", BoolArgumentType.bool()).executes(DummyCommand::sprint)))
-						.then(Commands.literal("mainhand").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(DummyCommand::setMainHand)))
-						.then(Commands.literal("selectslot").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(DummyCommand::setMainHand)))
+						.then(Commands.literal("spawn").executes(asPacket(DummyCommand::spawn)))
+						.then(Commands.literal("leave").executes(asPacket(DummyCommand::leave)))
+						.then(Commands.literal("respawn").executes(asPacket(DummyCommand::respawn)))
+						.then(Commands.literal("jump").executes(asPacket(DummyCommand::jump)))
+						.then(Commands.literal("swap").executes(asPacket(DummyCommand::swap)))
+						.then(Commands.literal("attack").then(Commands.argument("entity", EntityArgument.entity()).executes(asPacket(DummyCommand::attack))))
+						.then(Commands.literal("mine").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(asPacket(DummyCommand::mine))))
+						.then(Commands.literal("sneak").then(Commands.argument("active", BoolArgumentType.bool()).executes(asPacket(DummyCommand::sneak))))
+						.then(Commands.literal("sprint").then(Commands.argument("active", BoolArgumentType.bool()).executes(asPacket(DummyCommand::sprint))))
+						.then(Commands.literal("mainhand").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(asPacket(DummyCommand::setMainHand))))
+						.then(Commands.literal("selectslot").then(Commands.argument("slot", IntegerArgumentType.integer(0, 8)).executes(asPacket(DummyCommand::setMainHand))))
 						.then(Commands.literal("drop")
-								.executes(ctx -> dropFromMainHand(ctx, false))
-								.then(Commands.literal("all").executes(ctx -> dropFromMainHand(ctx, true)))
+								.executes(asPacket(ctx -> dropFromMainHand(ctx, false)))
+								.then(Commands.literal("all").executes(asPacket(ctx -> dropFromMainHand(ctx, true))))
 								.then(Commands.literal("from").then(Commands.argument("slot", SlotArgument.slot())
-										.executes(ctx -> dropFromInventory(ctx, false))
-										.then(Commands.literal("all").executes(ctx -> dropFromInventory(ctx, true))))))
+										.executes(asPacket(ctx -> dropFromInventory(ctx, false)))
+										.then(Commands.literal("all").executes(asPacket(ctx -> dropFromInventory(ctx, true)))))))
 						.then(Commands.literal("use")
-								.executes(DummyCommand::useItem)
-								.then(Commands.literal("item").executes(DummyCommand::useItem))
+								.executes(asPacket(DummyCommand::useItem))
+								.then(Commands.literal("item").executes(asPacket(DummyCommand::useItem)))
 								.then(Commands.literal("block").then(Commands.argument("pos", Vec3Argument.vec3(false))
-										.executes(ctx -> useBlock(ctx, Direction.UP))
+										.executes(asPacket(ctx -> useBlock(ctx, Direction.UP)))
 										.then(Commands.argument("direction", new DirectionArgument())
-												.executes(ctx -> useBlock(ctx, ctx.getArgument("direction", Direction.class))))))
+												.executes(asPacket(ctx -> useBlock(ctx, ctx.getArgument("direction", Direction.class)))))))
 								.then(Commands.literal("entity").then(Commands.argument("entity", EntityArgument.entity())
-										.executes(ctx -> useEntity(ctx, null))
+										.executes(asPacket(ctx -> useEntity(ctx, null)))
 										.then(Commands.argument("pos", Vec3Argument.vec3(false))
-												.executes(ctx -> useEntity(ctx, Vec3Argument.getVec3(ctx, "pos")))))))));
+												.executes(asPacket(ctx -> useEntity(ctx, Vec3Argument.getVec3(ctx, "pos"))))))))));
+	}
+
+	/**
+	 * Runs the action like a client packet, outside the running command.
+	 */
+	private static Command<CommandSourceStack> asPacket(Command<CommandSourceStack> action) {
+		return context -> {
+			ExecutionContext<CommandSourceStack> running = Commands.CURRENT_EXECUTION_CONTEXT.get();
+			Commands.CURRENT_EXECUTION_CONTEXT.set(null);
+
+			try {
+				return action.run(context);
+			} finally {
+				Commands.CURRENT_EXECUTION_CONTEXT.set(running);
+			}
+		};
 	}
 
 	private static int spawn(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
