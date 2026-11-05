@@ -7,6 +7,7 @@ accessible field net/minecraft/commands/arguments/NbtPathArgument$NbtPath nodes 
 accessible field net/minecraft/commands/arguments/NbtPathArgument$NbtPath nodeToOriginalPosition Lit/unimi/dsi/fastutil/objects/Object2IntMap;
 accessible class net/minecraft/core/MappedRegistry$TagSet
 accessible method net/minecraft/core/HolderSet$Named bind (Ljava/util/List;)V
+accessible field net/minecraft/commands/Commands CURRENT_EXECUTION_CONTEXT Ljava/lang/ThreadLocal;
 accessible field net/minecraft/commands/arguments/selector/EntitySelector playerName Ljava/lang/String;
 accessible field net/minecraft/commands/execution/tasks/BuildContexts command Lcom/mojang/brigadier/context/ContextChain;
 accessible field net/minecraft/commands/execution/ExecutionContext commandQuota I

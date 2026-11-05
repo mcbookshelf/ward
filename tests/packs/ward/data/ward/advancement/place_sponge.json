@@ -1,0 +1,20 @@
+{
+  "criteria": {
+    "place_sponge": {
+      "trigger": "minecraft:placed_block",
+      "conditions": {
+        "location": {
+          "type": "minecraft:location_check",
+          "predicate": {
+            "block": {
+              "blocks": "minecraft:sponge"
+            }
+          }
+        }
+      }
+    }
+  },
+  "rewards": {
+    "function": "ward:helper/held_item"
+  }
+}
