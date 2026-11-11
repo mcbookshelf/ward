@@ -5,7 +5,7 @@ import re
 import tomllib
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from pathlib import Path
 
@@ -173,6 +173,7 @@ class LineCoverage:
     executed: int
 
 
+@dataclass(frozen=True)
 class CoverageReport(ABC):
     """One row of the coverage report: a function or a JSON resource."""
 
@@ -204,11 +205,9 @@ class CoverageReport(ABC):
 class FunctionReport(CoverageReport):
     """Line-resolved coverage for one function."""
 
-    name: str
     file: SourceFile | None
     lines: tuple[LineCoverage, ...]
-
-    kind = "function"
+    kind: str = field(default="function", init=False)
 
     @property
     def covered(self) -> int:
@@ -233,8 +232,6 @@ class FunctionReport(CoverageReport):
 class ResourceReport(CoverageReport):
     """Data coverage for one JSON resource: its conditions and its gated blocks."""
 
-    name: str
-    kind: str
     file: SourceFile | None
     nodes: tuple[ConditionNode, ...]
     runs: tuple[RunNode, ...] = ()
