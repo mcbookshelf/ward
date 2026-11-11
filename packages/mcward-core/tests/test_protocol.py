@@ -116,6 +116,10 @@ class TestParseEvent:
                 {"type": "status", "ready": False, "protocol": 1, "mod": "1.3", "minecraft": "26"},
                 Status(ready=False, protocol=1, mod="1.3", minecraft="26"),
             ),
+            (
+                {"type": "status", "ready": True, "worlds": True},
+                Status(ready=True, worlds=True),
+            ),
             ({"type": "error", "message": "boom"}, StreamError(message="boom")),
         ],
     )

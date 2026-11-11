@@ -46,6 +46,35 @@ The three vanilla dimensions are flat: grass in the overworld (plains), basalt
 in the Nether (basalt deltas) and end stone in the End. The test area sits a
 few blocks above that floor.
 
+### Saved world
+
+With [`--world`](cli.md#saved-world), each run starts in a copy of your save
+instead. Nothing is saved there either: what a test changes is gone on the
+next run, and your own files are never written.
+
+- Blocks, entities, scores, command storage, game rules, time and the spawn
+  point are the ones of the save.
+- The dimensions are the ones of the save too: its Nether, its End, and the
+  ones your packs add. `@dimension` works the same.
+- Only the packs under test load. The `datapacks` folder of the save is left
+  out, and so are its list of enabled packs and its experiments.
+- Test areas are placed far from the map: at a random spot, up to millions of
+  blocks from the origin, a few blocks above the bottom of the world. In a void
+  world they hang in the void. In a world with terrain, that terrain is
+  generated around them, which is slower, and the areas are underground.
+- A world border saved with the map does not move, so the test areas are
+  outside of it and living entities take border damage there.
+
+A test starts once its own area is loaded. The chunks of the map are not
+loaded for it: load the ones you use and wait for them. Chunks read from disk
+take a few ticks longer than flat ones.
+
+```mcfunction
+forceload add 100 200
+await loaded 100 64 200
+assert block 100 64 200 minecraft:barrel
+```
+
 ## Empty templates
 
 The default template, `minecraft:empty`, is a single block of air. Minecraft

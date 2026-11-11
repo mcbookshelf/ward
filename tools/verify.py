@@ -5,7 +5,8 @@ paths as the CLI), tests the fixture packs over the bridge, and compares the
 aggregated session against tests/expected.toml.
 
 One daemon serves every run: the fixtures, then the runs that must end with an
-error, then the fixtures again, so state left over from a run shows up.
+error, the runs in a saved world, then the fixtures again, so state left over
+from a run shows up.
 """
 
 import os
@@ -30,6 +31,10 @@ ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 PACKS = [TESTS / "packs" / "ward", TESTS / "packs" / "broken", TESTS / "packs" / "overlay"]
 IGNORES = CoverageConfig.load(TESTS).ignores
+
+# A saved world and the tests that run in it
+WORLD = TESTS / "world"
+WORLD_PACKS = [TESTS / "packs" / "world"]
 
 # Runs that end with an error event instead of results: packs, selector, part of the error
 ABORTED = [
@@ -75,12 +80,22 @@ def main() -> int:
         problems = [problem for run in ABORTED if (problem := check_aborted(running, *run))]
         step("Running a bench on the same daemon")
         problems += check_bench(running)
+        step("Running the world tests twice on the same daemon")
+        source = tree_state(WORLD)
+        worlds, copies = [], []
+        for _ in range(2):
+            worlds.append(stream_run(running, coverage=False, packs=WORLD_PACKS, world=WORLD))
+            copies.append(tree_state(environment.directory / "world"))
+        if tree_state(WORLD) != source:
+            problems.append("world: the run changed the files of tests/world")
+        if copies[0] != copies[1]:
+            problems.append("world: the second run changed the copy of the world")
         step("Running the tests again on the same daemon")
         second = stream_run(running, coverage=False)
     finally:
         running.stop()
 
-    for session in (first, second):
+    for session in (first, second, *worlds):
         if session.aborted:
             fail_with_log(log, next(iter(session.aborted.values())))
 
@@ -89,6 +104,9 @@ def main() -> int:
     expected = tomllib.loads(expected_file.read_text(encoding="utf-8"))
     problems += check_session(first, expected, coverage=True)
     problems += [f"second run: {p}" for p in check_session(second, expected, coverage=False)]
+    for number, session in enumerate(worlds, 1):
+        found = check_session(session, expected["world"], coverage=False)
+        problems += [f"world run {number}: {p}" for p in found]
 
     if problems:
         failure = f"run does not match {expected_file.name}"
@@ -100,7 +118,8 @@ def main() -> int:
     tests = len(expected.get("passed", []))
     tests += sum(len(expected.get(status, {})) for status in ("failed", "skipped"))
     counts = (
-        f"{tests} tests in two runs, {len(ABORTED)} aborted runs, "
+        f"{tests} tests in two runs, {len(expected['world']['passed'])} world tests in two runs, "
+        f"{len(ABORTED)} aborted runs, "
         f"{len(first.diagnostics)} diagnostics, {len(expected.get('coverage', {}))} coverage, "
         f"{len(expected.get('conditions', {}))} condition "
         f"and {len(expected.get('runs', {}))} run reports as expected"
@@ -124,18 +143,34 @@ def prepare_environment() -> InstalledEnvironment:
     return env.install()
 
 
-def stream_run(running: RunningEnvironment, coverage: bool) -> TestSession:
+def tree_state(directory: Path) -> list[tuple[str, int, int]]:
+    """The files of a world with their size and time, without what a run replaces."""
+    return sorted(
+        (file.relative_to(directory).as_posix(), file.stat().st_size, file.stat().st_mtime_ns)
+        for file in directory.rglob("*")
+        if file.is_file()
+        and file.relative_to(directory).parts[0] not in ("datapacks", "session.lock")
+    )
+
+
+def stream_run(
+    running: RunningEnvironment,
+    coverage: bool,
+    packs: list[Path] = PACKS,
+    world: Path | None = None,
+) -> TestSession:
     """Run the fixture packs, echoing each test result as it completes."""
     reported: set[str] = set()
     session = TestSession([running.version])
 
     # The default selector also proves vanilla built-ins stay out of daemon runs
     for session in run_tests(
-        PACKS,
+        packs,
         [running],
         selector="*:*",
         coverage=coverage,
         timeout=EVENT_TIMEOUT,
+        world=world,
     ):
         for batch in session.batches:
             for result in batch.results:

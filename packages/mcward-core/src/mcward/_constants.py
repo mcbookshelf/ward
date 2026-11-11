@@ -19,6 +19,7 @@ WARD_HOST = "127.0.0.1"
 PID_FILE = "ward.pid"
 PORT_FILE = "ward.port"
 OUTPUT_FILE = "ward.log"
+WORLD_FILE = "ward.world"
 
 STARTUP_TIMEOUT = 120
 SHUTDOWN_TIMEOUT = 15

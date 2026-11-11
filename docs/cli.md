@@ -25,11 +25,12 @@ spans several major versions, Ward asks which ones to use.
 ### Options
 
 ```
-mcward test [-p <pack>]... [-v <version>]... [selector]
+mcward test [-p <pack>]... [-v <version>]... [--world <path>] [selector]
 ```
 
 - `-p <pack>`: choose packs yourself, by path or glob (`-p "path/to/datapacks/*"`).
 - `-v <version>`: pin one or more versions (`-v 26.1.2 -v 26.2`).
+- `--world <path>`: run in a copy of a world save. See [saved world](#saved-world).
 - `selector`: run a subset of tests. `mypack:*` runs a namespace,
   `mypack:chest/*` a folder. The default `*:*` runs everything. Tests in the
   `minecraft` namespace never run, so keep tests in your own namespace.
@@ -45,9 +46,33 @@ mcward test [-p <pack>]... [-v <version>]... [selector]
 `--junit-xml results.xml` writes the results as JUnit XML, one `<testsuite>`
 per version. Most CI services can display this file.
 
+### Saved world
+
+Tests run in a flat, empty world. `--world <path>` runs them in a copy of a
+world save instead, such as the map your pack is made for:
+
+```sh
+mcward test --world world
+```
+
+You can also set it in a `ward.toml` file, in the folder you run the tests
+from. The path is relative to that file, and `--world` wins over it.
+
+```toml
+world = "world"
+```
+
+Ward never writes to your world. Each server keeps its own copy and makes it
+again when a file of the world changes. 
+
+The `datapacks` folder of the world is left out: only the packs under test
+load. See [the test world](directives.md#saved-world) for what a test finds in
+the copy.
+
 ### Watch mode
 
 `--watch` (or `-w`) runs the tests, then again each time a pack file changes.
+A change in the [saved world](#saved-world) counts too.
 The server keeps running between runs, so each one takes about a second.
 
 While it waits, these keys work:

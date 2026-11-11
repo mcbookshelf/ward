@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.bat text eol=crlf
+*.dat binary
+*.mca binary

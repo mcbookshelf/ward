@@ -25,6 +25,7 @@ def run(
     coverage: bool = False,
     verbose: bool = False,
     resolve: FileResolver | None = None,
+    world: Path | None = None,
 ) -> TestSession:
     """Run tests, printing the final results view and GitHub annotations."""
     versions = [env.version for env in environments]
@@ -32,7 +33,9 @@ def run(
     resolve = resolve or pack_resolver(datapacks)
 
     # Consume the stream without rendering; it always yields a starting frame
-    *_, session = run_tests(datapacks, environments, selector=selector, coverage=coverage)
+    *_, session = run_tests(
+        datapacks, environments, selector=selector, coverage=coverage, world=world
+    )
     console.print(render_session(session, resolve, verbose))
 
     for command in annotations(session, resolve):

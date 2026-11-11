@@ -1,5 +1,6 @@
 package dev.mcbookshelf.ward.daemon;
 
+import java.io.IOException;
 import java.net.Proxy;
 import java.util.Objects;
 import java.util.Optional;
@@ -7,6 +8,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.BooleanSupplier;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.serialization.Dynamic;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.CrashReport;
@@ -17,6 +19,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestTicker;
 import net.minecraft.gizmos.GizmoCollector;
 import net.minecraft.gizmos.Gizmos;
+import net.minecraft.nbt.NbtException;
+import net.minecraft.nbt.ReportedNbtException;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.WorldLoader;
 import net.minecraft.server.WorldStem;
@@ -33,6 +37,8 @@ import net.minecraft.util.Util;
 import net.minecraft.util.datafix.DataFixers;
 import net.minecraft.util.debugchart.LocalSampleLogger;
 import net.minecraft.util.debugchart.SampleLogger;
+import net.minecraft.util.filefix.FileFixException;
+import net.minecraft.util.worldupdate.UpgradeProgress;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
@@ -43,6 +49,7 @@ import net.minecraft.world.level.levelgen.presets.WorldPreset;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.level.storage.LevelDataAndDimensions;
 import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.world.level.storage.LevelSummary;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 
 import dev.mcbookshelf.ward.Messages;
@@ -54,6 +61,7 @@ public class WardServer extends MinecraftServer {
 	private final LocalSampleLogger sampleLogger = new LocalSampleLogger(4);
 	private final WardDaemon daemon;
 	private final Runner.Options options;
+	private final boolean saved;
 	private @Nullable Runner runner;
 	private boolean ended;
 	private @Nullable Throwable failure;
@@ -69,14 +77,54 @@ public class WardServer extends MinecraftServer {
 				packConfig,
 				Commands.CommandSelection.DEDICATED,
 				LevelBasedPermissionSet.OWNER);
+		Dynamic<?> save = storage.hasWorldData() ? readSave(storage) : null;
 
 		try {
-			WorldStem worldStem = Util.blockUntilDone(executor ->
-					WorldLoader.load(initConfig, WardServer::createWorld, WorldStem::new, Util.backgroundExecutor(), executor)).get();
-			return new WardServer(daemon, thread, storage, packs, worldStem, options);
+			WorldStem worldStem = Util.blockUntilDone(executor -> WorldLoader.load(
+					initConfig,
+					context -> save == null ? createWorld(context) : loadWorld(storage, save, context),
+					WorldStem::new,
+					Util.backgroundExecutor(),
+					executor)).get();
+			return new WardServer(daemon, thread, storage, packs, worldStem, options, save != null);
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to load datapacks: " + Messages.describe(e), e);
 		}
+	}
+
+	/**
+	 * The level data of the world the client put in the level folder, once its files are in the current layout.
+	 */
+	private static Dynamic<?> readSave(LevelStorageSource.LevelStorageAccess storage) {
+		try {
+			Dynamic<?> unfixed = storage.getUnfixedDataTag(false);
+			LevelSummary summary = storage.fixAndGetSummaryFromTag(unfixed);
+
+			if (summary.requiresManualConversion() || !summary.isCompatible()) {
+				throw new IllegalStateException("it was saved by a version that is too old");
+			}
+
+			if (summary.isDowngrade()) {
+				throw new IllegalStateException("it was saved by a newer version, " + summary.levelVersion().minecraftVersionName());
+			}
+
+			return DataFixers.getFileFixer().fix(storage, unfixed, new UpgradeProgress());
+		} catch (IOException | NbtException | ReportedNbtException | FileFixException | IllegalStateException e) {
+			throw new RuntimeException("Failed to load the world: " + Messages.describe(e), e);
+		}
+	}
+
+	private static WorldLoader.DataLoadOutput<LevelDataAndDimensions.WorldDataAndGenSettings> loadWorld(
+			LevelStorageSource.LevelStorageAccess storage,
+			Dynamic<?> save,
+			WorldLoader.DataLoadContext context) {
+		LevelDataAndDimensions world = LevelStorageSource.getLevelDataAndDimensions(
+				storage,
+				save,
+				context.dataConfiguration(),
+				context.datapackDimensions().lookupOrThrow(Registries.LEVEL_STEM),
+				context.datapackWorldRegistries());
+		return new WorldLoader.DataLoadOutput<>(world.worldDataAndGenSettings(), world.dimensions().dimensionsRegistryAccess());
 	}
 
 	private static WorldLoader.DataLoadOutput<LevelDataAndDimensions.WorldDataAndGenSettings> createWorld(WorldLoader.DataLoadContext context) {
@@ -106,7 +154,8 @@ public class WardServer extends MinecraftServer {
 			LevelStorageSource.LevelStorageAccess storageSource,
 			PackRepository packs,
 			WorldStem worldStem,
-			Runner.Options options) {
+			Runner.Options options,
+			boolean saved) {
 		super(
 				serverThread,
 				storageSource,
@@ -121,6 +170,7 @@ public class WardServer extends MinecraftServer {
 				new NotificationManager());
 		this.daemon = daemon;
 		this.options = options;
+		this.saved = saved;
 	}
 
 	@Override
@@ -167,7 +217,7 @@ public class WardServer extends MinecraftServer {
 		try {
 			if (this.runner == null) {
 				this.runner = switch (this.options) {
-					case TestRunner.Options tests -> new TestRunner(this, tests);
+					case TestRunner.Options tests -> new TestRunner(this, tests, this.saved);
 					case BenchRunner.Options bench -> new BenchRunner(this, bench);
 				};
 			}

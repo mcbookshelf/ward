@@ -173,6 +173,7 @@ public final class WardBridge {
 			response.addProperty("protocol", PROTOCOL);
 			response.addProperty("mod", Ward.version());
 			response.addProperty("minecraft", SharedConstants.getCurrentVersion().name());
+			response.addProperty("worlds", true);
 			write(ch, "status", response);
 		}
 

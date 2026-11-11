@@ -2,6 +2,7 @@
 
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import cast
 
 from mcward import RunningEnvironment, Version, run_tests
@@ -30,7 +31,10 @@ class FakeEnvironment:
         self.version = version
         self._events = events
 
-    def test(self, datapacks, selector="*:*", coverage=False, timeout=None) -> Iterator[Event]:
+    def test(
+        self, datapacks, selector="*:*", coverage=False, timeout=None, world=None
+    ) -> Iterator[Event]:
+        self.world = world
         if isinstance(self._events, Exception):
             raise self._events
         yield from self._events
@@ -252,6 +256,13 @@ class TestRunTests:
             result = next(r for b in session.batches for r in b.results)
             assert result.status is Status.FAILED
             assert session.summary.failed == 1
+
+    def test_world_reaches_every_environment(self, tmp_path: Path) -> None:
+        environments = [FakeEnvironment(v, events_for(["a:one"], {})) for v in (V1, V2)]
+
+        *_, _ = run_tests([], cast("list[RunningEnvironment]", environments), world=tmp_path)
+
+        assert [env.world for env in environments] == [tmp_path, tmp_path]
 
     def test_tick_yields_between_events(self) -> None:
         """A display that asks for a tick gets frames while a version says nothing."""

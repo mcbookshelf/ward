@@ -1,6 +1,7 @@
 # Expected outcome of the integration fixture run, checked by tools/verify.py
 
 passed = [
+  "ward:world_flat",
   "ward:assert_block",
   "ward:assert_blocks",
   "ward:assert_entity",
@@ -251,3 +252,14 @@ unreached = []
 [diagnostics."pack.mcmeta"]
 "broken" = "malformed JSON"
 "overlay" = "not-a-range"
+
+# The run of tests/packs/world in the saved world of tests/world
+[world]
+passed = [
+  "world:block",
+  "world:container",
+  "world:entity",
+  "world:nether",
+  "world:packs",
+  "world:saved_data",
+]

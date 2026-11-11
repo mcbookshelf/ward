@@ -5,7 +5,7 @@ from pathlib import Path
 
 import rich_click as click
 
-from mcward import TestSession
+from mcward import TestSession, WardError, configured_world
 
 from ..datapacks import DEFAULT_PATTERNS, discover_datapacks
 from ..reports import parse_coverage_report
@@ -71,6 +71,12 @@ from ..watch import watch as watch_tests
     is_flag=True,
     help="Run again when a pack file changes, with keys to rerun or filter",
 )
+@click.option(
+    "--world",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Run the tests in a copy of this world save instead of a flat world",
+)
 @click.argument("selector", default="*:*")
 def test(
     versions: tuple[str, ...],
@@ -82,6 +88,7 @@ def test(
     junit_xml: Path | None,
     verbose: bool,
     watch: bool,
+    world: Path | None,
     selector: str,
 ) -> None:
     """Run datapack tests."""
@@ -91,6 +98,11 @@ def test(
     datapacks = discover_datapacks(packs if packs else DEFAULT_PATTERNS)
     if not datapacks:
         raise click.ClickException("Datapack not found")
+
+    try:
+        world = world or configured_world()
+    except WardError as e:
+        raise click.ClickException(str(e)) from e
 
     chosen = list(versions)
 
@@ -105,12 +117,14 @@ def test(
             coverage_min=coverage_min,
             junit_xml=junit_xml,
             verbose=verbose,
+            world=world,
         )
         # Ask for the versions once, not on every rerun
         chosen[:] = [version.name for version in session.versions]
         return session
 
     if watch:
-        watch_tests(run, selector, [datapack.path for datapack in datapacks])
+        watched = [datapack.path for datapack in datapacks]
+        watch_tests(run, selector, [*watched, world] if world else watched)
     elif run(selector).failed:
         sys.exit(1)

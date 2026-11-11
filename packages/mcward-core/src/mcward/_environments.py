@@ -8,7 +8,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import _daemon
+from . import _daemon, _worlds
 from ._daemon import RunningProcess
 from ._exceptions import DeployError, InstallError
 from ._protocol import Event, Status
@@ -72,10 +72,18 @@ class RunningEnvironment:
         selector: str = "*:*",
         coverage: bool = False,
         timeout: float | None = None,
+        world: Path | None = None,
     ) -> Iterator[Event]:
-        """Deploy the given datapacks and stream a test run."""
+        """Deploy the given datapacks and stream a test run.
+
+        With a world, the run starts in a copy of that save instead of a flat world.
+        """
         _daemon.wait_idle(self.process.address)
-        _deploy(self.directory / "world" / "datapacks", datapacks)
+        if world is not None and not self.status().worlds:
+            raise DeployError(
+                f"The Ward mod for Minecraft {self.version.name} is too old to load a world"
+            )
+        _deploy(self.directory, datapacks, world)
 
         return _daemon.stream_tests(
             self.process.address,
@@ -97,7 +105,7 @@ class RunningEnvironment:
     ) -> Iterator[Event]:
         """Deploy the given datapacks and stream a bench of the commands."""
         _daemon.wait_idle(self.process.address)
-        _deploy(self.directory / "world" / "datapacks", datapacks)
+        _deploy(self.directory, datapacks)
 
         return _daemon.stream_bench(
             self.process.address,
@@ -111,11 +119,14 @@ class RunningEnvironment:
         )
 
 
-def _deploy(deployed: Path, datapacks: list[Path], attempts: int = 10) -> None:
-    """Replace the deployed packs, retrying while the previous server lets go of them."""
+def _deploy(
+    directory: Path, datapacks: list[Path], world: Path | None = None, attempts: int = 10
+) -> None:
+    """Replace the world and its packs, retrying while the previous server lets go of them."""
     for attempt in range(attempts):
         try:
-            return _replace_packs(deployed, datapacks)
+            _worlds.sync(directory, world)
+            return _replace_packs(directory / "world" / "datapacks", datapacks)
         except OSError as e:
             if attempt == attempts - 1:
                 raise DeployError(f"Could not copy datapacks to the test server: {e}") from e

@@ -51,6 +51,7 @@ final class TestRunner implements Runner {
 
 	private final MinecraftServer server;
 	private final Options options;
+	private final boolean saved;
 	private final TestResults results = new TestResults();
 	private final Stopwatch stopwatch = Stopwatch.createUnstarted();
 	private @Nullable GameTestRunner runner;
@@ -63,9 +64,10 @@ final class TestRunner implements Runner {
 		}
 	}
 
-	TestRunner(MinecraftServer server, Options options) {
+	TestRunner(MinecraftServer server, Options options, boolean saved) {
 		this.server = server;
 		this.options = options;
+		this.saved = saved;
 	}
 
 	@Override
@@ -99,7 +101,11 @@ final class TestRunner implements Runner {
 		reportMissingFunctions(tests);
 
 		BlockPos startPos = pickStartPosition(overworld);
-		overworld.setRespawnData(LevelData.RespawnData.of(overworld.dimension(), startPos, 0.0F, 0.0F));
+
+		// A saved world keeps its spawn: the map and its packs may rely on it
+		if (!this.saved) {
+			overworld.setRespawnData(LevelData.RespawnData.of(overworld.dimension(), startPos, 0.0F, 0.0F));
+		}
 
 		GameTestRunner runner = GameTestRunner.Builder.fromBatches(orderedBatches(tests), this.server)
 				.newStructureSpawner(new StructureGridSpawner(dimension -> startPositionFor(dimension, startPos), GameTestRunner.DEFAULT_TESTS_PER_ROW, false))
