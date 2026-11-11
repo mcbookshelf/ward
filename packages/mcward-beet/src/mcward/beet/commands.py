@@ -1,19 +1,20 @@
 """The beet test command: build the current project and run its tests with Ward."""
 
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import click
 
 from beet import Project
-from beet.toolchain.cli import beet, message_fence
+from beet.toolchain.cli import beet, error_handler, message_fence
 from beet.toolchain.project import ProjectBuilder
 from mcward import TestSession
 from mcward.cli.datapacks import parse_datapack, workspace_path
 from mcward.cli.reports import parse_coverage_report
 from mcward.cli.session import run_session
+from mcward.cli.watch import watch as watch_tests
 
 from .plugin import TestFunction
 
@@ -66,6 +67,12 @@ pass_project = click.make_pass_decorator(Project)
     is_flag=True,
     help="List every test and coverage row instead of collapsing large runs.",
 )
+@click.option(
+    "--watch",
+    "-w",
+    is_flag=True,
+    help="Build and run again when a project file changes, with keys to rerun or filter.",
+)
 @click.argument("selector", default="*:*")
 def test(
     project: Project,
@@ -76,14 +83,20 @@ def test(
     coverage_min: float | None,
     junit_xml: Path | None,
     verbose: bool,
+    watch: bool,
     selector: str,
 ) -> None:
     """Build the current project and run its tests."""
+    if watch and reporter == "github":
+        raise click.UsageError("--watch only works with the live reporter")
+
     specs = [parse_coverage_report(value) for value in coverage_reports]
-    with message_fence("Building and testing project..."):
+    chosen = list(versions)
+
+    def run(selector: str) -> TestSession:
         session = test_project(
             project,
-            versions=versions,
+            versions=chosen,
             reporter=reporter,
             selector=selector,
             coverage=coverage,
@@ -92,9 +105,45 @@ def test(
             junit_xml=junit_xml,
             verbose=verbose,
         )
+        # Ask for the versions once, not on every rerun
+        chosen[:] = [version.name for version in session.versions]
+        return session
+
+    if watch:
+        watch_tests(
+            lambda selector: rebuild(project, run, selector),
+            selector,
+            [project.directory],
+            ignore=project_ignore(project),
+        )
+        return
+
+    with message_fence("Building and testing project..."):
+        session = run(selector)
 
     if session.failed:
         sys.exit(1)
+
+
+def rebuild(project: Project, run: Callable[[str], TestSession], selector: str) -> None:
+    """Reload the project config, then build and test; a failed build is shown, not raised."""
+    project.reset()
+    with error_handler(format_padding=1):
+        run(selector)
+
+
+def project_ignore(project: Project) -> Callable[[Path], bool]:
+    """The files a change of which does not rebuild: beet's cache, hidden and temporary files."""
+    root = project.directory.resolve()
+    cache = project.cache.path.resolve()
+
+    def ignored(path: Path) -> bool:
+        if path.is_relative_to(cache):
+            return True
+        parts = path.relative_to(root).parts if path.is_relative_to(root) else path.parts
+        return path.suffix == ".tmp" or any(part.startswith(".") for part in parts)
+
+    return ignored
 
 
 def test_project(

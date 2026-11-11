@@ -5,9 +5,12 @@ from pathlib import Path
 
 import rich_click as click
 
+from mcward import TestSession
+
 from ..datapacks import DEFAULT_PATTERNS, discover_datapacks
 from ..reports import parse_coverage_report
 from ..session import run_session
+from ..watch import watch as watch_tests
 
 
 @click.command()
@@ -62,6 +65,12 @@ from ..session import run_session
     is_flag=True,
     help="List every test and coverage row instead of collapsing large runs",
 )
+@click.option(
+    "--watch",
+    "-w",
+    is_flag=True,
+    help="Run again when a pack file changes, with keys to rerun or filter",
+)
 @click.argument("selector", default="*:*")
 def test(
     versions: tuple[str, ...],
@@ -72,23 +81,36 @@ def test(
     coverage_min: float | None,
     junit_xml: Path | None,
     verbose: bool,
+    watch: bool,
     selector: str,
 ) -> None:
     """Run datapack tests."""
+    if watch and reporter == "github":
+        raise click.UsageError("--watch only works with the live reporter")
+
     datapacks = discover_datapacks(packs if packs else DEFAULT_PATTERNS)
     if not datapacks:
         raise click.ClickException("Datapack not found")
 
-    session = run_session(
-        datapacks,
-        versions=versions,
-        reporter=reporter,
-        selector=selector,
-        coverage=coverage,
-        coverage_specs=[parse_coverage_report(value) for value in coverage_reports],
-        coverage_min=coverage_min,
-        junit_xml=junit_xml,
-        verbose=verbose,
-    )
-    if session.failed:
+    chosen = list(versions)
+
+    def run(selector: str) -> TestSession:
+        session = run_session(
+            datapacks,
+            versions=chosen,
+            reporter=reporter,
+            selector=selector,
+            coverage=coverage,
+            coverage_specs=[parse_coverage_report(value) for value in coverage_reports],
+            coverage_min=coverage_min,
+            junit_xml=junit_xml,
+            verbose=verbose,
+        )
+        # Ask for the versions once, not on every rerun
+        chosen[:] = [version.name for version in session.versions]
+        return session
+
+    if watch:
+        watch_tests(run, selector, [datapack.path for datapack in datapacks])
+    elif run(selector).failed:
         sys.exit(1)

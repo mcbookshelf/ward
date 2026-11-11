@@ -45,6 +45,20 @@ mcward test [-p <pack>]... [-v <version>]... [selector]
 `--junit-xml results.xml` writes the results as JUnit XML, one `<testsuite>`
 per version. Most CI services can display this file.
 
+### Watch mode
+
+`--watch` (or `-w`) runs the tests, then again each time a pack file changes.
+The server keeps running between runs, so each one takes about a second.
+
+While it waits, these keys work:
+
+- `a` or `Enter`: run every selected test again.
+- `p`: type a selector and press `Enter` to run only those tests, such as
+  `mypack:chest/*`. `Escape` cancels, and `a` goes back to every test.
+- `q`: quit. The servers keep running for the next time.
+
+`--watch` does not work with `--reporter github`.
+
 ## Time commands
 
 ```sh
@@ -95,3 +109,5 @@ beet test [-v <version>]... [selector]
 ```
 
 It builds your project, then tests the built pack. Every `mcward test` option works.
+With `--watch`, it builds and tests again when a project file changes. Hidden
+files and beet's cache do not count as changes.
