@@ -3,7 +3,7 @@
 import queue
 import sys
 import threading
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -153,7 +153,7 @@ def _read_keys() -> Iterator[str]:
 
 
 @contextmanager
-def _cbreak(enabled: bool) -> Iterator[None]:
+def _cbreak(enabled: bool) -> Generator[None]:
     """Deliver key presses one by one without echo, restored on exit by the main thread."""
     if not enabled or sys.platform == "win32":
         yield
