@@ -11,6 +11,7 @@ from mcward import (
     InstalledEnvironment,
     InstallError,
     RunningEnvironment,
+    Status,
     UninstalledEnvironment,
     Version,
 )
@@ -234,3 +235,125 @@ class TestDatapackDeployment:
             make_running(env_dir).test([pack])
 
         assert (env_dir / "world" / "datapacks" / "my_pack.zip").is_file()
+
+
+def make_world(directory: Path) -> Path:
+    world = directory / "map"
+    (world / "region").mkdir(parents=True)
+    (world / "datapacks" / "old_pack").mkdir(parents=True)
+    (world / "level.dat").write_text("level")
+    (world / "session.lock").write_text("lock")
+    (world / "region" / "r.0.0.mca").write_text("chunks")
+    return world
+
+
+def make_pack(directory: Path) -> Path:
+    pack = directory / "my_pack"
+    pack.mkdir()
+    (pack / "pack.mcmeta").write_text("{}")
+    return pack
+
+
+def run(env_dir: Path, pack: Path, world: Path | None, worlds: bool = True) -> None:
+    with (
+        patch("mcward._daemon.wait_idle"),
+        patch("mcward._daemon.stream_tests"),
+        patch("mcward._daemon.status", return_value=Status(ready=True, worlds=worlds)),
+    ):
+        make_running(env_dir).test([pack], world=world)
+
+
+class TestWorldDeployment:
+    """Test how RunningEnvironment.test puts a copy of a saved world under the server."""
+
+    def test_copies_the_world_without_its_packs(self, tmp_path: Path) -> None:
+        env_dir = tmp_path / "env"
+        world = make_world(tmp_path)
+
+        run(env_dir, make_pack(tmp_path), world)
+
+        copy = env_dir / "world"
+        assert (copy / "level.dat").read_text() == "level"
+        assert (copy / "region" / "r.0.0.mca").read_text() == "chunks"
+        assert not (copy / "session.lock").exists()
+        assert [pack.name for pack in (copy / "datapacks").iterdir()] == ["my_pack.zip"]
+
+    def test_source_world_is_left_alone(self, tmp_path: Path) -> None:
+        world = make_world(tmp_path)
+        before = sorted((file, file.stat().st_mtime_ns) for file in world.rglob("*"))
+
+        run(tmp_path / "env", make_pack(tmp_path), world)
+
+        assert sorted((file, file.stat().st_mtime_ns) for file in world.rglob("*")) == before
+
+    def test_unchanged_world_keeps_its_copy(self, tmp_path: Path) -> None:
+        """The server upgrades the copy in place; the next run must find it upgraded."""
+        env_dir = tmp_path / "env"
+        world = make_world(tmp_path)
+        pack = make_pack(tmp_path)
+        run(env_dir, pack, world)
+        (env_dir / "world" / "upgraded").write_text("by the server")
+
+        run(env_dir, pack, world)
+
+        assert (env_dir / "world" / "upgraded").is_file()
+
+    def test_changed_world_is_copied_again(self, tmp_path: Path) -> None:
+        env_dir = tmp_path / "env"
+        world = make_world(tmp_path)
+        pack = make_pack(tmp_path)
+        run(env_dir, pack, world)
+        (env_dir / "world" / "upgraded").write_text("by the server")
+        (world / "region" / "r.0.0.mca").write_text("other chunks")
+
+        run(env_dir, pack, world)
+
+        assert not (env_dir / "world" / "upgraded").exists()
+        assert (env_dir / "world" / "region" / "r.0.0.mca").read_text() == "other chunks"
+
+    def test_another_world_replaces_the_copy(self, tmp_path: Path) -> None:
+        env_dir = tmp_path / "env"
+        pack = make_pack(tmp_path)
+        run(env_dir, pack, make_world(tmp_path))
+        other = make_world(tmp_path / "other")
+        (other / "level.dat").write_text("other")
+
+        run(env_dir, pack, other)
+
+        assert (env_dir / "world" / "level.dat").read_text() == "other"
+
+    def test_run_without_world_removes_the_copy(self, tmp_path: Path) -> None:
+        """Back to a flat world: no file of the save may be left for the server to load."""
+        env_dir = tmp_path / "env"
+        pack = make_pack(tmp_path)
+        run(env_dir, pack, make_world(tmp_path))
+
+        run(env_dir, pack, None)
+
+        assert [file.name for file in (env_dir / "world").iterdir()] == ["datapacks"]
+
+    def test_bench_runs_without_the_copy(self, tmp_path: Path) -> None:
+        env_dir = tmp_path / "env"
+        pack = make_pack(tmp_path)
+        run(env_dir, pack, make_world(tmp_path))
+
+        with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_bench"):
+            make_running(env_dir).bench([pack], ["say hi"])
+
+        assert not (env_dir / "world" / "level.dat").exists()
+
+    def test_folder_without_level_data_is_rejected(self, tmp_path: Path) -> None:
+        folder = tmp_path / "not_a_world"
+        folder.mkdir()
+
+        with pytest.raises(DeployError, match=r"level\.dat"):
+            run(tmp_path / "env", make_pack(tmp_path), folder)
+
+    def test_mod_without_worlds_is_rejected(self, tmp_path: Path) -> None:
+        """An older mod would ignore the save and run the tests in a flat world."""
+        env_dir = tmp_path / "env"
+
+        with pytest.raises(DeployError, match="too old to load a world"):
+            run(env_dir, make_pack(tmp_path), make_world(tmp_path), worlds=False)
+
+        assert not (env_dir / "world").exists()

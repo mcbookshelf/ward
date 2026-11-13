@@ -245,19 +245,24 @@ def run_tests(
     coverage: bool = False,
     timeout: float | None = None,
     tick: float | None = None,
+    world: Path | None = None,
 ) -> Iterator[TestSession]:
     """Stream tests across already-running environments, aggregating results.
 
     Yields the same (mutating) session after every event; consumers that need
     snapshots must copy what they read. With ``tick``, the session is also
     yielded after that many seconds without an event, so a display keeps moving.
+    With ``world``, every environment runs in its own copy of that save.
     """
     session = TestSession([env.version for env in environments])
     events: Queue[tuple[Version, Event | None]] = Queue()
 
     def stream_events(env: RunningEnvironment) -> None:
         try:
-            for event in env.test(list(datapacks), selector, coverage=coverage, timeout=timeout):
+            stream = env.test(
+                list(datapacks), selector, coverage=coverage, timeout=timeout, world=world
+            )
+            for event in stream:
                 events.put((env.version, event))
         except Exception as error:
             events.put((env.version, StreamError(str(error))))

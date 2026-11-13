@@ -1,6 +1,8 @@
 """Tests for the CLI entry point and default-command routing."""
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -56,3 +58,64 @@ class TestDefaultCommandRouting:
         result = runner.invoke(cli, ["test", "--help"])
         assert result.exit_code == 0
         assert "SELECTOR" in result.output.upper()
+
+
+class TestWorldOption:
+    """Test where the test command takes its world from."""
+
+    @pytest.fixture
+    def project(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        pack = tmp_path / "pack"
+        (pack / "data").mkdir(parents=True)
+        (pack / "pack.mcmeta").write_text('{"pack": {"min_format": 101, "max_format": 101}}')
+        for name in ("map", "other"):
+            (tmp_path / name).mkdir()
+            (tmp_path / name / "level.dat").write_text("level")
+        monkeypatch.chdir(tmp_path)
+        return tmp_path
+
+    def invoke(self, runner: CliRunner, args: list[str]) -> tuple:
+        session = SimpleNamespace(failed=False, versions=())
+        with patch("mcward.cli.commands.test.run_session", return_value=session) as run:
+            result = runner.invoke(cli, ["test", "-p", "pack", *args])
+        return result, run
+
+    def test_no_world_by_default(self, runner: CliRunner, project: Path) -> None:
+        result, run = self.invoke(runner, [])
+        assert result.exit_code == 0, result.output
+        assert run.call_args.kwargs["world"] is None
+
+    def test_option_names_the_world(self, runner: CliRunner, project: Path) -> None:
+        result, run = self.invoke(runner, ["--world", "map"])
+        assert result.exit_code == 0, result.output
+        assert run.call_args.kwargs["world"] == Path("map")
+
+    def test_ward_toml_names_the_world(self, runner: CliRunner, project: Path) -> None:
+        (project / "ward.toml").write_text('world = "map"\n')
+        result, run = self.invoke(runner, [])
+        assert result.exit_code == 0, result.output
+        assert run.call_args.kwargs["world"].resolve() == (project / "map").resolve()
+
+    def test_option_wins_over_ward_toml(self, runner: CliRunner, project: Path) -> None:
+        (project / "ward.toml").write_text('world = "map"\n')
+        result, run = self.invoke(runner, ["--world", "other"])
+        assert result.exit_code == 0, result.output
+        assert run.call_args.kwargs["world"] == Path("other")
+
+    def test_missing_world_is_an_error(self, runner: CliRunner, project: Path) -> None:
+        result, run = self.invoke(runner, ["--world", "absent"])
+        assert result.exit_code != 0
+        run.assert_not_called()
+
+    def test_invalid_ward_toml_is_an_error(self, runner: CliRunner, project: Path) -> None:
+        (project / "ward.toml").write_text("world = 3\n")
+        result, run = self.invoke(runner, [])
+        assert result.exit_code != 0
+        assert "world must be the path" in result.output
+        run.assert_not_called()
+
+    def test_watch_also_watches_the_world(self, runner: CliRunner, project: Path) -> None:
+        with patch("mcward.cli.commands.test.watch_tests") as watch:
+            result = runner.invoke(cli, ["test", "-p", "pack", "--world", "map", "--watch"])
+        assert result.exit_code == 0, result.output
+        assert watch.call_args.args[2] == [(project / "pack").resolve(), Path("map")]

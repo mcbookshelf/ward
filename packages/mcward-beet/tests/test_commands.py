@@ -94,12 +94,13 @@ class TestBeetTestCommand:
     def invoke(self, runner: CliRunner, args: list[str], failed: bool = False) -> tuple:
         """Invoke beet test with the Ward machinery stubbed, returning (result, calls)."""
         calls = SimpleNamespace(
-            packs=None, selector=None, versions=None, coverage=None, shipped_files=[]
+            packs=None, selector=None, versions=None, coverage=None, world=None, shipped_files=[]
         )
 
         def fake_run_tests_live(
-            datapacks, envs, selector, coverage=False, verbose=False, resolve=None
+            datapacks, envs, selector, coverage=False, verbose=False, resolve=None, world=None
         ):
+            calls.world = world
             calls.packs = list(datapacks)
             calls.selector = selector
             calls.coverage = coverage
@@ -149,6 +150,27 @@ class TestBeetTestCommand:
 
         assert result.exit_code == 0, result.output
         assert calls.coverage is True
+
+    def test_world_reaches_the_run(self, project_dir: Path, runner: CliRunner) -> None:
+        world = project_dir / "map"
+        world.mkdir()
+        (world / "level.dat").write_text("level")
+
+        result, calls = self.invoke(runner, ["test", "-v", "26.1.2", "--world", "map"])
+
+        assert result.exit_code == 0, result.output
+        assert calls.world == Path("map")
+
+    def test_world_of_ward_toml_reaches_the_run(self, project_dir: Path, runner: CliRunner) -> None:
+        world = project_dir / "map"
+        world.mkdir()
+        (world / "level.dat").write_text("level")
+        (project_dir / "ward.toml").write_text('world = "map"\n')
+
+        result, calls = self.invoke(runner, ["test", "-v", "26.1.2"])
+
+        assert result.exit_code == 0, result.output
+        assert calls.world is not None and calls.world.resolve() == world.resolve()
 
     def test_coverage_report_implies_coverage(self, project_dir: Path, runner: CliRunner) -> None:
         result, calls = self.invoke(

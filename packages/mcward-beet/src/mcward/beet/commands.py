@@ -73,6 +73,12 @@ pass_project = click.make_pass_decorator(Project)
     is_flag=True,
     help="Build and run again when a project file changes, with keys to rerun or filter.",
 )
+@click.option(
+    "--world",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Run the tests in a copy of this world save instead of a flat world.",
+)
 @click.argument("selector", default="*:*")
 def test(
     project: Project,
@@ -84,6 +90,7 @@ def test(
     junit_xml: Path | None,
     verbose: bool,
     watch: bool,
+    world: Path | None,
     selector: str,
 ) -> None:
     """Build the current project and run its tests."""
@@ -104,6 +111,7 @@ def test(
             coverage_min=coverage_min,
             junit_xml=junit_xml,
             verbose=verbose,
+            world=world,
         )
         # Ask for the versions once, not on every rerun
         chosen[:] = [version.name for version in session.versions]
@@ -156,6 +164,7 @@ def test_project(
     coverage_min: float | None = None,
     junit_xml: Path | None = None,
     verbose: bool = False,
+    world: Path | None = None,
 ) -> TestSession:
     """Build the beet project and run its tests, returning the session.
 
@@ -181,6 +190,7 @@ def test_project(
             junit_xml=junit_xml,
             verbose=verbose,
             resolve=resolve,
+            world=world,
         )
 
 

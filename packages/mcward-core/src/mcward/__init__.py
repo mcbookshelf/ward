@@ -55,6 +55,7 @@ from ._sources import (
     scan_functions,
 )
 from ._versions import Version, VersionRegistry
+from ._worlds import check_world, configured_world
 
 __all__ = [
     "AssetNotFoundError",
@@ -102,8 +103,10 @@ __all__ = [
     "VersionOutcome",
     "VersionRegistry",
     "WardError",
+    "check_world",
     "command_lines",
     "compare",
+    "configured_world",
     "find_java",
     "ignored_lines",
     "json_spans",

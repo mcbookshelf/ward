@@ -6,7 +6,7 @@ from pathlib import Path
 
 import rich_click as click
 
-from mcward import CoverageConfig, TestSession, WardError
+from mcward import CoverageConfig, TestSession, WardError, check_world, configured_world
 
 from .datapacks import DataPack, FileResolver, format_range
 from .environments import manager, select_compatible, start_environments
@@ -27,10 +27,12 @@ def run_session(
     junit_xml: Path | None = None,
     verbose: bool = False,
     resolve: FileResolver | None = None,
+    world: Path | None = None,
 ) -> TestSession:
     """Pick the versions, start them, run the tests and write the reports.
 
-    ``coverage_min`` replaces the total minimum of ward.toml for this run.
+    ``coverage_min`` replaces the total minimum of ward.toml for this run, and
+    ``world`` its world.
     """
     low, high = format_range(datapacks)
     selected = versions or select_compatible(low, high)
@@ -40,12 +42,23 @@ def run_session(
 
     try:
         config = CoverageConfig.load()
+        world = world or configured_world()
+        if world is not None:
+            check_world(world)
         minimum = config.minimum
         if coverage_min is not None:
             minimum = replace(minimum, total=coverage_min)
         envs = start_environments([manager.get(v) for v in selected])
         console.print()
-        session = run(paths, envs, selector, coverage=coverage, verbose=verbose, resolve=resolve)
+        session = run(
+            paths,
+            envs,
+            selector,
+            coverage=coverage,
+            verbose=verbose,
+            resolve=resolve,
+            world=world,
+        )
         report_session(
             session,
             paths,
