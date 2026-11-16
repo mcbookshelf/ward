@@ -3,7 +3,7 @@
 import queue
 import sys
 import threading
-from collections.abc import Callable, Generator, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -23,12 +23,7 @@ INTERRUPT = "\x03"
 
 
 class WatchLoop:
-    """Turns file changes and key presses into runs.
-
-    ``a`` or Enter runs every selected test, ``p`` reads a selector that narrows
-    the next runs, and ``q`` quits. Changes made while a selector is typed wait
-    for it to be done.
-    """
+    """Turns file changes and key presses into runs; changes wait while a selector is typed."""
 
     def __init__(self, run: Run, selector: str) -> None:
         self.run = run
@@ -72,6 +67,10 @@ class WatchLoop:
             self.prompt = ""
             _echo("\nSelector: ")
         return True
+
+    def handle_all(self, events: Iterable[str]) -> bool:
+        """Apply the events queued during a run, so they lead to one run; False means quit."""
+        return all(self.handle(event) for event in events)
 
     def _type(self, key: str) -> None:
         assert self.prompt is not None
@@ -124,12 +123,20 @@ def watch(run: Run, selector: str, paths: Sequence[Path], ignore: Ignore | None 
                     event = events.get(timeout=0.2)
                 except queue.Empty:
                     continue
-                if not loop.handle(event):
+                if not loop.handle_all([event, *_queued(events)]):
                     break
     except KeyboardInterrupt:
         pass
     finally:
         stop.set()
+
+
+def _queued(events: queue.Queue[str]) -> Iterator[str]:
+    while True:
+        try:
+            yield events.get_nowait()
+        except queue.Empty:
+            return
 
 
 def _echo(text: str) -> None:

@@ -46,6 +46,16 @@ def test_change_runs_again(run: Recorder, loop: WatchLoop) -> None:
     assert run.selectors == ["pack:*"] * 3
 
 
+def test_changes_during_a_run_lead_to_one_run(run: Recorder, loop: WatchLoop) -> None:
+    assert loop.handle_all([CHANGE, CHANGE, CHANGE])
+    loop.run_pending()
+    assert run.selectors == ["pack:*"] * 2
+
+
+def test_quit_among_queued_events_quits(loop: WatchLoop) -> None:
+    assert not loop.handle_all([CHANGE, "q", CHANGE])
+
+
 def test_enter_and_a_run_again(run: Recorder, loop: WatchLoop) -> None:
     feed(loop, "\r", "a")
     assert run.selectors == ["pack:*"] * 3

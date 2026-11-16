@@ -118,11 +118,13 @@ class RunningEnvironment:
         warmup: int | None = None,
         duration: int | None = None,
         timeout: float | None = None,
+        world: Path | None = None,
     ) -> Iterator[Event]:
-        """Deploy the given datapacks and stream a bench of the commands."""
+        """Deploy the given datapacks and stream a bench of the commands, in a copy of the world."""
         with _lock.hold(self.directory):
             _daemon.wait_idle(self.process.address)
-            _deploy(self.directory, datapacks)
+            self.require(worlds=world)
+            _deploy(self.directory, datapacks, world)
 
             yield from _daemon.stream_bench(
                 self.process.address,

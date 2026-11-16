@@ -380,6 +380,26 @@ class TestWorldDeployment:
 
         assert not (env_dir / "world" / "level.dat").exists()
 
+    def test_bench_runs_in_the_world_it_is_given(self, tmp_path: Path) -> None:
+        """The copy a test run made is kept, not made again."""
+        env_dir = tmp_path / "env"
+        pack = make_pack(tmp_path)
+        world = make_world(tmp_path)
+        run(env_dir, pack, world)
+        (env_dir / "world" / "kept").write_text("")
+
+        with (
+            patch("mcward._daemon.wait_idle"),
+            patch("mcward._daemon.stream_bench"),
+            patch(
+                "mcward._daemon.status",
+                return_value=Status(ready=True, features=frozenset({"worlds"})),
+            ),
+        ):
+            list(make_running(env_dir).bench([pack], ["say hi"], world=world))
+
+        assert (env_dir / "world" / "kept").exists()
+
     def test_folder_without_level_data_is_rejected(self, tmp_path: Path) -> None:
         folder = tmp_path / "not_a_world"
         folder.mkdir()
