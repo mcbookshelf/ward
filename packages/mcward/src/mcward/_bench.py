@@ -99,6 +99,7 @@ def run_bench(
     warmup: int | None = None,
     duration: int | None = None,
     timeout: float | None = None,
+    world: Path | None = None,
 ) -> Iterator[BenchReport]:
     """Benchmark commands on a running environment, one report per command as it completes."""
     events = environment.bench(
@@ -110,6 +111,7 @@ def run_bench(
         warmup=warmup,
         duration=duration,
         timeout=timeout,
+        world=world,
     )
     for event in events:
         match event:

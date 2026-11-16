@@ -9,7 +9,7 @@ from mcward import TestSession
 from ..datapacks import DEFAULT_PATTERNS, discover_datapacks
 from ..session import check_watch, load_config, rerunnable, run_session, test_options
 from ..watch import watch as watch_tests
-from ..writers import parse_coverage_report
+from ..writers import is_report_file, parse_coverage_report
 
 
 @click.command()
@@ -40,6 +40,7 @@ def test(
     datapacks = discover_datapacks(packs if packs else DEFAULT_PATTERNS)
     if not datapacks:
         raise click.ClickException("Datapack not found")
+    specs = [parse_coverage_report(value) for value in coverage_reports]
 
     def run_once(selector: str, versions: Sequence[str]) -> TestSession:
         return run_session(
@@ -48,7 +49,7 @@ def test(
             reporter=reporter,
             selector=selector,
             coverage=coverage,
-            coverage_specs=[parse_coverage_report(value) for value in coverage_reports],
+            coverage_specs=specs,
             coverage_min=coverage_min,
             junit_xml=junit_xml,
             verbose=verbose,
@@ -58,6 +59,9 @@ def test(
     run = rerunnable(versions, run_once)
     if watch:
         watched = [datapack.path for datapack in datapacks]
-        watch_tests(run, selector, [*watched, config.world] if config.world else watched)
+        paths = [*watched, config.world] if config.world else watched
+        watch_tests(
+            run, selector, paths, ignore=lambda path: is_report_file(path, specs, junit_xml)
+        )
     elif run(selector).failed:
         sys.exit(1)

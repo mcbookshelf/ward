@@ -11,10 +11,10 @@ from beet import Project
 from beet.toolchain.cli import beet as beet_cli
 from click.testing import CliRunner
 
-# Importing registers the test command on the beet CLI group,
-# independently of the entry-point metadata of the installed distribution
+# Importing registers the test command on the beet group, whatever is installed
 import mcward.beet.commands  # noqa: F401
-from mcward.beet.commands import _build_pack
+from mcward.beet.commands import _build_pack, project_ignore
+from mcward.cli import cli
 
 
 def pack_files(pack: Path) -> list[str]:
@@ -212,3 +212,57 @@ class TestBeetTestCommand:
         assert result.exit_code == 0, result.output
         mock_select.assert_called_once_with(81, 82)
         assert calls.versions == ["26.1.2"]
+
+
+class TestWatch:
+    """Test what beet test --watch watches and skips."""
+
+    def test_world_is_watched(self, project_dir: Path, runner: CliRunner) -> None:
+        world = project_dir.parent / "map"
+        world.mkdir()
+        (world / "level.dat").write_text("level")
+
+        with patch("mcward.beet.commands.watch_tests") as watch:
+            result = runner.invoke(
+                beet_cli, ["test", "--watch", "--world", str(world)], obj=Project()
+            )
+
+        assert result.exit_code == 0, result.output
+        assert watch.call_args.args[2] == [Path(project_dir), world]
+
+    def test_reports_are_skipped(self, project_dir: Path, runner: CliRunner) -> None:
+        with patch("mcward.beet.commands.watch_tests") as watch:
+            result = runner.invoke(
+                beet_cli, ["test", "--watch", "--coverage-report", "html"], obj=Project()
+            )
+
+        assert result.exit_code == 0, result.output
+        ignore = watch.call_args.kwargs["ignore"]
+        assert ignore(project_dir / "coverage.html")
+        assert not ignore(project_dir / "src" / "data" / "demo" / "test" / "example.mcfunction")
+
+    def test_skips_what_beet_watch_skips(self, project_dir: Path) -> None:
+        config = json.loads((project_dir / "beet.json").read_text(encoding="utf-8"))
+        config |= {"output": "build", "ignore": ["notes/"]}
+        (project_dir / "beet.json").write_text(json.dumps(config), encoding="utf-8")
+        (project_dir / ".gitignore").write_text("*.log\n", encoding="utf-8")
+
+        ignored = project_ignore(Project())
+
+        assert ignored(project_dir / "build" / "demo.zip")
+        assert ignored(project_dir / "notes" / "todo.md")
+        assert ignored(project_dir / "server.log")
+        assert ignored(project_dir / ".beet_cache" / "file")
+        assert ignored(project_dir / "src" / ".hidden")
+        assert not ignored(project_dir / "src" / "data" / "demo" / "test" / "example.mcfunction")
+
+
+def test_options_match_mcward_test(runner: CliRunner) -> None:
+    """Both commands share one definition of the test options; mcward also takes packs."""
+    beet_help = runner.invoke(beet_cli, ["test", "--help"], obj=Project(), terminal_width=200)
+    mcward_help = runner.invoke(cli, ["test", "--help"], terminal_width=200)
+
+    for option in ("--version", "--coverage-report", "--coverage-min", "--watch", "--world"):
+        assert option in beet_help.output
+        assert option in mcward_help.output
+    assert "--pack" in mcward_help.output

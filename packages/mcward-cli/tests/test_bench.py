@@ -1,11 +1,13 @@
 """Tests for the bench command and its report."""
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
-from mcward import BenchReport
+from mcward import BenchReport, Version
 from mcward.cli import cli
 from mcward.cli.reporters.bench import format_bytes, format_time, render_report, render_summary
 
@@ -79,3 +81,25 @@ class TestCommand:
         result = CliRunner().invoke(cli, ["bench", "say hi"])
         assert result.exit_code != 0
         assert "give a version with -v" in result.output
+
+    def test_world_of_ward_toml_reaches_the_bench(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "map").mkdir()
+        (tmp_path / "map" / "level.dat").write_text("level")
+        (tmp_path / "ward.toml").write_text('world = "map"\n')
+        monkeypatch.chdir(tmp_path)
+        env = SimpleNamespace(version=Version.parse("26.3"))
+
+        with (
+            patch("mcward.cli.commands.bench.manager"),
+            patch("mcward.cli.commands.bench.start_environments", return_value=[env]),
+            patch("mcward.cli.commands.bench.check_features") as check,
+            patch("mcward.cli.commands.bench.run_bench", return_value=iter(())) as bench,
+        ):
+            result = CliRunner().invoke(cli, ["bench", "-v", "26.3", "say hi"])
+
+        assert result.exit_code == 0, result.output
+        check.assert_called_once()
+        assert check.call_args.kwargs["worlds"].resolve() == (tmp_path / "map").resolve()
+        assert bench.call_args.kwargs["world"].resolve() == (tmp_path / "map").resolve()

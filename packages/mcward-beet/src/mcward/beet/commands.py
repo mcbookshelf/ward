@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 import click
 
 from beet import Project
+from beet.core.watch import DirectoryWatcher
 from beet.toolchain.cli import beet, error_handler, message_fence
 from beet.toolchain.project import ProjectBuilder
 from mcward import TestSession, WardConfig
@@ -20,7 +21,7 @@ from mcward.cli.session import (
     test_options,
 )
 from mcward.cli.watch import watch as watch_tests
-from mcward.cli.writers import parse_coverage_report
+from mcward.cli.writers import is_report_file, parse_coverage_report
 
 from .plugin import TestFunction
 
@@ -64,11 +65,12 @@ def test(
 
     run = rerunnable(versions, run_once)
     if watch:
+        ignored = project_ignore(project)
         watch_tests(
             lambda selector: rebuild(project, run, selector),
             selector,
-            [project.directory],
-            ignore=project_ignore(project),
+            [project.directory, config.world] if config.world else [project.directory],
+            ignore=lambda path: ignored(path) or is_report_file(path, specs, junit_xml),
         )
         return
 
@@ -87,15 +89,20 @@ def rebuild(project: Project, run: Callable[[str], TestSession], selector: str) 
 
 
 def project_ignore(project: Project) -> Callable[[Path], bool]:
-    """The files a change of which does not rebuild: beet's cache, hidden and temporary files."""
+    """The files beet's own watch skips: its caches, the output, .gitignore and the ignore list."""
     root = project.directory.resolve()
-    cache = project.cache.path.resolve()
+    caches = [project.cache.path.resolve(), project.cache.generated.path.resolve()]
+    # Only built for its patterns: the same as beet watch, read from .gitignore up the tree
+    patterns = DirectoryWatcher(
+        root,
+        ignore_file=".gitignore",
+        ignore_patterns=["__pycache__/", "*.tmp", ".*", *project.ignore],
+    ).ignore
 
     def ignored(path: Path) -> bool:
-        if path.is_relative_to(cache):
+        if any(path.is_relative_to(cache) for cache in caches):
             return True
-        parts = path.relative_to(root).parts if path.is_relative_to(root) else path.parts
-        return path.suffix == ".tmp" or any(part.startswith(".") for part in parts)
+        return path.is_relative_to(root) and patterns.match_file(path.relative_to(root))
 
     return ignored
 

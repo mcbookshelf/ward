@@ -1,5 +1,3 @@
-"""The bench command."""
-
 import json
 import sys
 from pathlib import Path
@@ -11,6 +9,7 @@ from mcward import BenchReport, WardError, run_bench
 from ..datapacks import DEFAULT_PATTERNS, discover_datapacks, format_range
 from ..environments import manager, select_compatible, start_environments
 from ..reporters.bench import render_report, render_summary
+from ..session import check_features, load_config
 from ..ui import console
 
 
@@ -54,6 +53,12 @@ from ..ui import console
     default=None,
     help="Write the results, with every sample, to a JSON file",
 )
+@click.option(
+    "--world",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Bench in a copy of this world save instead of a flat world",
+)
 @click.argument("commands", nargs=-1, required=True)
 def bench(
     versions: tuple[str, ...],
@@ -62,9 +67,11 @@ def bench(
     prepare: tuple[str, ...],
     batch: int | None,
     json_path: Path | None,
+    world: Path | None,
     commands: tuple[str, ...],
 ) -> None:
     """Time commands on a test server and compare them."""
+    config = load_config(world)
     datapacks = discover_datapacks(packs if packs else DEFAULT_PATTERNS)
     if not datapacks and not versions:
         raise click.ClickException("Datapack not found. Without a pack, give a version with -v")
@@ -76,6 +83,7 @@ def bench(
 
     try:
         envs = start_environments([manager.get(v) for v in selected])
+        check_features(envs, worlds=config.world)
         for env in envs:
             console.print()
             if len(envs) > 1:
@@ -83,7 +91,10 @@ def bench(
 
             reports: list[BenchReport] = []
             with console.status("Running the benchmarks"):
-                for report in run_bench(paths, env, commands, setup, prepare, batch or 0):
+                run = run_bench(
+                    paths, env, commands, setup, prepare, batch or 0, world=config.world
+                )
+                for report in run:
                     reports.append(report)
                     for line in render_report(len(reports), report):
                         console.print(line, highlight=False)

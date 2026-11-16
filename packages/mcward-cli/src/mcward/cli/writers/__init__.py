@@ -23,6 +23,7 @@ from .lcov import write_lcov
 
 __all__ = [
     "coverage_shortfalls",
+    "is_report_file",
     "missing_coverage",
     "parse_coverage_report",
     "report_session",
@@ -42,6 +43,23 @@ def parse_coverage_report(value: str) -> tuple[str, Path]:
         formats = ", ".join(COVERAGE_FORMATS)
         raise click.BadParameter(f"Unknown coverage format {format!r} (expected {formats})")
     return format, Path(path) if path else Path(COVERAGE_FORMATS[format])
+
+
+def is_report_file(path: Path, specs: Sequence[tuple[str, Path]], junit_xml: Path | None) -> bool:
+    """Whether the reports write this path, per-version coverage files included."""
+    path = path.resolve()
+    if junit_xml and path == junit_xml.resolve():
+        return True
+    return any(_is_coverage_file(path, target.resolve()) for _, target in specs)
+
+
+def _is_coverage_file(path: Path, target: Path) -> bool:
+    versioned = (
+        path.parent == target.parent
+        and path.suffix == target.suffix
+        and path.stem.startswith(f"{target.stem}-")
+    )
+    return path == target or versioned
 
 
 def report_session(

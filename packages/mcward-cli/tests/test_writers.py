@@ -18,6 +18,7 @@ from mcward._protocol import (
 )
 from mcward._runner import TestSession as Session
 from mcward.cli.writers import (
+    is_report_file,
     missing_coverage,
     parse_coverage_report,
     report_session,
@@ -410,3 +411,28 @@ class TestWriteLcov:
             "LH:1",
             "end_of_record",
         ]
+
+
+class TestReportFiles:
+    """Watch mode skips the files a run writes, or each run would start the next."""
+
+    def test_matches_the_report_targets(self, tmp_path: Path) -> None:
+        specs, junit = [("html", tmp_path / "coverage.html")], tmp_path / "junit.xml"
+        assert is_report_file(tmp_path / "coverage.html", specs, junit)
+        assert is_report_file(tmp_path / "junit.xml", specs, junit)
+
+    def test_matches_the_files_of_each_version(self, tmp_path: Path) -> None:
+        specs = [("lcov", tmp_path / "coverage.lcov")]
+        assert is_report_file(tmp_path / "coverage-26.1.2.lcov", specs, None)
+
+    def test_leaves_pack_files(self, tmp_path: Path) -> None:
+        specs, junit = [("lcov", tmp_path / "coverage.lcov")], tmp_path / "junit.xml"
+        pack_file = tmp_path / "data" / "demo" / "function" / "coverage.mcfunction"
+        assert not is_report_file(pack_file, specs, junit)
+        assert not is_report_file(tmp_path / "coverage.html", specs, junit)
+
+    def test_relative_targets_match_absolute_paths(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        assert is_report_file(tmp_path / "coverage.html", [("html", Path("coverage.html"))], None)
