@@ -46,9 +46,9 @@ all fail the suite.
 
 ```
 src/                  Fabric mod (Java)
-packages/mcward-core  Python library: environments, server lifecycle, the WardBridge protocol
-packages/mcward-cli   The mcward command-line interface
-packages/mcward-beet  The beet plugin and beet test command
+packages/mcward       The mcward library (its pyproject is the root one)
+packages/mcward-cli   The mcward command-line interface, installed by mcward[cli]
+packages/mcward-beet  The beet plugin and beet test command, installed by mcward[beet]
 tools/                Dev and release tooling (run with uv run tools/<name>.py)
 tests/                Integration fixture packs and expected report
 docs/                 User documentation
@@ -69,10 +69,10 @@ file is the release request. On every push, `tools/release.py` tags and
 publishes whatever version has no tag yet. Nothing else decides. There are
 two independent streams:
 
-- **Python packages**: the root `pyproject.toml` is the source of truth and
-  all `mcward*` packages derive their version from it at build time. Bump it
-  in your PR with `just bump python 1.2.0`; merging to `main` tags `v1.2.0`
-  and publishes every package to PyPI.
+- **Python packages**: `mcward`, `mcward-cli` and `mcward-beet` share the
+  version of the root `pyproject.toml` and pin each other to it exactly. Bump
+  it in your PR with `just bump python 1.2.0`, which also rewrites the pins;
+  merging to `main` tags `v1.2.0` and publishes the three to PyPI.
 
 - **The mod**: versioned by `gradle.properties`, with `mod_version` plus the
   targeted `minecraft_version`, tagged fabric-api style with the full version

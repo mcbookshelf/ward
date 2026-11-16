@@ -10,39 +10,46 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MPL-2.0" }
 authors = [{ name = "Aksiome", email = "54895777+aksiome@users.noreply.github.com" }]
-dependencies = ["mcward-core"]
+dependencies = [
+    "httpx>=0.27.0",
+    "platformdirs>=4.0.0",
+    "psutil>=7.2.2",
+]
 
 [project.optional-dependencies]
-beet = ["mcward-beet"]
-cli = ["mcward-cli"]
-mecha = ["mcward-beet[mecha]"]
-
-[project.scripts]
-mcward = "mcward:cli"
-ward = "mcward:cli"
+beet = ["mcward-beet==1.6.0"]
+cli = ["mcward-cli==1.6.0"]
+mecha = ["mcward-beet[mecha]==1.6.0"]
 
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.17.3",
-    "ty>=0.0.97",
+    "ruff>=0.17.5",
+    "ty>=0.0.103",
 ]
 
 [tool.uv]
 package = true
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/mcward-beet", "packages/mcward-cli"]
 
 [tool.uv.sources]
 mcward-beet = { workspace = true }
 mcward-cli = { workspace = true }
-mcward-core = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
-bypass-selection = true
+packages = ["packages/mcward/src/mcward"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "packages/mcward/src",
+    "packages/mcward/tests",
+    "README.md",
+    "LICENSE",
+]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
@@ -68,4 +75,4 @@ split-on-trailing-comma = true
 include = ["packages/mcward-beet/**", "packages/mcward-cli/**"]
 
 [tool.ty.overrides.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
