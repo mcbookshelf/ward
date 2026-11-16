@@ -24,6 +24,12 @@ from mcward._assets import loader_minimum, select_loader
 ROOT = Path(__file__).resolve().parent.parent
 
 RELEASE_PATTERN = re.compile(r"\d+\.\d+\.\d+")
+PIN_PATTERN = re.compile(r'("mcward(?:-cli|-beet)?(?:\[\w+\])?==)[^"]+(")')
+PIN_FILES = (
+    "pyproject.toml",
+    "packages/mcward-cli/pyproject.toml",
+    "packages/mcward-beet/pyproject.toml",
+)
 MINECRAFT_PATTERN = re.compile(r"\d+\.\d+(\.\d+)?(-[\w.-]+)?")
 
 
@@ -43,6 +49,7 @@ def main() -> int:
 
     match args.stream:
         case "python":
+            set_pins(args.version)
             # uv rewrites the root pyproject version and refreshes the lockfile
             subprocess.run(["uv", "version", args.version], check=True, cwd=ROOT, stdout=sys.stderr)
             return 0
@@ -81,6 +88,16 @@ def bump_minecraft(minecraft: str) -> int:
     set_gradle_property("loader_version", loader)
     set_gradle_property("fabric_api_version", fabric_api)
     return 0
+
+
+def set_pins(version: str) -> None:
+    for name in PIN_FILES:
+        path = ROOT / name
+        content, count = PIN_PATTERN.subn(rf"\g<1>{version}\g<2>", path.read_text(encoding="utf-8"))
+        if count == 0:
+            raise SystemExit(f"bump: no mcward pin in {name}")
+        path.write_text(content, encoding="utf-8")
+    print(f"bump: mcward pins set to {version}", file=sys.stderr)
 
 
 def set_gradle_property(name: str, value: str) -> None:

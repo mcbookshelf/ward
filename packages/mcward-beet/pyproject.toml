@@ -10,24 +10,25 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MPL-2.0" }
 authors = [{ name = "Aksiome", email = "54895777+aksiome@users.noreply.github.com" }]
+# The mcward pins follow the version: `just bump python` rewrites them
 dependencies = [
-    "mcward-core",
-    "mcward-cli",
+    "mcward==1.6.0",
+    "mcward-cli==1.6.0",
     "beet>=0.116.0",
 ]
-
-[tool.uv.sources]
-mcward-core = { workspace = true }
-mcward-cli = { workspace = true }
-
-# Loaded by the beet toolchain to register the beet test command
-[project.entry-points.beet]
-commands = "mcward.beet.commands"
 
 [project.optional-dependencies]
 mecha = [
     "mecha>=0.104.1",
 ]
+
+# Loaded by the beet toolchain to register the beet test command
+[project.entry-points.beet]
+commands = "mcward.beet.commands"
+
+[tool.uv.sources]
+mcward = { workspace = true }
+mcward-cli = { workspace = true }
 
 [tool.hatch.version]
 path = "../../pyproject.toml"
@@ -35,6 +36,3 @@ pattern = '^version = "(?P<version>[^"]+)"$'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcward"]
-
-[tool.pytest.ini_options]
-addopts = "--import-mode=importlib"

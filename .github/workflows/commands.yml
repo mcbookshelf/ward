@@ -91,6 +91,8 @@ jobs:
           token: ${{ steps.bot.outputs.token }}
           add-paths: |
             packages/mcward-beet/src/mcward/mecha/resources
+            packages/mcward-beet/pyproject.toml
+            packages/mcward-cli/pyproject.toml
             pyproject.toml
             uv.lock
           branch: release/python-${{ steps.bump.outputs.version }}

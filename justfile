@@ -36,7 +36,7 @@ lint:
 
 # Run the unit tests of every Python package
 test:
-    uv run pytest packages/mcward-core/tests packages/mcward-cli/tests packages/mcward-beet/tests
+    uv run pytest packages/mcward/tests packages/mcward-cli/tests packages/mcward-beet/tests
 
 # Type-check the Python packages with ty
 types:

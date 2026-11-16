@@ -1,6 +1,5 @@
 """Ward, a testing framework for Minecraft datapacks."""
 
-import sys
 from pkgutil import extend_path
 
 from ._bench import BenchComparison, BenchReport, compare, run_bench
@@ -118,16 +117,6 @@ __all__ = [
     "scan_functions",
 ]
 
+
+# mcward-cli and mcward-beet add mcward.cli, mcward.beet and mcward.mecha from their own folders
 __path__ = extend_path(__path__, __name__)
-
-
-def cli() -> None:
-    """Console script entry point, guarded so a missing CLI extra explains itself."""
-    try:
-        # From the optional mcward-cli distribution, merged into this package via extend_path
-        from mcward.cli import main as run  # ty: ignore[unresolved-import]
-    except ImportError:
-        print("Error: CLI dependencies not installed.", file=sys.stderr)
-        print("Install with: uv add mcward[cli]", file=sys.stderr)
-        sys.exit(1)
-    run()
