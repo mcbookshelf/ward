@@ -1,6 +1,7 @@
 """Tests for process lifecycle management."""
 
 import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
@@ -115,6 +116,7 @@ class TestStart:
             assert "-jar" in cmd
             assert str(directory / "server.jar") in cmd
             assert "nogui" in cmd
+            assert "-XX:-G1PeriodicGCInvokesConcurrent" in cmd
 
     def test_start_keeps_the_output_in_a_file(self, tmp_path: Path, mock_process: Mock) -> None:
         """What the JVM prints is the only trace of some failed starts."""
@@ -130,6 +132,27 @@ class TestStart:
         options = mock_popen.call_args.kwargs
         assert Path(options["stdout"].name) == directory / OUTPUT_FILE
         assert options["stderr"] is subprocess.STDOUT
+
+    def test_start_detaches_the_jvm_from_the_console(
+        self, tmp_path: Path, mock_process: Mock
+    ) -> None:
+        """A Ctrl+C in the console that started the daemon must not reach it."""
+        directory = tmp_path / "env"
+        directory.mkdir()
+
+        with (
+            patch("subprocess.Popen", return_value=mock_process) as mock_popen,
+            patch("mcward._daemon._wait_ready", return_value=25565),
+        ):
+            start(directory)
+
+        options = mock_popen.call_args.kwargs
+        assert options["stdin"] is subprocess.DEVNULL
+        if sys.platform == "win32":
+            assert options["creationflags"] & subprocess.CREATE_NEW_PROCESS_GROUP
+            assert options["creationflags"] & subprocess.CREATE_NO_WINDOW
+        else:
+            assert options["start_new_session"] is True
 
     def test_start_clears_stale_port_file(self, tmp_path: Path, mock_process: Mock) -> None:
         """A leftover port file must never be read as the new server's port."""

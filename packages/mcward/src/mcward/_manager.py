@@ -17,13 +17,7 @@ INSTALLED_FILES = ("server.jar", "mods/fabric-api.jar", "mods/ward.jar")
 
 
 class EnvironmentManager:
-    """High-level facade resolving version names into environment states.
-
-    A custom directory relocates environments and the registry cache, but
-    not the provisioned Java runtime, which is machine-global (JAVA_DIR).
-    The "dev" alias reads gradle.properties from the working directory: it
-    means "the mod checkout this command runs in".
-    """
+    """Resolves version names to environments; ``dev`` is the Ward checkout in the cwd."""
 
     def __init__(self, directory: Path | None = None):
         self.directory = directory or CACHE_DIR
@@ -74,7 +68,7 @@ class EnvironmentManager:
         if version := self.versions.get(name):
             return version, True
         if name == "dev":
-            raise VersionNotFoundError("dev (no gradle.properties in the working directory)")
+            raise VersionNotFoundError("dev (the working directory is not a Ward checkout)")
         try:
             return Version.parse(name), False
         except ValueError:

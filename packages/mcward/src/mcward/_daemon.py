@@ -1,6 +1,7 @@
 """Lifecycle of the Ward daemon: the background server process."""
 
 import subprocess
+import sys
 import time
 from collections.abc import Iterator, Sequence
 from contextlib import suppress
@@ -24,6 +25,12 @@ from ._constants import (
 )
 from ._exceptions import ProcessConnectionError, ProcessStartupError, ProcessTimeoutError
 from ._protocol import BenchFinished, Event, Status, StreamError, TestsFinished, parse_event
+
+# Out of the console's process group: a Ctrl+C meant for another program there ended the daemon
+if sys.platform == "win32":
+    DETACHED = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+else:
+    DETACHED = 0
 
 
 @dataclass
@@ -191,7 +198,7 @@ def wait_idle(address: tuple[str, int], timeout: float = SHUTDOWN_TIMEOUT) -> No
     deadline = time.monotonic() + timeout
     while not _probe(address):
         if time.monotonic() > deadline:
-            raise ProcessConnectionError(f"Daemon still busy after {timeout}s")
+            raise ProcessConnectionError(f"Server still busy after {timeout}s")
         time.sleep(0.5)
 
 
@@ -206,17 +213,23 @@ def _spawn(directory: Path) -> subprocess.Popen[bytes]:
             java.command(
                 directory / "server.jar",
                 "-Xmx2g",
-                "-Xms1g",
                 "-XX:G1PeriodicGCInterval=60000",
+                # A full idle GC compacts the heap: idle memory halves, the next run is ~0.3s slower
+                "-XX:-G1PeriodicGCInvokesConcurrent",
                 "-XX:+ParallelRefProcEnabled",
                 "-XX:+DisableExplicitGC",
                 "-XX:+HeapDumpOnOutOfMemoryError",
+                # HotSpot never overwrites a dump, so this keeps the first one and no more
+                "-XX:HeapDumpPath=ward.hprof",
                 "-XX:+ExitOnOutOfMemoryError",
                 _daemon_flag(directory),
             ),
             cwd=directory,
+            stdin=subprocess.DEVNULL,
             stdout=output,
             stderr=subprocess.STDOUT,
+            creationflags=DETACHED,
+            start_new_session=sys.platform != "win32",
         )
 
 

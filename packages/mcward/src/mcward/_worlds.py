@@ -18,23 +18,26 @@ def check_world(world: Path) -> None:
 
 
 def sync(directory: Path, world: Path | None) -> None:
-    """Make the environment's world a copy of the given one, or empty it without one.
-
-    The copy is kept between runs, so the server upgrades an old save once per
-    environment. It is made again when a file of the source changes.
-    """
+    """Copy the world into the environment when its files changed, or empty it."""
     marker = directory / WORLD_FILE
-    wanted = None if world is None else _fingerprint(world)
-    if _installed(marker) == wanted:
+    target = directory / "world"
+    # Without a world, an interrupted copy has no marker and would still be loaded
+    if world is None:
+        _clear(marker, target)
         return
 
-    target = directory / "world"
+    wanted = _fingerprint(world)
+    if _installed(marker) == wanted:
+        return
+    _clear(marker, target)
+    shutil.copytree(world, target, ignore=lambda folder, _: _excluded(world, folder))
+    marker.write_text(wanted, encoding="utf-8")
+
+
+def _clear(marker: Path, target: Path) -> None:
     marker.unlink(missing_ok=True)
     if target.exists():
         shutil.rmtree(target)
-    if world is not None and wanted is not None:
-        shutil.copytree(world, target, ignore=lambda folder, _: _excluded(world, folder))
-        marker.write_text(wanted, encoding="utf-8")
 
 
 def _installed(marker: Path) -> str | None:

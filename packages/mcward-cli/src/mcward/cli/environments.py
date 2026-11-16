@@ -1,5 +1,6 @@
 """Environment selection and startup shared by the commands."""
 
+import sys
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
@@ -84,6 +85,10 @@ def select_compatible(min_format: int, max_format: int) -> list[str]:
     versions = [next(group) for _, group in lines]
     if len(versions) == 1:
         return [versions[0].name]
+
+    if not sys.stdin.isatty():
+        print_note(f"Pack format range supports several major versions, testing on {len(versions)}")
+        return [v.name for v in versions]
 
     print_note("Pack format range supports multiple major versions")
     options = [Option("Use all versions", "(Recommended)", value="all")]
