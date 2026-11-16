@@ -46,7 +46,7 @@ Sets game rules for the batch and restores them afterwards.
 
 ## Set the difficulty
 
-`peaceful`, `easy`, `normal` or `hard`.
+`peaceful`, `easy`, `normal`, or `hard`.
 
 ```json
 {
@@ -57,7 +57,7 @@ Sets game rules for the batch and restores them afterwards.
 
 ## Set the weather
 
-`clear`, `rain` or `thunder`.
+`clear`, `rain`, or `thunder`.
 
 ```json
 {

@@ -20,7 +20,7 @@
 <p align="center">Ward runs automated tests for Minecraft datapacks. Tests are plain <code>.mcfunction</code> files in a <code>test/</code> folder.</p>
 
 <p align="center"><img src="./docs/assets/demo.gif" alt="demo"></p>
-<p align="center"><i>A test run with <code>ward</code>, results stream in live.</i></p>
+<p align="center"><i>A test run with <code>mcward</code>. Results stream in live.</i></p>
 
 Ward comes in two parts:
 
@@ -31,7 +31,7 @@ Ward comes in two parts:
   </tr>
   <tr>
     <td align="center" nowrap>🐍 <b>CLI</b> - <a href="https://pypi.org/project/mcward/">PyPI</a></td>
-    <td>Installs test servers and runs your packs on one or more Minecraft versions. Java and the mod are downloaded for you. Also ships a <a href="https://github.com/mcbeet/beet">beet</a> plugin that adds <code>beet test</code>.</td>
+    <td>Installs test servers and runs your packs on one or more Minecraft versions. It downloads Java and the mod for you. The <code>beet</code> extra adds <code>beet test</code> to <a href="https://github.com/mcbeet/beet">beet</a>.</td>
   </tr>
 </table>
 
@@ -55,23 +55,26 @@ await not entity @e[tag=target]
 Ward finds your packs, picks matching versions, and runs the tests:
 
 ```sh
-ward
+mcward test
 ```
 
 Comments starting with `@` are [directives](docs/directives.md). They configure the test.
-`await` and `assert` are the [test commands](docs/commands.md).
+`/await` and `/assert` are [test commands](docs/commands.md).
 
 ## Documentation
 
 - [Test commands](docs/commands.md): `/assert`, `/await`, `/fail`, `/succeed`, `/log`
-- [Test environments](docs/environments.md): world setup/teardown around tests
-- [Directives](docs/directives.md): `@max_ticks`, `@environment`, ...
+- [Test directives](docs/directives.md): settings of a test, such as `@max_ticks` and `@environment`
+- [Test environments](docs/environments.md): set up the world before tests, and clean up after
+- [Test world](docs/world.md): the world tests run in, test areas, and saved worlds
 - [Dummies](docs/dummies.md): fake players and the `/dummy` command
-- [Coverage](docs/coverage.md): which parts of your packs the tests run
+- [Test coverage](docs/coverage.md): which parts of your packs the tests run
 - [Benchmarks](docs/bench.md): time commands and compare them
-- [CLI](docs/cli.md): the `mcward` CLI and `beet test`
+- [Command-line tooling](docs/cli.md): the `mcward` command and `beet test`
 
 ## Acknowledgements
 
 Ward is heavily inspired by [packtest](https://github.com/misode/packtest) by
 [misode](https://github.com/misode), and implements its full command set.
+Dummies are inspired by the fake players of
+[Carpet](https://github.com/gnembon/fabric-carpet).

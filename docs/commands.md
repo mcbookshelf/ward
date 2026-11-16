@@ -1,21 +1,21 @@
 # Test commands
 
 The Ward mod adds six commands: `/assert`, `/await`, `/fail`, `/succeed`,
-`/log` and `/dummy`. They need permission level 2. All of them except `/dummy`
+`/log`, and `/dummy`. They need permission level 2. All of them except `/dummy`
 only work inside a running test.
 
 A test runs its commands in order. `/await` pauses the test until its
 condition holds. The test passes when the last command has run and nothing is
 still waiting. You only need `/succeed` to end a test early.
 
-A line of a test that runs more commands than the `max_command_sequence_length`
-game rule allows fails the test.
+A test line fails the test when it runs more commands than the
+`max_command_sequence_length` game rule allows.
 
 ## `/assert` and `/await`
 
 Both commands take the same conditions:
 
-```
+```text
 assert <condition>          fails now unless the condition holds
 assert not <condition>      fails now if the condition holds
 await <condition>           waits until the condition holds
@@ -23,7 +23,7 @@ await not <condition>       waits until the condition no longer holds
 await delay <time>          waits for a duration (10, 2s, 1d)
 ```
 
-An `await` that never resolves fails the test when it times out.
+An `/await` that never resolves fails the test when it times out.
 Set the timeout with the [`@max_ticks` directive](directives.md).
 
 ### Conditions
@@ -33,7 +33,7 @@ Set the timeout with the [`@max_ticks` directive](directives.md).
 | `biome <pos> <biome>` | the biome at `pos` matches an id or `#tag` |
 | `block <pos> <block>` | the block at `pos` matches (`stone`, `chest[facing=north]`, `#minecraft:logs{...}`) |
 | `blocks <start> <end> <destination> all\|masked` | the region matches the blocks at `destination`. `masked` skips air in the source |
-| `chat <pattern>` | a chat message matched the regex since the test started |
+| `chat <pattern>` | a chat message since the test started matches the regex |
 | `chat <pattern> <players>` | one of `players` received a matching message |
 | `data block <pos> <path>` | the NBT path exists in the block entity |
 | `data entity <target> <path>` | the NBT path exists on the entity |
@@ -56,7 +56,7 @@ Set the timeout with the [`@max_ticks` directive](directives.md).
 
 ## `/fail` and `/succeed`
 
-```
+```text
 fail                 fails the test
 fail <message>       fails the test with a message (text component)
 succeed              passes the test and skips the rest of the test file
@@ -64,7 +64,7 @@ succeed              passes the test and skips the rest of the test file
 
 ## `/log`
 
-```
+```text
 log <message>        logs a message (text component) with its line and tick
 ```
 
