@@ -42,8 +42,7 @@ class Version:
 
     @classmethod
     def parse(cls, name: str) -> Version:
-        """Parse "26.1.2", "26.2-snapshot-6", "26.3-pre-1", "26.3-rc-1"
-        or a "dev/" prefixed variant."""
+        """Parse "26.1.2", "26.2-snapshot-6", "26.3-pre-1" or "26.3-rc-1", "dev/" allowed."""
         version = name.removeprefix("dev/")
         if match := _PATTERN.match(version):
             return cls(
@@ -81,15 +80,12 @@ class Version:
         )
 
 
-type _Entries = list[tuple[Version, int]]
+# Each version with its pack format and the newest Ward mod for it
+type _Entries = list[tuple[Version, int, str | None]]
 
 
 class VersionRegistry:
-    """The Minecraft versions Ward supports, with their pack formats.
-
-    Loaded lazily on first access: constructing the registry never touches
-    the network, so commands that don't need version data work offline.
-    """
+    """The Minecraft versions Ward supports, with pack formats; fetched on first use."""
 
     def __init__(self, cache_dir: Path, ttl_hours: int = 4):
         self._file = cache_dir / "versions.json"
@@ -102,18 +98,22 @@ class VersionRegistry:
             return _get_gradle_version()
         entries = self._load()
         if name == "snapshot":
-            return max((v for v, _ in entries), default=None)
+            return max((v for v, _, _ in entries), default=None)
         if name == "latest":
-            return max((v for v, _ in entries if not v.is_snapshot), default=None)
-        return next((v for v, _ in entries if v.name == name), None)
+            return max((v for v, _, _ in entries if not v.is_snapshot), default=None)
+        return next((v for v, _, _ in entries if v.name == name), None)
 
     def available(self) -> list[Version]:
         """Every version in the registry, in registry order."""
-        return [v for v, _ in self._load()]
+        return [v for v, _, _ in self._load()]
 
     def list_in_range(self, min_fmt: int, max_fmt: int) -> list[Version]:
         """Every version whose pack format falls inside the range."""
-        return [v for v, fmt in self._load() if min_fmt <= fmt <= max_fmt]
+        return [v for v, fmt, _ in self._load() if min_fmt <= fmt <= max_fmt]
+
+    def newest_mod(self, version: Version) -> str | None:
+        """The newest Ward mod published for the version, without its build metadata."""
+        return next((mod for v, _, mod in self._load() if v == version), None)
 
     def refresh(self) -> VersionRegistry:
         """Fetch fresh data from the remote endpoints and update the cache file."""
@@ -140,23 +140,29 @@ class VersionRegistry:
         import httpx  # deferred: most runs never fetch
 
         try:
-            formats, versions = asyncio.run(_fetch_remote())
-        except (httpx.HTTPError, ValueError) as e:
+            try:
+                formats, versions = asyncio.run(_fetch_remote())
+            except httpx.TransportError:
+                formats, versions = asyncio.run(_fetch_remote())
+        # KeyError and TypeError: a field renamed in one of the two third-party answers
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as e:
             raise VersionError(f"Could not fetch version data: {e}") from e
         # A version without a known pack format is left out
-        entries = [(v, formats[v.name]) for v in versions if v.name in formats]
+        entries: _Entries = [
+            (v, formats[v.name], mod) for v, mod in versions.items() if v.name in formats
+        ]
         self._save(entries)
         return entries
 
     def _read(self) -> _Entries:
         try:
             data = json.loads(self._file.read_text(encoding="utf-8"))
-            return [(Version.parse(e["name"]), e["format"]) for e in data]
+            return [(Version.parse(e["name"]), e["format"], e.get("mod")) for e in data]
         except FileNotFoundError, json.JSONDecodeError, KeyError:
             return []
 
     def _save(self, entries: _Entries) -> None:
-        data = [{"name": v.name, "format": fmt} for v, fmt in entries]
+        data = [{"name": v.name, "format": fmt, "mod": mod} for v, fmt, mod in entries]
         self._file.parent.mkdir(parents=True, exist_ok=True)
         partial = self._file.with_suffix(self._file.suffix + ".part")
         partial.write_text(json.dumps(data), encoding="utf-8")
@@ -170,7 +176,7 @@ class VersionRegistry:
         return datetime.now() - mtime > self._ttl
 
 
-async def _fetch_remote() -> tuple[dict[str, int], list[Version]]:
+async def _fetch_remote() -> tuple[dict[str, int], dict[Version, str]]:
     """Fetch formats and versions in parallel."""
     import asyncio
 
@@ -187,18 +193,28 @@ async def _fetch_formats(client: httpx.AsyncClient) -> dict[str, int]:
     return {e["id"]: int(e["data_pack_version"]) for e in response.json()}
 
 
-async def _fetch_versions(client: httpx.AsyncClient) -> list[Version]:
-    """Every Minecraft version a published Ward release supports."""
+async def _fetch_versions(client: httpx.AsyncClient) -> dict[Version, str]:
+    """Each Minecraft version a Ward release supports, newest first, with its newest mod."""
     response = await client.get(f"{MODRINTH_API}/project/ward/version")
     response.raise_for_status()
 
-    versions: set[Version] = set()
+    mods: dict[Version, str] = {}
     for release in response.json():
+        mod = release["version_number"].split("+")[0]
         for name in release["game_versions"]:
             # One mispublished id must not brick the registry
             with suppress(ValueError):
-                versions.add(Version.parse(name))
-    return sorted(versions, reverse=True)
+                version = Version.parse(name)
+                mods[version] = max(mods.get(version, mod), mod, key=release_numbers)
+    return dict(sorted(mods.items(), reverse=True))
+
+
+def release_numbers(version: str) -> tuple[int, ...]:
+    """The numbers to compare two versions by, "1.2.3-beta+26.3" giving (1, 2, 3), or none."""
+    try:
+        return tuple(int(x) for x in version.split("-")[0].split("+")[0].split("."))
+    except ValueError:
+        return ()
 
 
 def _get_gradle_version() -> Version | None:

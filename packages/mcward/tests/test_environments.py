@@ -1,5 +1,6 @@
 """Tests for environment state transitions and datapack deployment."""
 
+import json
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
@@ -16,6 +17,7 @@ from mcward import (
     Version,
 )
 from mcward._daemon import RunningProcess
+from mcward._environments import installed_mod
 
 V1 = Version.parse("26.1.2")
 
@@ -47,6 +49,29 @@ class TestStateTransitions:
         mock_start.assert_called_once_with(tmp_path)
         assert isinstance(running, RunningEnvironment)
         assert running.process is process
+
+    def test_start_reuses_a_daemon_another_process_started(self, tmp_path: Path) -> None:
+        env = InstalledEnvironment(tmp_path, V1)
+        process = RunningProcess(tmp_path, 12345, 25565)
+
+        with (
+            patch("mcward._daemon.find", return_value=process),
+            patch("mcward._daemon.start") as mock_start,
+        ):
+            running = env.start()
+
+        mock_start.assert_not_called()
+        assert running.process is process
+
+    def test_install_skips_what_another_process_installed(
+        self, tmp_path: Path, install_environment
+    ) -> None:
+        env = UninstalledEnvironment(install_environment(tmp_path / "env"), V1)
+
+        with patch("mcward._assets.install") as mock_download:
+            env.install()
+
+        mock_download.assert_not_called()
 
     def test_stop_transitions_to_installed(self, tmp_path: Path) -> None:
         env = make_running(tmp_path)
@@ -100,7 +125,7 @@ class TestDatapackDeployment:
         (pack / "data" / "function.mcfunction").write_text("say hi")
 
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests") as mock_stream:
-            make_running(env_dir).test([pack], selector="my:*")
+            list(make_running(env_dir).test([pack], selector="my:*"))
 
         mock_stream.assert_called_once_with(
             ("127.0.0.1", 25565), "my:*", coverage=False, timeout=None, origin=None
@@ -121,7 +146,7 @@ class TestDatapackDeployment:
         (pack / "pack.mcmeta").write_text("{}")
 
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
-            make_running(env_dir).test([pack])
+            list(make_running(env_dir).test([pack]))
 
         deployed = env_dir / "world" / "datapacks" / "my_pack.zip"
         with zipfile.ZipFile(deployed) as archive:
@@ -135,7 +160,7 @@ class TestDatapackDeployment:
         (pack / "pack.mcmeta").write_text("{}")
 
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
-            make_running(env_dir).test([pack])
+            list(make_running(env_dir).test([pack]))
 
         assert (env_dir / "world" / "datapacks" / "my_pack.zip").is_file()
 
@@ -150,7 +175,7 @@ class TestDatapackDeployment:
 
         env_dir = tmp_path / "env"
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
-            make_running(env_dir).test([first, second, third])
+            list(make_running(env_dir).test([first, second, third]))
 
         def mcmeta(name: str) -> str:
             deployed = env_dir / "world" / "datapacks" / name
@@ -169,7 +194,7 @@ class TestDatapackDeployment:
         pack.write_bytes(b"PK\x05\x06" + b"\x00" * 18)  # empty zip
 
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
-            make_running(env_dir).test([pack])
+            list(make_running(env_dir).test([pack]))
 
         deployed = env_dir / "world" / "datapacks" / "my_pack.zip"
         assert deployed.is_file()
@@ -185,7 +210,7 @@ class TestDatapackDeployment:
 
         env_dir = tmp_path / "env"
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_tests"):
-            make_running(env_dir).test([first, second])
+            list(make_running(env_dir).test([first, second]))
 
         deployed = env_dir / "world" / "datapacks"
         assert (deployed / "my_pack.zip").is_file()
@@ -204,7 +229,7 @@ class TestDatapackDeployment:
             patch("shutil.rmtree", side_effect=OSError("locked")),
             pytest.raises(DeployError, match="copy"),
         ):
-            make_running(env_dir).test([pack])
+            list(make_running(env_dir).test([pack]))
 
     def test_deploy_retries_through_transient_locks(self, tmp_path: Path) -> None:
         """A briefly locked file (server shutdown, antivirus) does not fail the run."""
@@ -232,7 +257,7 @@ class TestDatapackDeployment:
             patch("mcward._daemon.stream_tests"),
             patch("mcward._environments.shutil.rmtree", side_effect=rmtree),
         ):
-            make_running(env_dir).test([pack])
+            list(make_running(env_dir).test([pack]))
 
         assert (env_dir / "world" / "datapacks" / "my_pack.zip").is_file()
 
@@ -263,7 +288,7 @@ def run(env_dir: Path, pack: Path, world: Path | None, worlds: bool = True) -> N
             return_value=Status(ready=True, features=frozenset({"worlds"} if worlds else ())),
         ),
     ):
-        make_running(env_dir).test([pack], world=world)
+        list(make_running(env_dir).test([pack], world=world))
 
 
 class TestWorldDeployment:
@@ -351,7 +376,7 @@ class TestWorldDeployment:
         run(env_dir, pack, make_world(tmp_path))
 
         with patch("mcward._daemon.wait_idle"), patch("mcward._daemon.stream_bench"):
-            make_running(env_dir).bench([pack], ["say hi"])
+            list(make_running(env_dir).bench([pack], ["say hi"]))
 
         assert not (env_dir / "world" / "level.dat").exists()
 
@@ -370,3 +395,37 @@ class TestWorldDeployment:
             run(env_dir, make_pack(tmp_path), make_world(tmp_path), worlds=False)
 
         assert not (env_dir / "world").exists()
+
+
+def write_mod(directory: Path, version: str) -> None:
+    (directory / "mods").mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(directory / "mods" / "ward.jar", "w") as jar:
+        jar.writestr("fabric.mod.json", json.dumps({"id": "ward", "version": version}))
+
+
+class TestModUpdate:
+    def test_mod_is_read_from_the_jar(self, tmp_path: Path) -> None:
+        write_mod(tmp_path, "1.2.1")
+        assert installed_mod(tmp_path) == "1.2.1"
+
+    def test_no_jar_means_no_mod(self, tmp_path: Path) -> None:
+        assert installed_mod(tmp_path) is None
+
+    def test_update_downloads_over_the_old_files(self, tmp_path: Path) -> None:
+        with (
+            patch("mcward._daemon.find", return_value=None),
+            patch("mcward._assets.install") as mock_download,
+        ):
+            assert InstalledEnvironment(tmp_path, V1).update()
+
+        mock_download.assert_called_once_with(tmp_path, V1)
+
+    def test_update_leaves_a_daemon_another_process_started(self, tmp_path: Path) -> None:
+        process = RunningProcess(tmp_path, 12345, 25565)
+        with (
+            patch("mcward._daemon.find", return_value=process),
+            patch("mcward._assets.install") as mock_download,
+        ):
+            assert not InstalledEnvironment(tmp_path, V1).update()
+
+        mock_download.assert_not_called()

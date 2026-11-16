@@ -6,7 +6,14 @@ from pathlib import Path
 
 import rich_click as click
 
-from mcward import TestSession, WardConfig, WardError, check_world
+from mcward import (
+    MissingFeatureError,
+    RunningEnvironment,
+    TestSession,
+    WardConfig,
+    WardError,
+    check_world,
+)
 
 from .datapacks import DataPack, FileResolver, format_range
 from .environments import manager, select_compatible, start_environments
@@ -140,6 +147,7 @@ def run_session(
         if coverage_min is not None:
             minimum = replace(minimum, total=coverage_min)
         envs = start_environments([manager.get(v) for v in selected])
+        check_features(envs, worlds=config.world, origin=config.origin)
         console.print()
         session = run(
             paths,
@@ -165,3 +173,18 @@ def run_session(
     except WardError as e:
         raise click.ClickException(str(e)) from e
     return session
+
+
+def check_features(envs: Sequence[RunningEnvironment], **features: object) -> None:
+    """Name the fix when a server lacks what the run needs: a restart, or none."""
+    for env in envs:
+        try:
+            env.require(**features)
+        except MissingFeatureError as e:
+            if not manager.outdated_mod(env):
+                raise
+            name = env.version.name
+            raise click.ClickException(
+                f"The server of {name} runs an older Ward mod that cannot {e.what}. "
+                f"Stop it with `mcward stop {name}`, and the next run updates it"
+            ) from e

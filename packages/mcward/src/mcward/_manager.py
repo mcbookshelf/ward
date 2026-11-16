@@ -5,15 +5,18 @@ from contextlib import suppress
 from pathlib import Path
 
 from ._constants import CACHE_DIR
-from ._daemon import RunningProcess, clear_files, is_ward_process
-from ._environments import InstalledEnvironment, RunningEnvironment, UninstalledEnvironment
+from ._daemon import find
+from ._environments import (
+    InstalledEnvironment,
+    RunningEnvironment,
+    UninstalledEnvironment,
+    installed_mod,
+    is_installed,
+)
 from ._exceptions import VersionNotFoundError
-from ._versions import Version, VersionRegistry
+from ._versions import Version, VersionRegistry, release_numbers
 
 type Environment = RunningEnvironment | InstalledEnvironment | UninstalledEnvironment
-
-
-INSTALLED_FILES = ("server.jar", "mods/fabric-api.jar", "mods/ward.jar")
 
 
 class EnvironmentManager:
@@ -29,9 +32,9 @@ class EnvironmentManager:
         version, listed = self._get_version(name)
         directory = self.environments / version.name
 
-        if (process := self._running_process(directory)) is not None:
+        if (process := find(directory)) is not None:
             return RunningEnvironment(directory, version, process)
-        if self._is_installed(directory):
+        if is_installed(directory):
             return InstalledEnvironment(directory, version)
         if listed:
             return UninstalledEnvironment(directory, version)
@@ -43,7 +46,7 @@ class EnvironmentManager:
 
     def list_installed(self) -> list[Version]:
         """Versions with a complete environment on disk, newest first."""
-        installed = (v for v, directory in self._directories() if self._is_installed(directory))
+        installed = (v for v, directory in self._directories() if is_installed(directory))
         return sorted(installed, reverse=True)
 
     def list_running(self) -> list[Version]:
@@ -55,13 +58,27 @@ class EnvironmentManager:
         environments = [
             RunningEnvironment(directory, version, process)
             for version, directory in self._directories()
-            if (process := self._running_process(directory)) is not None
+            if (process := find(directory)) is not None
         ]
         return sorted(environments, key=lambda environment: environment.version, reverse=True)
 
     def list_compatible(self, min_fmt: int, max_fmt: int) -> list[Version]:
         """Versions whose pack format falls in the range, newest first."""
         return sorted(self.versions.list_in_range(min_fmt, max_fmt), reverse=True)
+
+    def outdated_mod(
+        self, environment: InstalledEnvironment | RunningEnvironment
+    ) -> tuple[str, str] | None:
+        """The installed and the newest Ward mod, when Modrinth has a newer one for the version."""
+        if environment.version.is_dev:
+            return None
+        newest = self.versions.newest_mod(environment.version)
+        installed = installed_mod(environment.directory)
+        if newest is None or installed is None:
+            return None
+        if release_numbers(newest) > release_numbers(installed):
+            return installed, newest
+        return None
 
     def _get_version(self, name: str) -> tuple[Version, bool]:
         """The version and whether the registry actually lists it."""
@@ -73,20 +90,6 @@ class EnvironmentManager:
             return Version.parse(name), False
         except ValueError:
             raise VersionNotFoundError(name) from None
-
-    def _is_installed(self, directory: Path) -> bool:
-        return all((directory / f).exists() for f in INSTALLED_FILES)
-
-    def _running_process(self, directory: Path) -> RunningProcess | None:
-        """The recorded process if it is still one of our servers, clearing stale files if not."""
-        try:
-            process = RunningProcess.load(directory)
-        except OSError, ValueError:
-            return None
-        if is_ward_process(process.pid, directory):
-            return process
-        clear_files(directory)
-        return None
 
     def _directories(self) -> Iterator[tuple[Version, Path]]:
         """The environment directories on disk, each with the version it holds."""

@@ -117,7 +117,7 @@ class TestBeetTestCommand:
 
         def fake_get(version):
             calls.versions = (calls.versions or []) + [version]
-            return SimpleNamespace(version=version)
+            return SimpleNamespace(version=version, require=lambda **features: None)
 
         with (
             patch("mcward.cli.session.start_environments", side_effect=lambda envs: envs),

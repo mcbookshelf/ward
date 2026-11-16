@@ -15,6 +15,8 @@ from mcward import (
     Version,
     VersionNotFoundError,
 )
+from mcward._daemon import find
+from mcward._environments import is_installed
 
 
 def write_process_files(directory: Path) -> None:
@@ -69,7 +71,7 @@ class TestEnvironmentManager:
 
         with (
             patch.object(manager.versions, "get", return_value=mock_version),
-            patch("mcward._manager.is_ward_process", return_value=True),
+            patch("mcward._daemon.is_ward_process", return_value=True),
         ):
             env = manager.get("26.1.2")
             assert isinstance(env, RunningEnvironment)
@@ -91,7 +93,7 @@ class TestEnvironmentManager:
 
         with (
             patch.object(manager.versions, "get", return_value=mock_version),
-            patch("mcward._manager.is_ward_process", return_value=False),
+            patch("mcward._daemon.is_ward_process", return_value=False),
         ):
             env = manager.get("26.1.2")
             assert isinstance(env, InstalledEnvironment)
@@ -170,20 +172,20 @@ class TestEnvironmentManager:
         env_dir.mkdir(parents=True)
 
         # Not installed - no files
-        assert manager._is_installed(env_dir) is False
+        assert is_installed(env_dir) is False
 
         # Not installed - only server.jar
         (env_dir / "server.jar").write_text("fake server")
-        assert manager._is_installed(env_dir) is False
+        assert is_installed(env_dir) is False
 
         # Not installed - server.jar + fabric-api.jar
         (env_dir / "mods").mkdir()
         (env_dir / "mods" / "fabric-api.jar").write_text("fake fabric")
-        assert manager._is_installed(env_dir) is False
+        assert is_installed(env_dir) is False
 
         # Installed - all files present
         (env_dir / "mods" / "ward.jar").write_text("fake ward")
-        assert manager._is_installed(env_dir) is True
+        assert is_installed(env_dir) is True
 
 
 class TestEnvironmentStatePriority:
@@ -199,7 +201,7 @@ class TestEnvironmentStatePriority:
 
         with (
             patch.object(manager.versions, "get", return_value=mock_version),
-            patch("mcward._manager.is_ward_process", return_value=True),
+            patch("mcward._daemon.is_ward_process", return_value=True),
         ):
             env = manager.get("26.1.2")
             assert isinstance(env, RunningEnvironment)
@@ -359,7 +361,7 @@ class TestIsRunning:
         mock_psutil.cmdline.return_value = ["java", flag, "-jar", "server.jar", "nogui"]
 
         with patch("psutil.Process", return_value=mock_psutil):
-            assert manager._running_process(directory)
+            assert find(directory)
 
         assert (directory / "ward.pid").exists()
         assert (directory / "ward.port").exists()
@@ -386,7 +388,7 @@ class TestIsRunning:
     ) -> None:
         """A dead pid is not running and its leftover files are removed."""
         with patch("psutil.Process", side_effect=psutil.NoSuchProcess(12345)):
-            assert not manager._running_process(directory)
+            assert not find(directory)
 
         assert not (directory / "ward.pid").exists()
         assert not (directory / "ward.port").exists()
@@ -399,10 +401,39 @@ class TestIsRunning:
         mock_psutil.cmdline.return_value = ["java", "-jar", "server.jar", "nogui"]
 
         with patch("psutil.Process", return_value=mock_psutil):
-            assert not manager._running_process(directory)
+            assert not find(directory)
 
         assert not (directory / "ward.pid").exists()
 
     def test_missing_files(self, manager: EnvironmentManager, temp_dir: Path) -> None:
         """A directory without pid/port files is not running."""
-        assert not manager._running_process(temp_dir)
+        assert not find(temp_dir)
+
+
+class TestOutdatedMod:
+    """Test when the installed Ward mod has a newer release for its Minecraft version."""
+
+    def check(
+        self, manager: EnvironmentManager, name: str, installed: str | None, newest: str | None
+    ):
+        env = InstalledEnvironment(Path("env"), Version.parse(name))
+        with (
+            patch("mcward._manager.installed_mod", return_value=installed),
+            patch.object(manager.versions, "newest_mod", return_value=newest),
+        ):
+            return manager.outdated_mod(env)
+
+    def test_newer_release(self, manager: EnvironmentManager) -> None:
+        assert self.check(manager, "26.3", "1.2.1", "1.2.2") == ("1.2.1", "1.2.2")
+
+    def test_up_to_date(self, manager: EnvironmentManager) -> None:
+        assert self.check(manager, "26.3", "1.2.2", "1.2.2") is None
+
+    def test_installed_newer_than_listed(self, manager: EnvironmentManager) -> None:
+        assert self.check(manager, "26.3", "1.3.0", "1.2.2") is None
+
+    def test_unknown_newest(self, manager: EnvironmentManager) -> None:
+        assert self.check(manager, "26.3", "1.2.1", None) is None
+
+    def test_dev_is_never_updated(self, manager: EnvironmentManager) -> None:
+        assert self.check(manager, "dev/26.3", "1.2.1", "1.2.2") is None

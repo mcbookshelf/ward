@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from mcward import Version, VersionError, VersionRegistry
-from mcward._versions import _fetch_versions
+from mcward._versions import _fetch_versions, release_numbers
 
 
 class TestVersionParsing:
@@ -263,28 +263,28 @@ class TestVersionRegistry:
         return VersionRegistry(temp_cache, ttl_hours=1)
 
     @pytest.fixture
-    def fetch_result(self) -> tuple[dict[str, int], list[Version]]:
+    def fetch_result(self) -> tuple[dict[str, int], dict[Version, str]]:
         """Mock (formats, versions) as produced by _fetch_remote."""
-        versions = [
-            Version.parse("26.2-snapshot-6"),
-            Version.parse("26.1.2"),
-            Version.parse("26.1.1"),
-            Version.parse("26.1"),
-        ]
+        versions = {
+            Version.parse("26.2-snapshot-6"): "1.2.0",
+            Version.parse("26.1.2"): "1.1.0",
+            Version.parse("26.1.1"): "1.0.0",
+            Version.parse("26.1"): "1.0.0",
+        }
         formats = {"26.2-snapshot-6": 82, "26.1.2": 81, "26.1.1": 81, "26.1": 80}
         return formats, versions
 
     @staticmethod
-    def patch_fetch(result: tuple[dict[str, int], list[Version]]):
+    def patch_fetch(result: tuple[dict[str, int], dict[Version, str]]):
         """Patch the remote fetch with a canned result."""
 
-        async def fake_fetch() -> tuple[dict[str, int], list[Version]]:
+        async def fake_fetch() -> tuple[dict[str, int], dict[Version, str]]:
             return result
 
         return patch("mcward._versions._fetch_remote", side_effect=fake_fetch)
 
     def test_constructor_is_lazy(self, temp_cache: Path) -> None:
-        with self.patch_fetch(({}, [])) as mock_fetch:
+        with self.patch_fetch(({}, {})) as mock_fetch:
             VersionRegistry(temp_cache, ttl_hours=1)
             mock_fetch.assert_not_called()
 
@@ -294,7 +294,7 @@ class TestVersionRegistry:
         make_checkout(tmp_path, "ward")
         monkeypatch.chdir(tmp_path)
 
-        with self.patch_fetch(({}, [])) as mock_fetch:
+        with self.patch_fetch(({}, {})) as mock_fetch:
             version = registry.get("dev")
             mock_fetch.assert_not_called()
         assert version is not None
@@ -315,7 +315,7 @@ class TestVersionRegistry:
         assert registry.get("dev") is None
 
     def test_first_access_fetches_and_caches(
-        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
+        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result) as mock_fetch:
             versions = registry.available()
@@ -326,20 +326,20 @@ class TestVersionRegistry:
         assert [v.name for v in versions] == ["26.2-snapshot-6", "26.1.2", "26.1.1", "26.1"]
 
     def test_cache_persistence(
-        self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
+        self, temp_cache: Path, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result):
             versions1 = VersionRegistry(temp_cache, ttl_hours=1).available()
 
         registry2 = VersionRegistry(temp_cache, ttl_hours=1)
-        with self.patch_fetch(({}, [])) as mock_fetch:
+        with self.patch_fetch(({}, {})) as mock_fetch:
             versions2 = registry2.available()
             mock_fetch.assert_not_called()
 
         assert versions1 == versions2
 
     def test_cache_ttl_expiry(
-        self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
+        self, temp_cache: Path, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result) as mock_fetch:
             VersionRegistry(temp_cache, ttl_hours=0).available()
@@ -350,7 +350,7 @@ class TestVersionRegistry:
             assert mock_fetch.call_count == 2
 
     def test_stale_cache_fallback_on_network_error(
-        self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
+        self, temp_cache: Path, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
 
         with self.patch_fetch(fetch_result):
@@ -368,7 +368,7 @@ class TestVersionRegistry:
                 registry.available()
 
     def test_garbage_response_falls_back_to_cache(
-        self, temp_cache: Path, fetch_result: tuple[dict[str, int], list[Version]]
+        self, temp_cache: Path, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         """A broken API body is treated like a broken network."""
         with self.patch_fetch(fetch_result):
@@ -379,11 +379,43 @@ class TestVersionRegistry:
 
         assert versions1 == versions2
 
+    @pytest.mark.parametrize("error", [KeyError("data_pack_version"), TypeError("not a list")])
+    def test_renamed_field_falls_back_to_cache(
+        self,
+        temp_cache: Path,
+        fetch_result: tuple[dict[str, int], dict[Version, str]],
+        error: Exception,
+    ) -> None:
+        with self.patch_fetch(fetch_result):
+            versions1 = VersionRegistry(temp_cache, ttl_hours=0).available()
+
+        with patch("mcward._versions._fetch_remote", side_effect=error):
+            versions2 = VersionRegistry(temp_cache, ttl_hours=0).available()
+
+        assert versions1 == versions2
+
+    def test_renamed_field_without_cache_is_a_version_error(
+        self, registry: VersionRegistry
+    ) -> None:
+        with patch("mcward._versions._fetch_remote", side_effect=KeyError("game_versions")):
+            with pytest.raises(VersionError, match="game_versions"):
+                registry.available()
+
+    def test_network_hiccup_is_retried_once(
+        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], dict[Version, str]]
+    ) -> None:
+        attempts = [httpx.ConnectTimeout("timed out"), fetch_result]
+        with patch("mcward._versions._fetch_remote", side_effect=attempts) as mock_fetch:
+            versions = registry.available()
+
+        assert mock_fetch.call_count == 2
+        assert versions == list(fetch_result[1])
+
     def test_cache_is_written_atomically(
         self,
         temp_cache: Path,
         registry: VersionRegistry,
-        fetch_result: tuple[dict[str, int], list[Version]],
+        fetch_result: tuple[dict[str, int], dict[Version, str]],
     ) -> None:
         """The cache file appears fully formed, with no partial sibling."""
         with self.patch_fetch(fetch_result):
@@ -392,7 +424,7 @@ class TestVersionRegistry:
         assert [f.name for f in temp_cache.iterdir()] == ["versions.json"]
 
     def test_refresh_forces_fetch(
-        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
+        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result) as mock_fetch:
             registry.available()
@@ -400,12 +432,15 @@ class TestVersionRegistry:
             assert mock_fetch.call_count == 2
 
     def test_versions_without_format_are_dropped(self, registry: VersionRegistry) -> None:
-        result = ({"26.1.2": 81}, [Version.parse("26.1.2"), Version.parse("26.1.1")])
+        result = (
+            {"26.1.2": 81},
+            {Version.parse("26.1.2"): "1.0.0", Version.parse("26.1.1"): "1.0.0"},
+        )
         with self.patch_fetch(result):
             assert [v.name for v in registry.available()] == ["26.1.2"]
 
     def test_get_specific_version(
-        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
+        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result):
             version = registry.get("26.1.2")
@@ -415,7 +450,7 @@ class TestVersionRegistry:
             assert registry.get("99.99.99") is None
 
     def test_get_latest_and_snapshot_aliases(
-        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
+        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result):
             latest = registry.get("latest")
@@ -425,7 +460,7 @@ class TestVersionRegistry:
         assert snapshot is not None and snapshot.name == "26.2-snapshot-6"
 
     def test_list_in_range(
-        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], list[Version]]
+        self, registry: VersionRegistry, fetch_result: tuple[dict[str, int], dict[Version, str]]
     ) -> None:
         with self.patch_fetch(fetch_result):
             names = [v.name for v in registry.list_in_range(81, 81)]
@@ -440,15 +475,15 @@ class TestFetchVersions:
 
         response = Mock()
         response.json.return_value = [
-            {"game_versions": ["26.1.2", "26.1.1", "26.1"]},
-            {"game_versions": ["26.1.1"]},
-            {"game_versions": ["26.2-snapshot-6"]},
-            {"game_versions": ["26.2-snapshot-5", "26.2-snapshot-4"]},
+            {"version_number": "1.0.0", "game_versions": ["26.1.2", "26.1.1", "26.1"]},
+            {"version_number": "1.0.0", "game_versions": ["26.1.1"]},
+            {"version_number": "1.0.0", "game_versions": ["26.2-snapshot-6"]},
+            {"version_number": "1.0.0", "game_versions": ["26.2-snapshot-5", "26.2-snapshot-4"]},
         ]
         client = AsyncMock()
         client.get.return_value = response
 
-        versions = await _fetch_versions(client)
+        versions = list(await _fetch_versions(client))
         names = [v.name for v in versions]
 
         assert len(names) == len(set(names))
@@ -460,9 +495,52 @@ class TestFetchVersions:
 
         response = Mock()
         response.json.return_value = [
-            {"game_versions": ["26.1.2", "26w14craftmine"]},
+            {"version_number": "1.0.0", "game_versions": ["26.1.2", "26w14craftmine"]},
         ]
         client = AsyncMock()
         client.get.return_value = response
 
         assert [v.name for v in await _fetch_versions(client)] == ["26.1.2"]
+
+    @pytest.mark.anyio
+    async def test_newest_mod_of_each_version(self) -> None:
+        """Modrinth lists by date, and a fix can be published after a newer line."""
+        response = Mock()
+        response.json.return_value = [
+            {"version_number": "1.2.1+26.3", "game_versions": ["26.3"]},
+            {"version_number": "1.2.2+26.3", "game_versions": ["26.3"]},
+            {"version_number": "1.2.0+26.2", "game_versions": ["26.2"]},
+            {"version_number": "1.0.0+26.2", "game_versions": ["26.2"]},
+        ]
+        client = AsyncMock()
+        client.get.return_value = response
+
+        mods = await _fetch_versions(client)
+
+        assert {v.name: mod for v, mod in mods.items()} == {"26.3": "1.2.2", "26.2": "1.2.0"}
+
+
+class TestNewestMod:
+    def test_registry_keeps_the_newest_mod(self, tmp_path: Path) -> None:
+        result = ({"26.3": 101}, {Version.parse("26.3"): "1.2.2"})
+        with TestVersionRegistry.patch_fetch(result):
+            registry = VersionRegistry(tmp_path)
+            assert registry.newest_mod(Version.parse("26.3")) == "1.2.2"
+        # Read back from the cache file
+        assert VersionRegistry(tmp_path).newest_mod(Version.parse("26.3")) == "1.2.2"
+
+    def test_old_cache_without_mods_still_reads(self, tmp_path: Path) -> None:
+        (tmp_path / "versions.json").write_text('[{"name": "26.3", "format": 101}]')
+        registry = VersionRegistry(tmp_path)
+        assert registry.available() == [Version.parse("26.3")]
+        assert registry.newest_mod(Version.parse("26.3")) is None
+
+    @pytest.mark.parametrize(
+        ("newer", "older"),
+        [("1.2.2", "1.2.1"), ("1.10.0", "1.9.3"), ("2.0.0+26.3", "1.4.2"), ("1.0.0", "1.0.0-rc")],
+    )
+    def test_release_numbers_order(self, newer: str, older: str) -> None:
+        assert release_numbers(newer) >= release_numbers(older)
+
+    def test_release_numbers_of_garbage_sort_lowest(self) -> None:
+        assert release_numbers("nightly") == ()

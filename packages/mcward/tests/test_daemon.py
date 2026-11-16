@@ -259,6 +259,20 @@ class TestStop:
             assert not (running.directory / PID_FILE).exists()
             assert not (running.directory / PORT_FILE).exists()
 
+    def test_stop_keeps_the_files_of_a_newer_daemon(self, running: RunningProcess) -> None:
+        """Another process started a daemon while this one was stopping."""
+        (running.directory / PID_FILE).write_text("67890")
+
+        with (
+            patch("mcward._daemon._bridge.connect"),
+            patch("mcward._daemon._bridge.send_message"),
+            patch("psutil.Process", side_effect=psutil.NoSuchProcess(12345)),
+        ):
+            stop(running)
+
+        assert (running.directory / PID_FILE).read_text() == "67890"
+        assert (running.directory / PORT_FILE).exists()
+
     def test_stop_sends_stop_command(self, running: RunningProcess) -> None:
         mock_socket = MagicMock()
         mock_psutil = Mock(spec=psutil.Process)
