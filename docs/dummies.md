@@ -1,23 +1,25 @@
 # Dummies
 
 Dummies are fake players. Use them to test anything that needs a player:
-using items, opening containers, taking damage, triggering advancements.
-They are inspired by [Carpet](https://github.com/gnembon/fabric-carpet)'s fake players.
+using items, opening containers, taking damage, and triggering advancements.
 
 A dummy behaves like a real player on the server:
 
 - It spawns in survival mode.
+- Without a name it is called `dummy-1`, `dummy-2`, and so on, counted from 1 in each batch
+  of tests, so a run gives the same names every time.
 - It has gravity, takes damage, uses items and containers.
 - It matches `@a` and `@p`, and receives chat.
 - It is never saved with the world.
 - When it dies it waits on the death screen. Use `/dummy <name> respawn`,
   or set the `immediate_respawn` game rule so dummies respawn on their own.
-- A dummy spawned by a test leaves when the test ends. A dummy spawned anywhere
-  else, such as an environment function, stays until something removes it.
+- A dummy spawned by a test leaves when the test ends, and its scores and its
+  team go with it. A dummy spawned anywhere else, such as an environment
+  function, stays until something removes it.
 
 ## Create a dummy
 
-The easiest way is the [`@dummy` directive](directives.md). It spawns a dummy
+Use the [`@dummy` directive](directives.md). It spawns a dummy
 when the test starts and runs the test as that dummy, so it is `@s`:
 
 ```mcfunction
@@ -43,7 +45,7 @@ A dummy spawns at the bottom center of the block it is given.
 A dummy is 1.8 blocks tall and the default test area is one block high, closed
 by a barrier ceiling. A dummy that stays there suffocates: it loses health
 every few ticks. Give it headroom with a taller template such as
-[`ward:empty/3x3x3`](directives.md#empty-templates), or with `@skyaccess`,
+[`ward:empty/3x3x3`](world.md#test-areas), or with `@skyaccess`,
 which removes the ceiling.
 
 ## Commands

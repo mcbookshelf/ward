@@ -8,7 +8,7 @@ mcward bench "function mypack:sort/bubble" "function mypack:sort/quick" \
     --setup "function mypack:sort/fill"
 ```
 
-```
+```text
 Benchmark 1: function mypack:sort/bubble
   Time (mean ± σ):    412.3 µs ± 9.8 µs    0.82% of a tick
   Range (min … p95):  398.1 µs … 431.0 µs  median 410.9 µs
@@ -31,9 +31,10 @@ takes. The command count and the allocated bytes are the cost of one run.
 
 ## Options
 
-```
+```text
 mcward bench [-p <pack>]... [-v <version>]... [--setup <command>]...
-             [--prepare <command>]... [--batch <n>] [--json <file>] <command>...
+             [--prepare <command>]... [--batch <n>] [--json <file>]
+             [--world <path>] <command>...
 ```
 
 - `<command>`: one or more commands to time. Quote each one.
@@ -44,8 +45,9 @@ mcward bench [-p <pack>]... [-v <version>]... [--setup <command>]...
   during a warmup, so that one sample is long enough to be timed.
 - `--json <file>`: writes the results with every sample. Times are in
   nanoseconds per run.
-- `-p` and `-v` work as for [`mcward test`](cli.md). With several versions,
-  the bench runs on each, one after the other.
+- `-p`, `-v`, and `--world` work as for [`mcward test`](cli.md), and so does the
+  `world` of [`ward.toml`](cli.md#wardtoml). With several versions, the bench runs on each, one
+  after the other.
 
 ## What is measured
 
@@ -58,7 +60,7 @@ Commands run as the server, in the overworld, on the floor of a loaded chunk.
 A command that fails is still timed, since some fail on purpose. Its first
 error is shown, so that a typo does not go unnoticed:
 
-```
+```text
 Benchmark 1: function mypack:sort/quik
   ! first run failed: Unknown function 'mypack:sort/quik'
 ```
@@ -74,7 +76,7 @@ A command that does not parse, or that goes over the
   little. The ratio between two commands stays useful.
 - The second command runs on a Java runtime that the first one warmed up. If
   two results are close, swap their order and compare again.
-- The test world is flat and empty, with no player. Selectors and chunk loads
-  cost less there than on a real server.
+- Without a saved world, the test world is flat and empty, with no player.
+  Selectors and chunk loads cost less there than on a real server.
 - Only the work done at once is timed. A command that schedules work for
   later ticks looks cheaper than it is.

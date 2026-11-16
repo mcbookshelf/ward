@@ -10,9 +10,9 @@ The summary prints after the results. It counts three things:
 
 - **Commands** in `function` files.
 - **Conditions** in JSON files: predicates, loot tables, item modifiers,
-  advancements, number providers.
+  advancements, and number providers.
 - **Parts that run** in JSON files: the rolls and entries of a loot table,
-  loot functions, number providers, slot sources and advancement criteria.
+  loot functions, number providers, slot sources, and advancement criteria.
 
 The report only covers the namespace you test. `mcward test mypack:*`
 reports `mypack`.
@@ -34,8 +34,8 @@ per version.
 
 ## Require a minimum
 
-A run can fail when coverage is too low. Set the percentage in a `ward.toml`
-file in the folder where you run the tests:
+A run can fail when coverage is too low. Set the percentage in
+[`ward.toml`](cli.md#wardtoml):
 
 ```toml
 [coverage]
@@ -44,7 +44,7 @@ minimum = 80
 
 The run then ends with an error and exit code 1:
 
-```
+```text
 Coverage: 72.4% (181/250, 40/52 files)
 
 Coverage 72.4% is below the minimum of 80%
@@ -67,7 +67,7 @@ table to also set what each namespace has to reach on its own:
 minimum = { total = 80, namespace = 60 }
 ```
 
-```
+```text
 Coverage: 84.1% (420/500, 61/70 files)
   bs.health   91.0%   91/100  12/12 files
   bs.math     52.3%   68/130   9/14 files
@@ -92,8 +92,8 @@ say until the file ends or coverage turns back on
 # @coverage on
 ```
 
-JSON files have no comments. Put their rules in a `ward.toml` file in the
-folder where you run the tests:
+JSON files have no comments. Put their rules in
+[`ward.toml`](cli.md#wardtoml):
 
 ```toml
 [coverage]
@@ -106,7 +106,7 @@ ignore = [
 ```
 
 - A plain string ignores every file matching the id, functions and JSON alike.
-- `kind` limits a rule to one folder (`predicate`, `loot_table`, `function`, ...).
+- `kind` limits a rule to one folder, such as `predicate`, `loot_table`, or `function`.
 - `nodes` keeps the file but ignores the given JSON paths.
 - `lines` ignores lines of a function, as numbered in the report.
 

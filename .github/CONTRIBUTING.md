@@ -88,6 +88,14 @@ The notes of a release list the commits since the previous tag of its stream
 that touched its files: `packages/` and `pyproject.toml` for Python, `src/` and
 the Gradle files for the mod. A change to both shows in both.
 
+The bridge protocol between the CLI and the mod stays at 1. Every published mod
+rejects another number, and an old Minecraft version may never get a newer mod,
+so a bump would cut the CLI off from it. The protocol only grows instead: never
+remove or rename an event or a field, and never change what one means. A mod
+names what it can do in the `features` of its status. The CLI never needs a
+feature for a plain run, and fails with a clear error only when an option needs
+one the mod lacks.
+
 Follow semver when picking a version: new functionality bumps minor,
 bugfixes bump patch, breaking changes bump major.
 

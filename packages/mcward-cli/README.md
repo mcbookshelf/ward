@@ -4,7 +4,7 @@ Command-line interface for [Ward](https://github.com/mcbookshelf/ward), a testin
 framework for Minecraft datapacks using mcfunction.
 
 Provides the `mcward` command: install and manage test server versions, run
-datapack tests with a live display, and control the Ward daemon. Most users
+datapack tests with a live display, and control the test servers. Most users
 want the [`mcward`](https://pypi.org/project/mcward/) package instead:
 
 ```

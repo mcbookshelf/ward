@@ -23,77 +23,16 @@ directive, whatever it starts with.
 | `@max_ticks` | ticks | `100` | How long the test may run before it fails. Alias: `@timeout` |
 | `@setup_ticks` | ticks | `0` | Ticks the environment runs before the test starts |
 | `@optional` | `true`/`false` | `false` | A failure is reported but does not fail the run |
-| `@template` | structure id | `minecraft:empty` | Structure placed as the test area. Alias: `@structure` |
+| `@template` | structure id | `minecraft:empty` | Template placed as the [test area](world.md#test-areas). Alias: `@structure` |
 | `@environment` | environment id | `minecraft:default` | [Test environment](environments.md) the test runs in |
 | `@dimension` | dimension id | `minecraft:overworld` | Dimension the test runs in |
-| `@rotation` | `-90`, `0`, `90`, `180` | `0` | Rotation of the test structure |
+| `@rotation` | `-90`, `0`, `90`, `180` | `0` | Rotation of the test area |
 | `@max_attempts` | count | `1` | How many times a flaky test may run before it fails |
 | `@required_successes` | count | `1` | Passing runs needed, together with `@max_attempts` |
-| `@padding` | `0` to `128` | `0` | Empty space around the structure, to keep tests apart |
-| `@skyaccess` | `true`/`false` | `false` | Keeps the sky above the structure open. Alias: `@sky_access` |
+| `@padding` | `0` to `128` | `0` | Empty space around the test area |
+| `@skyaccess` | `true`/`false` | `false` | Keeps the sky above the test area open. Alias: `@sky_access` |
 | `@dummy` | position | none | Spawns a [dummy](dummies.md) and runs the test as it |
 
 Boolean directives can be bare: `# @optional` means `true`.
 `# @dummy` without a position spawns at `~ ~ ~`.
 Names ignore case, and a directive written twice keeps its last value.
-
-## Test world
-
-Each run starts in a new world, and nothing is saved. No experiment is
-enabled: villager trades and loot are the ones of a default world.
-
-The three vanilla dimensions are flat: grass in the overworld (plains), basalt
-in the Nether (basalt deltas) and end stone in the End. The test area sits a
-few blocks above that floor.
-
-### Saved world
-
-With [`--world`](cli.md#saved-world), each run starts in a copy of your save
-instead. Nothing is saved there either: what a test changes is gone on the
-next run, and your own files are never written.
-
-- Blocks, entities, scores, command storage, game rules, time and the spawn
-  point are the ones of the save.
-- The dimensions are the ones of the save too: its Nether, its End, and the
-  ones your packs add. `@dimension` works the same.
-- Only the packs under test load. The `datapacks` folder of the save is left
-  out, and so are its list of enabled packs and its experiments.
-- Test areas are placed far from the map: at a random spot, up to millions of
-  blocks from the origin, a few blocks above the bottom of the world. In a void
-  world they hang in the void. In a world with terrain, that terrain is
-  generated around them, which is slower, and the areas are underground.
-- A world border saved with the map does not move, so the test areas are
-  outside of it and living entities take border damage there.
-
-A test starts once its own area is loaded. The chunks of the map are not
-loaded for it: load the ones you use and wait for them. Chunks read from disk
-take a few ticks longer than flat ones.
-
-```mcfunction
-forceload add 100 200
-await loaded 100 64 200
-assert block 100 64 200 minecraft:barrel
-```
-
-## Empty templates
-
-The default template, `minecraft:empty`, is a single block of air. Minecraft
-closes the test area with barriers: a floor, four walls, and a ceiling unless
-`@skyaccess` is set.
-
-Test areas sit in rows of 8, a few blocks apart, and the tests of a batch all
-run at the same time. So a test that builds outside its own area can reach
-the area of another test.
-
-Ward comes with larger empty templates for tests that need room:
-`ward:empty/3x3x3`, `ward:empty/5x5x5` and `ward:empty/9x9x9`.
-
-```mcfunction
-# @template ward:empty/5x5x5
-
-fill ~1 ~ ~1 ~3 ~ ~3 minecraft:stone
-assert block ~2 ~ ~2 minecraft:stone
-```
-
-`~ ~ ~` is the north-west bottom corner of the template, not its center.
-The center of a `3x3x3` template is `~1 ~ ~1`.
