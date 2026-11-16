@@ -4,33 +4,22 @@ on:
     branches: [main, "[0-9]*.[0-9]*"]
   pull_request:
 
-jobs:
-  build:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: checkout repository
-        uses: actions/checkout@v7
-      - name: validate gradle wrapper
-        uses: gradle/actions/wrapper-validation@v6
-      - name: setup jdk
-        uses: actions/setup-java@v5
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-      - name: setup just
-        uses: extractions/setup-just@v4
-      - name: build the mod
-        run: |
-          chmod +x ./gradlew
-          just build
-      - name: upload mod jar
-        uses: actions/upload-artifact@v7
-        with:
-          name: ward-jar
-          path: build/libs/
+permissions:
+  contents: read
 
+# A new push to a pull request cancels its older run; runs on main always finish
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
   check:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The daemon code has Windows branches
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: checkout repository
         uses: actions/checkout@v7
@@ -45,6 +34,7 @@ jobs:
       - name: lint, type-check and test
         run: just check
       - name: check packaging
+        if: runner.os == 'Linux'
         run: |
           uv build --all-packages
           uvx twine check dist/*
@@ -54,24 +44,39 @@ jobs:
     steps:
       - name: checkout repository
         uses: actions/checkout@v7
+      - name: validate gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
+      - name: setup gradle
+        uses: gradle/actions/setup-gradle@v6
       - name: setup uv
         uses: astral-sh/setup-uv@v9.0.0
         with:
           enable-cache: true
       - name: setup just
         uses: extractions/setup-just@v4
+      # Builds the mod as the dev environment, so a separate build job would only repeat it
       - name: run the integration suite
+        run: just verify
+      - name: check the command tree
         run: |
-          chmod +x ./gradlew
-          just verify
-      - name: upload server log on failure
+          ./gradlew runGenerateCommands
+          uv run tools/commands.py --check
+      - name: upload mod jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: ward-jar
+          path: build/libs/
+      - name: upload server logs on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: verify-server-log
-          path: ~/.cache/mcward/environments/dev/*/logs/latest.log
+          name: verify-server-logs
+          path: |
+            ~/.cache/mcward/environments/dev/*/logs/latest.log
+            ~/.cache/mcward/environments/dev/*/ward.log
+            ~/.cache/mcward/environments/dev/*/crash-reports/
