@@ -3,6 +3,7 @@
 from pkgutil import extend_path
 
 from ._bench import BenchComparison, BenchReport, compare, run_bench
+from ._config import WardConfig
 from ._coverage import (
     ConditionNode,
     CoverageConfig,
@@ -54,7 +55,7 @@ from ._sources import (
     scan_functions,
 )
 from ._versions import Version, VersionRegistry
-from ._worlds import check_world, configured_world
+from ._worlds import check_world
 
 __all__ = [
     "AssetNotFoundError",
@@ -101,11 +102,11 @@ __all__ = [
     "VersionNotFoundError",
     "VersionOutcome",
     "VersionRegistry",
+    "WardConfig",
     "WardError",
     "check_world",
     "command_lines",
     "compare",
-    "configured_world",
     "find_java",
     "ignored_lines",
     "json_spans",
