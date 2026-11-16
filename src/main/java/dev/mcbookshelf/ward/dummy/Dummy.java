@@ -1,8 +1,6 @@
 package dev.mcbookshelf.ward.dummy;
 
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import com.mojang.authlib.GameProfile;
 import org.jspecify.annotations.Nullable;
@@ -10,6 +8,7 @@ import org.jspecify.annotations.Nullable;
 import net.minecraft.advancements.triggers.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket;
@@ -45,6 +44,8 @@ import net.minecraft.world.phys.Vec3;
  * Inspired by the fake player of Carpet (https://github.com/gnembon/fabric-carpet).
  */
 public class Dummy extends ServerPlayer {
+	private static int lastNumber;
+
 	public final ResourceKey<Level> spawnDimension;
 	public final Vec3 spawnPosition;
 	public final Vec2 spawnRotation;
@@ -54,15 +55,19 @@ public class Dummy extends ServerPlayer {
 		String username;
 
 		do {
-			username = "dummy-" + ThreadLocalRandom.current().nextInt(1_000_000_000, Integer.MAX_VALUE);
+			username = "dummy-" + ++lastNumber;
 		} while (players.getPlayerByName(username) != null);
 		return Dummy.create(username, level, position, rotation);
+	}
+
+	public static void resetNames() {
+		lastNumber = 0;
 	}
 
 	public static Dummy create(String username, ServerLevel level, Vec3 position, Vec2 rotation) {
 		position = Vec3.atBottomCenterOf(BlockPos.containing(position));
 		MinecraftServer server = level.getServer();
-		GameProfile profile = new GameProfile(UUID.randomUUID(), username);
+		GameProfile profile = new GameProfile(UUIDUtil.createOfflinePlayerUUID(username), username);
 		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
 		Dummy instance = new Dummy(server, level, profile, cookie.clientInformation(), level.dimension(), position, rotation);
 		FakeConnection connection = new FakeConnection(PacketFlow.SERVERBOUND);

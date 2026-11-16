@@ -249,10 +249,16 @@ public class TestExecutor {
 		}
 
 		private void end() {
+			MinecraftServer server = server();
+
 			for (Dummy dummy : TestExecutor.this.dummies) {
-				if (server().getPlayerList().getPlayer(dummy.getUUID()) instanceof Dummy connected) {
+				if (server.getPlayerList().getPlayer(dummy.getUUID()) instanceof Dummy connected) {
 					connected.leave(Component.literal("Test finished"));
 				}
+
+				// Vanilla keeps the scores and team of a player that left, and the next dummy reuses the name
+				server.getScoreboard().resetAllPlayerScores(dummy);
+				server.getScoreboard().removePlayerFromTeam(dummy.getScoreboardName());
 			}
 		}
 	}

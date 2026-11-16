@@ -44,6 +44,7 @@ import net.minecraft.world.level.storage.LevelData;
 import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
 import dev.mcbookshelf.ward.coverage.Coverage;
+import dev.mcbookshelf.ward.dummy.Dummy;
 
 final class TestRunner implements Runner {
 	private static final int TEST_POSITION_RANGE = 14999992;
@@ -201,6 +202,7 @@ final class TestRunner implements Runner {
 	private final class BatchListener implements GameTestBatchListener {
 		@Override
 		public void testBatchStarting(GameTestBatch batch) {
+			Dummy.resetNames();
 			TestRunner.this.results.batchStarted(batch);
 		}
 
