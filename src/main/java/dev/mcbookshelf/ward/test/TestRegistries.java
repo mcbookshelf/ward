@@ -50,6 +50,13 @@ public class TestRegistries {
 		return TEST_REGISTRY_KEYS.contains(registryKey);
 	}
 
+	/**
+	 * Skipping is only safe where no save can lose what referred to the element.
+	 */
+	public static boolean skipsBrokenElements(Identifier registry) {
+		return Ward.DAEMON || TEST_REGISTRY_KEYS.stream().anyMatch(key -> key.identifier().equals(registry));
+	}
+
 	public CompletableFuture<RegistryAccess.Frozen> load(ResourceManager manager, Executor executor) {
 		return RegistryDataLoader.load(manager, this.registries.listRegistries().toList(), TEST_REGISTRIES, executor);
 	}

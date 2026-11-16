@@ -90,6 +90,7 @@ absent = ["ward:coverage/excluded", "ward:coverage/muted"]
 "ward:flaky_exhausted" = "flaky ran out of attempts"
 "ward:errored_function" = "Unknown function 'ward:helper/missing'"
 "ward:negated_count_expected" = "found 1"
+"ward:chat_sample_expected" = '2 earlier, then "chat sample 3"'
 "ward:deadline_expected" = { message = "at the deadline", line = 4, tick = 20 }
 "ward:predicate_inline_expected" = "random_chance"
 "ward:result_none_expected" = "the command did not run"

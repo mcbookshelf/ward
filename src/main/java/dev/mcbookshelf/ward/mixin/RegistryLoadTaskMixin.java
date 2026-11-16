@@ -15,6 +15,7 @@ import net.minecraft.resources.ResourceManagerRegistryLoadTask;
 import dev.mcbookshelf.ward.Messages;
 import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
+import dev.mcbookshelf.ward.test.TestRegistries;
 
 @Mixin(RegistryLoadTask.class)
 public class RegistryLoadTaskMixin {
@@ -30,7 +31,7 @@ public class RegistryLoadTaskMixin {
 		loadingErrors.entrySet().removeIf(entry -> {
 			ResourceKey<?> key = entry.getKey();
 
-			if (key.registry().equals(Registries.ROOT_REGISTRY_NAME)) {
+			if (key.registry().equals(Registries.ROOT_REGISTRY_NAME) || !TestRegistries.skipsBrokenElements(key.registry())) {
 				return false;
 			}
 
