@@ -42,6 +42,7 @@ import net.minecraft.util.worldupdate.UpgradeProgress;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.WorldDimensions;
 import net.minecraft.world.level.levelgen.WorldGenSettings;
 import net.minecraft.world.level.levelgen.WorldOptions;
@@ -148,6 +149,16 @@ public class WardServer extends MinecraftServer {
 				complete.dimensionsRegistryAccess());
 	}
 
+	/**
+	 * No weather and no mob a test did not summon; a test environment can turn them on.
+	 */
+	private static GameRules flatGameRules() {
+		GameRules rules = MinecraftServer.DEFAULT_GAME_RULES.get();
+		rules.set(GameRules.SPAWN_MOBS, false, null);
+		rules.set(GameRules.ADVANCE_WEATHER, false, null);
+		return rules;
+	}
+
 	private WardServer(
 			WardDaemon daemon,
 			Thread serverThread,
@@ -161,7 +172,7 @@ public class WardServer extends MinecraftServer {
 				storageSource,
 				packs,
 				worldStem,
-				Optional.empty(),
+				saved ? Optional.empty() : Optional.of(flatGameRules()),
 				Proxy.NO_PROXY,
 				DataFixers.getDataFixer(),
 				WardServices.offline(),

@@ -2,6 +2,7 @@
 
 passed = [
   "ward:world_flat",
+  "ward:world_still",
   "ward:assert_block",
   "ward:assert_blocks",
   "ward:assert_entity",
@@ -42,6 +43,7 @@ passed = [
   "ward:dummy_input",
   "ward:coverage_modifier",
   "ward:environment_game_rules",
+  "ward:environment_lively",
   "ward:environment_missing_function",
   "ward:dummy_ghost",
   "ward:dummy_dimension",
@@ -265,5 +267,6 @@ passed = [
   "world:entity",
   "world:nether",
   "world:packs",
+  "world:rules",
   "world:saved_data",
 ]
