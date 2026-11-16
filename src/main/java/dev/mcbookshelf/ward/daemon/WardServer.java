@@ -5,8 +5,10 @@ import java.net.Proxy;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Dynamic;
 import org.jspecify.annotations.Nullable;
@@ -54,10 +56,12 @@ import net.minecraft.world.level.storage.LevelSummary;
 import net.minecraft.world.level.storage.PrimaryLevelData;
 
 import dev.mcbookshelf.ward.Messages;
+import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
 
 public class WardServer extends MinecraftServer {
 	private static final WorldOptions WORLD_OPTIONS = new WorldOptions(0L, false, false);
+	private static final long HEARTBEAT_INTERVAL = TimeUnit.SECONDS.toNanos(5);
 
 	private final LocalSampleLogger sampleLogger = new LocalSampleLogger(4);
 	private final WardDaemon daemon;
@@ -66,6 +70,8 @@ public class WardServer extends MinecraftServer {
 	private @Nullable Runner runner;
 	private boolean ended;
 	private @Nullable Throwable failure;
+	// Null until the first tick, whose heartbeat arms the client's timeout
+	private @Nullable Long lastHeartbeat;
 
 	static WardServer create(
 			WardDaemon daemon,
@@ -219,6 +225,7 @@ public class WardServer extends MinecraftServer {
 			return;
 		}
 
+		sendHeartbeat();
 		super.tickServer(haveTime);
 
 		if (!this.tickRateManager().runsNormally()) {
@@ -241,6 +248,13 @@ public class WardServer extends MinecraftServer {
 			this.failure = e;
 			this.halt(false);
 		}
+	}
+
+	private void sendHeartbeat() {
+		long now = System.nanoTime();
+		if (this.lastHeartbeat != null && now - this.lastHeartbeat < HEARTBEAT_INTERVAL) return;
+		this.lastHeartbeat = now;
+		Reporter.send("heartbeat", new JsonObject());
 	}
 
 	@Override

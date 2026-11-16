@@ -8,8 +8,9 @@ from unittest.mock import MagicMock, Mock, patch
 import psutil
 import pytest
 
-from mcward import Java, ProcessConnectionError, ProcessStartupError
+from mcward import Java, ProcessConnectionError, ProcessStartupError, ProcessTimeoutError
 from mcward._constants import (
+    HEARTBEAT_TIMEOUT,
     OUTPUT_FILE,
     PID_FILE,
     PORT_FILE,
@@ -523,6 +524,47 @@ class TestStreamTests:
         ):
             with pytest.raises(ProcessConnectionError, match="before the run finished"):
                 list(stream_tests(address))
+
+
+class TestHeartbeat:
+    """The first heartbeat bounds the wait for the next event."""
+
+    @staticmethod
+    def stream(messages, timeout: float | None = None) -> tuple[MagicMock, list]:
+        socket = MagicMock()
+        conn = socket.__enter__.return_value
+        result: list = []
+        with (
+            patch("mcward._daemon._bridge.connect", return_value=socket),
+            patch("mcward._daemon._bridge.send_message"),
+            patch("mcward._daemon._bridge.receive_messages", return_value=messages),
+        ):
+            result.extend(stream_tests(("127.0.0.1", 25565), timeout=timeout))
+        return conn, result
+
+    def test_first_heartbeat_arms_the_timeout(self) -> None:
+        finished = {"type": "tests_finished", "elapsed": 1}
+        conn, result = self.stream(iter([{"type": "heartbeat"}, {"type": "heartbeat"}, finished]))
+        conn.settimeout.assert_called_once_with(HEARTBEAT_TIMEOUT)
+        assert len(result) == 1
+
+    def test_timeout_of_the_caller_wins(self) -> None:
+        finished = {"type": "tests_finished", "elapsed": 1}
+        conn, _ = self.stream(iter([{"type": "heartbeat"}, finished]), timeout=600)
+        conn.settimeout.assert_not_called()
+
+    def test_no_heartbeat_no_timeout(self) -> None:
+        finished = {"type": "tests_finished", "elapsed": 1}
+        conn, _ = self.stream(iter([finished]))
+        conn.settimeout.assert_not_called()
+
+    def test_silence_after_a_heartbeat_says_the_server_stopped(self) -> None:
+        def messages():
+            yield {"type": "heartbeat"}
+            raise ProcessTimeoutError("Socket timeout while receiving messages")
+
+        with pytest.raises(ProcessConnectionError, match="stopped ticking"):
+            self.stream(messages())
 
 
 class TestWaitReady:

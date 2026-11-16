@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from ._constants import SOCKET_CONNECT_TIMEOUT
-from ._exceptions import ProcessConnectionError
+from ._exceptions import ProcessConnectionError, ProcessTimeoutError
 
 
 @contextmanager
@@ -55,7 +55,7 @@ def receive_messages(
                 if line := line.strip():
                     yield json.loads(line)
     except TimeoutError as e:
-        raise ProcessConnectionError("Socket timeout while receiving messages") from e
+        raise ProcessTimeoutError("Socket timeout while receiving messages") from e
     except json.JSONDecodeError as e:
         raise ProcessConnectionError(f"Invalid JSON from process: {e}") from e
     except OSError as e:

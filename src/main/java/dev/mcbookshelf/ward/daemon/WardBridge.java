@@ -66,6 +66,8 @@ public final class WardBridge {
 				.sync()
 				.channel();
 
+		group.scheduleAtFixedRate(daemon::exitIfIdle, 1, 1, TimeUnit.MINUTES);
+
 		int port = ((InetSocketAddress) serverChannel.localAddress()).getPort();
 		Files.writeString(portFile, String.valueOf(port), StandardCharsets.UTF_8);
 		portFile.toFile().deleteOnExit();
