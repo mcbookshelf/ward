@@ -1,4 +1,4 @@
-"""Tests for version curation in the environment selection helpers."""
+"""Tests for version curation and selection in the environment helpers."""
 
 from collections.abc import Iterator
 from unittest.mock import Mock, patch

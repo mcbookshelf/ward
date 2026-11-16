@@ -1,13 +1,4 @@
-"""Bump the version of a Ward release stream.
-
-    uv run tools/bump.py python 1.2.0        # pyproject.toml + lockfile
-    uv run tools/bump.py java 1.2.0          # mod_version in gradle.properties
-    uv run tools/bump.py minecraft 26.2      # retarget the mod's Minecraft
-
-minecraft also resolves the fabric-loader and fabric-api builds for that
-version, and exits 2 when the toolchain has no build for it yet (retry later).
-Bumping is the release request: once the change lands, release.py publishes it.
-"""
+"""Bump a release stream: python, java or minecraft (exit 2 while Fabric has no build)."""
 
 import argparse
 import io
@@ -61,11 +52,7 @@ def main() -> int:
 
 
 def bump_minecraft(minecraft: str) -> int:
-    """Retarget gradle.properties to the given Minecraft version.
-
-    Resolves the matching fabric-loader and fabric-api; exits 2 when either
-    has no build for the version yet.
-    """
+    """Retarget gradle.properties with its fabric-loader and fabric-api; 2 if none yet."""
     with httpx.Client(timeout=30, headers={"User-Agent": USER_AGENT}) as client:
         loaders = get_json(client, f"{FABRIC_META}/versions/loader/{minecraft}")
         if not loaders:

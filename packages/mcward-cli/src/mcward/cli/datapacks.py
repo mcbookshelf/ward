@@ -63,11 +63,7 @@ def format_range(datapacks: Sequence[DataPack]) -> tuple[int, int]:
 
 
 def pack_resolver(datapacks: Sequence[Path]) -> FileResolver:
-    """Resolve resources against the datapack directories themselves.
-
-    Zipped datapacks never resolve: there is no file to point at inside an
-    archive, so their failures render without a path.
-    """
+    """Resolve resources to files of the pack directories; zipped packs have none."""
 
     def resolve(folder: str, resource: str) -> str | None:
         if ":" not in resource:
@@ -91,10 +87,7 @@ def workspace_path(file: Path) -> str | None:
 
 
 def _is_datapack(path: Path) -> bool:
-    """A directory or a zip with a pack.mcmeta and a data folder at its root.
-
-    The data folder tells a datapack from a resource pack, which has the same pack.mcmeta.
-    """
+    """A directory or zip with a pack.mcmeta and a data folder (a resource pack has none)."""
     if path.is_dir():
         return (path / "pack.mcmeta").is_file() and (path / "data").is_dir()
     if path.suffix == ".zip" and zipfile.is_zipfile(path):

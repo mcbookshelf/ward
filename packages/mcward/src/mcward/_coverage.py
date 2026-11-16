@@ -33,9 +33,7 @@ _IGNORE_SHAPE = (
 
 @dataclass(frozen=True)
 class IgnoreRule:
-    """One coverage exclusion: an element id glob, optionally pinned to a kind
-    (ids are not unique across registries) and narrowed to JSON node paths or
-    function lines. Without ``nodes`` or ``lines`` the whole element drops."""
+    """One exclusion: an id glob, optionally limited to a kind, node paths or lines."""
 
     id: str
     kind: str | None = None
@@ -48,8 +46,7 @@ class IgnoreRule:
 
 @dataclass(frozen=True)
 class CoverageIgnores:
-    """Report-time exclusions from ``ward.toml``: a list of ignore entries,
-    each a bare id glob or a ``{ kind, id, nodes, lines }`` table."""
+    """The ``ignore`` list of ward.toml: id globs or ``{ kind, id, nodes, lines }`` tables."""
 
     rules: tuple[IgnoreRule, ...] = ()
 
@@ -78,8 +75,7 @@ class CoverageIgnores:
 
 @dataclass(frozen=True)
 class CoverageMinimum:
-    """The percentages a run has to reach: for everything it reports together,
-    and for each namespace on its own."""
+    """The percentages a run has to reach: overall, and for each namespace."""
 
     total: float | None = None
     namespace: float | None = None
@@ -87,8 +83,7 @@ class CoverageMinimum:
 
 @dataclass(frozen=True)
 class CoverageConfig:
-    """The ``[coverage]`` table of ``ward.toml``: what to leave out of the
-    report, and the percentages a run has to reach."""
+    """The ``[coverage]`` table of ward.toml."""
 
     ignores: CoverageIgnores = CoverageIgnores()
     minimum: CoverageMinimum = CoverageMinimum()
@@ -148,10 +143,7 @@ def _parse_rule(source: str, entry: object) -> IgnoreRule:
 
 
 def _match_path(path: str, pattern: str) -> bool:
-    """Whether the node path matches the pattern, where ``*`` matches any run.
-
-    Paths contain brackets, which fnmatch would read as character classes.
-    """
+    """Glob match where ``*`` is any run; fnmatch would read the brackets as classes."""
     return re.fullmatch(".*".join(map(re.escape, pattern.split("*"))), path) is not None
 
 
@@ -229,11 +221,7 @@ class ResourceReport(CoverageReport):
 
     @property
     def counted(self) -> tuple[ConditionNode, ...]:
-        """The conditions that count as branches: the leaves.
-
-        A file holding nothing but combinators (a predicate built from
-        references) falls back to counting those, so it still reports.
-        """
+        """The leaf conditions, or the combinators when the file holds nothing else."""
         leaves = tuple(node for node in self.nodes if not node.combinator)
         if leaves or self.runs:
             return leaves
@@ -270,8 +258,7 @@ class ConditionNode:
 
     @property
     def evaluated(self) -> bool:
-        """Evaluated is covered, whichever way it went: an always-false condition
-        still shows its gap at the site it gates (guarded line, blocked entry)."""
+        """Covered once evaluated, whichever way: its gap shows at the site it gates."""
         return self.passed > 0 or self.failed > 0
 
 

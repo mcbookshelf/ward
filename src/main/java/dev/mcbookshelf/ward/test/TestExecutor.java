@@ -84,6 +84,7 @@ public class TestExecutor {
 
 		Runnable tick = () -> tick(function.commands(), source);
 		this.helper.onEachTick(tick);
+		// onEachTick stops one tick short: this lets a test finish on its deadline tick
 		this.helper.runAtTickTime(this.timeout, tick);
 	}
 
@@ -121,6 +122,7 @@ public class TestExecutor {
 
 		ExecutionContext<CommandSourceStack> used = Objects.requireNonNull(this.context);
 
+		// The engine stops at the chain limit without an error
 		if (used.queueOverflow || used.commandQuota <= 0 && !used.commandQueue.isEmpty()) {
 			int limit = this.helper.getLevel().getGameRules().get(GameRules.MAX_COMMAND_SEQUENCE_LENGTH);
 			throw failure(Messages.translatable("ward.limit", limit));

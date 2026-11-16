@@ -87,6 +87,9 @@ public final class WardDaemon {
 		this.busy = false;
 	}
 
+	/**
+	 * A crash can leave statics half-updated: the client starts a new JVM.
+	 */
 	void crashed(Throwable failure) {
 		Ward.LOGGER.error("Test server crashed, stopping the daemon", failure);
 		this.bridge.sendLastError("server_error", Messages.describe(failure));

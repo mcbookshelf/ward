@@ -9,7 +9,7 @@ import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 
 public final class Assertions {
-	private static final List<Assertion> CONDITIONS = List.of(
+	private static final List<Assertion> ASSERTIONS = List.of(
 			new BiomeAssertion(),
 			new BlockAssertion(),
 			new BlocksAssertion(),
@@ -34,8 +34,8 @@ public final class Assertions {
 			CommandDispatcher<CommandSourceStack> dispatcher,
 			CommandBuildContext context,
 			Assertion.Mode mode) {
-		for (Assertion condition : CONDITIONS) {
-			condition.attach(root, dispatcher, context, mode);
+		for (Assertion assertion : ASSERTIONS) {
+			assertion.attach(root, dispatcher, context, mode);
 		}
 
 		return root;

@@ -77,6 +77,7 @@ class FunctionAssertion implements Assertion {
 
 			int[] returned = {0};
 			Function<CommandSourceStack, EntryAction<CommandSourceStack>> call = source -> {
+				// With the callback, every command of the body would report its result, not only return
 				CommandSourceStack functionSource = FunctionCommand.modifySenderForExecution(source.clearCallbacks());
 
 				return new IsolatedCall<>(control -> {

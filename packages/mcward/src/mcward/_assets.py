@@ -48,11 +48,7 @@ ADOPTIUM_ARCHITECTURES = {
 
 
 async def install(directory: Path, version: Version) -> None:
-    """Install every asset the environment needs, downloading concurrently.
-
-    The produced files are what ``_manager.INSTALLED_FILES`` checks for:
-    the two must move together.
-    """
+    """Download the files of ``_environments.INSTALLED_FILES``, concurrently."""
     async with httpx.AsyncClient(
         timeout=DOWNLOAD_TIMEOUT,
         follow_redirects=True,
@@ -88,7 +84,6 @@ async def _install_fabric(
 async def _install_server(
     client: httpx.AsyncClient, minecraft: str, file: Path, minimum: str | None = None
 ) -> None:
-    """Download the Fabric server launcher for the loader select_loader picks."""
     loaders = await _get_json(client, f"{FABRIC_API}/versions/loader/{minecraft}")
     if not loaders:
         raise AssetNotFoundError("fabric loader", minecraft)
@@ -98,10 +93,7 @@ async def _install_server(
 
 
 def select_loader(loaders: list[dict[str, Any]], minimum: str | None = None) -> str:
-    """The newest stable loader at least the minimum, or else the newest one.
-
-    A mod can require a loader Fabric has not marked stable yet.
-    """
+    """The newest stable loader at or above the minimum, else the newest of all."""
     versions = [x["loader"] for x in loaders]
     accepted = [
         x
@@ -183,7 +175,6 @@ async def _get_json(client: httpx.AsyncClient, url: str, **params: str) -> Any:
 
 
 async def _build_ward(directory: Path) -> None:
-    """Build ward.jar with gradle and copy it into the directory."""
     root = Path.cwd()
     gradle = root / ("gradlew.bat" if sys.platform == "win32" else "gradlew")
 
@@ -224,11 +215,7 @@ def _adoptium_platform() -> tuple[str, str, str]:
 
 
 def _unpack_runtime(archive: Path, runtime: Path) -> None:
-    """Extract the runtime archive inside its staging directory, then rename.
-
-    A losing concurrent install's rename is ignored on purpose: the caller
-    verifies afterwards that a valid runtime is in place.
-    """
+    """Extract in the staging directory, then rename; a concurrent install may win it."""
     extracted = archive.parent / "runtime"
     if archive.suffix == ".zip":
         with zipfile.ZipFile(archive) as file:

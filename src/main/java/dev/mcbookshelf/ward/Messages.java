@@ -19,6 +19,9 @@ public final class Messages {
 		return Component.translatableWithFallback(key, Language.getInstance().getOrDefault(key), args);
 	}
 
+	/**
+	 * The message of an error, without the exception class name some carry in front.
+	 */
 	public static String describe(Throwable error) {
 		String message = error.getMessage();
 		return message == null

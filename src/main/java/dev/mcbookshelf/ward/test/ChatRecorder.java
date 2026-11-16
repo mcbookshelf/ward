@@ -57,6 +57,7 @@ public final class ChatRecorder {
 	public static void broadcast(String text, Runnable delivery) {
 		record(Util.NIL_UUID, text);
 		boolean outer = broadcasting;
+		// The copies sent to each player are echoes: a broadcast counts once
 		broadcasting = true;
 
 		try {

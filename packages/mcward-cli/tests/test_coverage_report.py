@@ -170,8 +170,7 @@ class TestRenderCoverage:
 
         lines = rendered_lines(coverage, tmp_path, verbose=True)
         row = next(line for line in lines if "demo:gate" in line)
-        # The any_of root is a combinator (not a branch); the evaluated term
-        # counts as covered even though it only ever passed
+        # The any_of root is a combinator: its evaluated term counts as covered
         assert "~ demo:gate (predicate) 1/2" in row
         assert "never terms[1]" in row
         assert "terms[0]" not in row and "(root)" not in row

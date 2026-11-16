@@ -1,5 +1,3 @@
-"""CLI commands."""
-
 from .bench import bench
 from .daemon import start, status, stop
 from .install import clean, install

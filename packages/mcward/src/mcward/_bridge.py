@@ -15,7 +15,6 @@ def connect(
     address: tuple[str, int],
     timeout: float = SOCKET_CONNECT_TIMEOUT,
 ) -> Generator[socket.socket]:
-    """Open a TCP connection to the given address, closing it on exit."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(timeout)
 
@@ -31,7 +30,6 @@ def connect(
 
 
 def send_message(sock: socket.socket, message: dict[str, Any]) -> None:
-    """Send one newline-terminated JSON message."""
     data = json.dumps(message) + "\n"
     try:
         sock.sendall(data.encode("utf-8"))
@@ -43,11 +41,7 @@ def receive_messages(
     sock: socket.socket,
     timeout: float | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """Yield each line-delimited JSON message the peer sends.
-
-    A ``timeout`` of ``None`` blocks between messages indefinitely; the stream
-    then only ends when the peer closes the connection.
-    """
+    """Yield each JSON line the peer sends, until it closes or ``timeout`` passes."""
     try:
         sock.settimeout(timeout)
         with sock.makefile("r", encoding="utf-8") as f:

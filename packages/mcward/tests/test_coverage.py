@@ -287,8 +287,7 @@ class TestCoverageIgnores:
         assert resolve_resources(coverage, [tmp_path], ignores=ignores) == []
 
     def test_kind_pins_a_rule_to_one_registry(self, tmp_path: Path) -> None:
-        """Ids are not unique across registries: a predicate and a loot table
-        can share one, so a rule can name the kind it means."""
+        """Ids are not unique across registries, so a rule can name the kind it means."""
         coverage = Coverage(
             functions={},
             conditions={
@@ -434,8 +433,7 @@ class TestResolveResources:
             ("", (1, 6), 2, 1),
             ("term", (3, 5), 0, 3),
         ]
-        # The inverted root is a combinator, so only its term counts as a
-        # branch — evaluated is covered, whichever way it went
+        # The inverted root is a combinator: only its term counts, covered once evaluated
         assert [node.combinator for node in report.nodes] == [True, False]
         assert (report.covered, report.total) == (1, 1)
 

@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import com.llamalad7.mixinextras.sugar.Local;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,22 +18,20 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.StreamTagVisitor;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.IOWorker;
-import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 
 import dev.mcbookshelf.ward.Ward;
 
 /**
- * A daemon never writes its world. It reads the folders a saved world came with;
- * a flat world has none, so its chunks skip the IO thread.
+ * A daemon never writes its world, and only reads the folders a saved world came with.
  */
 @Mixin(IOWorker.class)
 public class IOWorkerMixin {
 	@Unique
-	private boolean empty;
+	private boolean noFolder;
 
 	@Inject(method = "<init>", at = @At("TAIL"))
-	private void findFolder(RegionStorageInfo info, Path dir, boolean sync, CallbackInfo callback) {
-		this.empty = Ward.DAEMON && !Files.isDirectory(dir);
+	private void findFolder(CallbackInfo info, @Local(argsOnly = true) Path dir) {
+		this.noFolder = Ward.DAEMON && !Files.isDirectory(dir);
 	}
 
 	@Inject(method = "store(Lnet/minecraft/world/level/ChunkPos;Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;", at = @At("HEAD"), cancellable = true)
@@ -44,14 +43,14 @@ public class IOWorkerMixin {
 
 	@Inject(method = "loadAsync", at = @At("HEAD"), cancellable = true)
 	private void skipLoad(ChunkPos pos, CallbackInfoReturnable<CompletableFuture<Optional<CompoundTag>>> info) {
-		if (this.empty) {
+		if (this.noFolder) {
 			info.setReturnValue(CompletableFuture.completedFuture(Optional.empty()));
 		}
 	}
 
 	@Inject(method = "scanChunk", at = @At("HEAD"), cancellable = true)
 	private void skipScan(ChunkPos pos, StreamTagVisitor visitor, CallbackInfoReturnable<CompletableFuture<Void>> info) {
-		if (this.empty) {
+		if (this.noFolder) {
 			info.setReturnValue(CompletableFuture.completedFuture(null));
 		}
 	}

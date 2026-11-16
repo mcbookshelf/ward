@@ -123,6 +123,9 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 		}
 	}
 
+	/**
+	 * Vanilla fails the freeze on a holder that was asked for and never registered.
+	 */
 	@Inject(method = "freeze", at = @At("HEAD"))
 	private void dropDanglingReferences(CallbackInfoReturnable<Registry<T>> info) {
 		if (this.frozen || !TestRegistries.skipsBrokenElements(this.key().identifier())) {
