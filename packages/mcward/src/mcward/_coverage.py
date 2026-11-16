@@ -2,7 +2,6 @@
 
 import json
 import re
-import tomllib
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -95,23 +94,15 @@ class CoverageConfig:
     minimum: CoverageMinimum = CoverageMinimum()
 
     @classmethod
-    def load(cls, directory: Path | None = None) -> CoverageConfig:
-        """The settings of the directory's ward.toml, or the defaults without one."""
-        file = (directory or Path.cwd()) / "ward.toml"
-        try:
-            text = file.read_text(encoding="utf-8")
-        except OSError:
-            return cls()
-        try:
-            table = tomllib.loads(text).get("coverage", {})
-        except tomllib.TOMLDecodeError as e:
-            raise WardError(f"Invalid {file.name}: {e}") from e
-
+    def parse(cls, source: str, table: object) -> CoverageConfig:
+        """``source`` names the file in error messages."""
+        if not isinstance(table, dict):
+            raise WardError(f"Invalid {source}: coverage must be a table")
         entries = table.get("ignore", [])
         if not isinstance(entries, list):
-            raise WardError(f"Invalid {file.name}: {_IGNORE_SHAPE}")
-        rules = tuple(_parse_rule(file.name, entry) for entry in entries)
-        return cls(CoverageIgnores(rules), _parse_minimum(file.name, table.get("minimum")))
+            raise WardError(f"Invalid {source}: {_IGNORE_SHAPE}")
+        rules = tuple(_parse_rule(source, entry) for entry in entries)
+        return cls(CoverageIgnores(rules), _parse_minimum(source, table.get("minimum")))
 
 
 def _parse_minimum(source: str, value: object) -> CoverageMinimum:
@@ -347,7 +338,6 @@ def resolve_coverage(
     selector: str = "*:*",
     ignores: CoverageIgnores | None = None,
 ) -> ResolvedCoverage:
-    """Resolve both the function and the resource reports of a run."""
     return ResolvedCoverage(
         resolve_functions(coverage, datapacks, selector, ignores),
         resolve_resources(coverage, datapacks, selector, ignores),
@@ -360,11 +350,7 @@ def resolve_functions(
     selector: str = "*:*",
     ignores: CoverageIgnores | None = None,
 ) -> list[FunctionReport]:
-    """Combine recorded hits with the packs' function sources, sorted by name.
-
-    The report is scoped to the test selector's namespace: running one
-    namespace's tests measures that namespace.
-    """
+    """Recorded hits on the packs' function sources, for the selector's namespace."""
     ignores = ignores or CoverageIgnores()
     scope = _scope_pattern(selector)
     sources = scan_functions(datapacks, coverage.pack_format)
@@ -392,8 +378,7 @@ def _function_report(
     if hits is None:
         hits = FunctionCoverage((0,) * len(lines), (0,) * len(lines))
     if len(lines) != len(hits.reached):
-        # The recorded entries do not match the source (rewritten or shadowed
-        # by another pack): report counts without claiming line numbers
+        # Entries do not match the source (rewritten or shadowed): counts, no line numbers
         file, source, lines = None, None, [None] * len(hits.reached)
 
     excluded = ignores.lines(name)
@@ -415,11 +400,7 @@ def resolve_resources(
     selector: str = "*:*",
     ignores: CoverageIgnores | None = None,
 ) -> list[ResourceReport]:
-    """Locate the recorded nodes in the packs' JSON sources, sorted by kind and name.
-
-    Like :func:`resolve_functions`, the report is scoped to the test selector's
-    namespace.
-    """
+    """Recorded nodes located in the packs' JSON sources, for the selector's namespace."""
     ignores = ignores or CoverageIgnores()
     scope = _scope_pattern(selector)
     elements = {

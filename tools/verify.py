@@ -15,11 +15,11 @@ import tomllib
 from pathlib import Path
 
 from mcward import (
-    CoverageConfig,
     EnvironmentManager,
     InstalledEnvironment,
     RunningEnvironment,
     TestSession,
+    WardConfig,
     resolve_coverage,
     resolve_functions,
     resolve_resources,
@@ -30,7 +30,7 @@ from mcward import (
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 PACKS = [TESTS / "packs" / "ward", TESTS / "packs" / "broken", TESTS / "packs" / "overlay"]
-IGNORES = CoverageConfig.load(TESTS).ignores
+IGNORES = WardConfig.load(TESTS).coverage.ignores
 
 # A saved world and the tests that run in it
 WORLD = TESTS / "world"

@@ -1,16 +1,15 @@
-"""The test command."""
-
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 import rich_click as click
 
-from mcward import TestSession, WardError, configured_world
+from mcward import TestSession
 
 from ..datapacks import DEFAULT_PATTERNS, discover_datapacks
-from ..reports import parse_coverage_report
-from ..session import run_session
+from ..session import check_watch, load_config, rerunnable, run_session, test_options
 from ..watch import watch as watch_tests
+from ..writers import parse_coverage_report
 
 
 @click.command()
@@ -21,63 +20,7 @@ from ..watch import watch as watch_tests
     multiple=True,
     help="Datapack paths or glob patterns",
 )
-@click.option(
-    "--version",
-    "-v",
-    "versions",
-    multiple=True,
-    help="Minecraft version(s) to test on",
-)
-@click.option(
-    "--reporter",
-    type=click.Choice(["live", "github"]),
-    default="live",
-    help="Result output: interactive live display, or GitHub Actions annotations",
-)
-@click.option(
-    "--coverage",
-    is_flag=True,
-    help="Record which function commands run and report line coverage",
-)
-@click.option(
-    "--coverage-report",
-    "coverage_reports",
-    multiple=True,
-    metavar="FORMAT[:PATH]",
-    help="Write coverage as 'lcov' or 'html', with an optional path (repeatable); "
-    "implies --coverage",
-)
-@click.option(
-    "--coverage-min",
-    type=click.FloatRange(0, 100),
-    default=None,
-    metavar="PERCENT",
-    help="Fail the run when coverage is below this percentage; implies --coverage",
-)
-@click.option(
-    "--junit-xml",
-    type=click.Path(dir_okay=False, writable=True, path_type=Path),
-    default=None,
-    help="Write test results as JUnit XML",
-)
-@click.option(
-    "--verbose",
-    is_flag=True,
-    help="List every test and coverage row instead of collapsing large runs",
-)
-@click.option(
-    "--watch",
-    "-w",
-    is_flag=True,
-    help="Run again when a pack file changes, with keys to rerun or filter",
-)
-@click.option(
-    "--world",
-    type=click.Path(exists=True, file_okay=False, path_type=Path),
-    default=None,
-    help="Run the tests in a copy of this world save instead of a flat world",
-)
-@click.argument("selector", default="*:*")
+@test_options
 def test(
     versions: tuple[str, ...],
     packs: tuple[str, ...],
@@ -92,24 +35,16 @@ def test(
     selector: str,
 ) -> None:
     """Run datapack tests."""
-    if watch and reporter == "github":
-        raise click.UsageError("--watch only works with the live reporter")
-
+    check_watch(watch, reporter)
+    config = load_config(world)
     datapacks = discover_datapacks(packs if packs else DEFAULT_PATTERNS)
     if not datapacks:
         raise click.ClickException("Datapack not found")
 
-    try:
-        world = world or configured_world()
-    except WardError as e:
-        raise click.ClickException(str(e)) from e
-
-    chosen = list(versions)
-
-    def run(selector: str) -> TestSession:
-        session = run_session(
+    def run_once(selector: str, versions: Sequence[str]) -> TestSession:
+        return run_session(
             datapacks,
-            versions=chosen,
+            versions=versions,
             reporter=reporter,
             selector=selector,
             coverage=coverage,
@@ -117,14 +52,12 @@ def test(
             coverage_min=coverage_min,
             junit_xml=junit_xml,
             verbose=verbose,
-            world=world,
+            config=config,
         )
-        # Ask for the versions once, not on every rerun
-        chosen[:] = [version.name for version in session.versions]
-        return session
 
+    run = rerunnable(versions, run_once)
     if watch:
         watched = [datapack.path for datapack in datapacks]
-        watch_tests(run, selector, [*watched, world] if world else watched)
+        watch_tests(run, selector, [*watched, config.world] if config.world else watched)
     elif run(selector).failed:
         sys.exit(1)

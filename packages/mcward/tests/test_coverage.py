@@ -8,11 +8,11 @@ import pytest
 
 from mcward import (
     Coverage,
-    CoverageConfig,
     CoverageIgnores,
     CoverageMinimum,
     FunctionCoverage,
     IgnoreRule,
+    WardConfig,
     WardError,
     command_lines,
     ignored_lines,
@@ -321,7 +321,7 @@ class TestCoverageIgnores:
             encoding="utf-8",
         )
 
-        ignores = CoverageConfig.load(tmp_path).ignores
+        ignores = WardConfig.load(tmp_path).coverage.ignores
         assert ignores.element("function", "demo:debug/dump")
         assert not ignores.element("function", "demo:main")
         assert ignores.node("loot_table", "demo:box", "pools[0]")
@@ -330,18 +330,18 @@ class TestCoverageIgnores:
         assert ignores.lines("demo:fill") == {5, 6}
 
     def test_load_without_file_is_empty(self, tmp_path: Path) -> None:
-        assert CoverageConfig.load(tmp_path).ignores == CoverageIgnores()
+        assert WardConfig.load(tmp_path).coverage.ignores == CoverageIgnores()
 
     def test_load_rejects_bad_shapes(self, tmp_path: Path) -> None:
         (tmp_path / "ward.toml").write_text("[coverage]\nignore = 1\n", encoding="utf-8")
         with pytest.raises(WardError):
-            CoverageConfig.load(tmp_path)
+            WardConfig.load(tmp_path)
 
     def test_load_reads_the_minimum(self, tmp_path: Path) -> None:
         (tmp_path / "ward.toml").write_text("[coverage]\nminimum = 80.5\n", encoding="utf-8")
 
-        assert CoverageConfig.load(tmp_path).minimum == CoverageMinimum(total=80.5)
-        assert CoverageConfig.load(tmp_path / "absent").minimum == CoverageMinimum()
+        assert WardConfig.load(tmp_path).coverage.minimum == CoverageMinimum(total=80.5)
+        assert WardConfig.load(tmp_path / "absent").coverage.minimum == CoverageMinimum()
 
     @pytest.mark.parametrize(
         ("text", "minimum"),
@@ -356,7 +356,7 @@ class TestCoverageIgnores:
     ) -> None:
         (tmp_path / "ward.toml").write_text(text, encoding="utf-8")
 
-        assert CoverageConfig.load(tmp_path).minimum == minimum
+        assert WardConfig.load(tmp_path).coverage.minimum == minimum
 
     @pytest.mark.parametrize(
         "value", ['"80"', "true", "101", "-1", "{ file = 80 }", '{ namespace = "60" }']
@@ -365,7 +365,7 @@ class TestCoverageIgnores:
         (tmp_path / "ward.toml").write_text(f"[coverage]\nminimum = {value}\n", encoding="utf-8")
 
         with pytest.raises(WardError, match="minimum is a number from 0 to 100"):
-            CoverageConfig.load(tmp_path)
+            WardConfig.load(tmp_path)
 
 
 def lines_of(text: str) -> dict[str, tuple[int, int]]:

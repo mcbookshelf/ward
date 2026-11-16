@@ -83,24 +83,24 @@ class TestWorldOption:
     def test_no_world_by_default(self, runner: CliRunner, project: Path) -> None:
         result, run = self.invoke(runner, [])
         assert result.exit_code == 0, result.output
-        assert run.call_args.kwargs["world"] is None
+        assert run.call_args.kwargs["config"].world is None
 
     def test_option_names_the_world(self, runner: CliRunner, project: Path) -> None:
         result, run = self.invoke(runner, ["--world", "map"])
         assert result.exit_code == 0, result.output
-        assert run.call_args.kwargs["world"] == Path("map")
+        assert run.call_args.kwargs["config"].world == Path("map")
 
     def test_ward_toml_names_the_world(self, runner: CliRunner, project: Path) -> None:
         (project / "ward.toml").write_text('world = "map"\n')
         result, run = self.invoke(runner, [])
         assert result.exit_code == 0, result.output
-        assert run.call_args.kwargs["world"].resolve() == (project / "map").resolve()
+        assert run.call_args.kwargs["config"].world.resolve() == (project / "map").resolve()
 
     def test_option_wins_over_ward_toml(self, runner: CliRunner, project: Path) -> None:
         (project / "ward.toml").write_text('world = "map"\n')
         result, run = self.invoke(runner, ["--world", "other"])
         assert result.exit_code == 0, result.output
-        assert run.call_args.kwargs["world"] == Path("other")
+        assert run.call_args.kwargs["config"].world == Path("other")
 
     def test_missing_world_is_an_error(self, runner: CliRunner, project: Path) -> None:
         result, run = self.invoke(runner, ["--world", "absent"])

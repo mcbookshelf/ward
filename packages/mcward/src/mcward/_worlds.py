@@ -3,33 +3,13 @@
 import hashlib
 import os
 import shutil
-import tomllib
 from pathlib import Path
 
 from ._constants import WORLD_FILE
-from ._exceptions import DeployError, WardError
+from ._exceptions import DeployError
 
 # The packs under test replace the ones of the save, and the lock belongs to whoever has it open
 EXCLUDED = ("datapacks", "session.lock")
-
-
-def configured_world(directory: Path | None = None) -> Path | None:
-    """The ``world`` of the directory's ward.toml, a path relative to that file."""
-    file = (directory or Path.cwd()) / "ward.toml"
-    try:
-        text = file.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    try:
-        value = tomllib.loads(text).get("world")
-    except tomllib.TOMLDecodeError as e:
-        raise WardError(f"Invalid {file.name}: {e}") from e
-
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise WardError(f"Invalid {file.name}: world must be the path of a world folder")
-    return file.parent / value
 
 
 def check_world(world: Path) -> None:
