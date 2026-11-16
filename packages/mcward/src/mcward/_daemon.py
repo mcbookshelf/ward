@@ -86,7 +86,9 @@ def stop(running: RunningProcess, timeout: float = SHUTDOWN_TIMEOUT) -> None:
         with suppress(psutil.NoSuchProcess):
             _wait_or_kill(psutil.Process(running.pid), timeout)
 
-    clear_files(running.directory)
+    # Stop holds no lock: another process may have started a new daemon in the meantime
+    if _recorded_pid(running.directory) == running.pid:
+        clear_files(running.directory)
 
 
 def status(address: tuple[str, int], timeout: float = STATUS_TIMEOUT) -> Status:
@@ -184,6 +186,18 @@ def _stream(
         raise ProcessConnectionError("Event stream ended before the run finished")
 
 
+def find(directory: Path) -> RunningProcess | None:
+    """The recorded daemon of this folder if it is alive, clearing stale files if not."""
+    try:
+        process = RunningProcess.load(directory)
+    except OSError, ValueError:
+        return None
+    if is_ward_process(process.pid, directory):
+        return process
+    clear_files(directory)
+    return None
+
+
 def is_ward_process(pid: int, directory: Path) -> bool:
     """Check that the pid is the daemon that was started for this directory."""
     try:
@@ -273,6 +287,13 @@ def _wait_ready(process: subprocess.Popen[bytes], directory: Path, timeout: floa
 def clear_files(directory: Path) -> None:
     directory.joinpath(PID_FILE).unlink(missing_ok=True)
     directory.joinpath(PORT_FILE).unlink(missing_ok=True)
+
+
+def _recorded_pid(directory: Path) -> int | None:
+    try:
+        return int(directory.joinpath(PID_FILE).read_text(encoding="utf-8").strip())
+    except ValueError, OSError:
+        return None
 
 
 def _get_port(directory: Path) -> int | None:

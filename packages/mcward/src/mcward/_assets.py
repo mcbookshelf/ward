@@ -31,7 +31,7 @@ from ._exceptions import (
     InstallError,
     JavaNotFoundError,
 )
-from ._versions import Version
+from ._versions import Version, release_numbers
 
 ADOPTIUM_SYSTEMS = {
     "win32": ("windows", ".zip"),
@@ -104,7 +104,9 @@ def select_loader(loaders: list[dict[str, Any]], minimum: str | None = None) -> 
     """
     versions = [x["loader"] for x in loaders]
     accepted = [
-        x for x in versions if minimum is None or _release(x["version"]) >= _release(minimum)
+        x
+        for x in versions
+        if minimum is None or release_numbers(x["version"]) >= release_numbers(minimum)
     ]
     return next((x for x in accepted if x["stable"]), versions[0])["version"]
 
@@ -115,10 +117,6 @@ def loader_minimum(jar: Path | IO[bytes]) -> str | None:
         metadata = json.loads(file.read("fabric.mod.json"))
     requirement = metadata.get("depends", {}).get("fabricloader", "")
     return next((x[2:] for x in str(requirement).split() if x.startswith(">=")), None)
-
-
-def _release(version: str) -> tuple[int, ...]:
-    return tuple(int(x) for x in version.split("-")[0].split("+")[0].split("."))
 
 
 async def _install_mod(client: httpx.AsyncClient, project: str, minecraft: str, file: Path) -> None:

@@ -1,5 +1,6 @@
 """Environment states."""
 
+import json
 import os
 import shutil
 import time
@@ -8,13 +9,14 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import _daemon, _worlds
+from . import _daemon, _lock, _worlds
 from ._daemon import RunningProcess
 from ._exceptions import DeployError, InstallError, MissingFeatureError
 from ._protocol import FEATURES, Event, Status
 from ._versions import Version
 
 IGNORED_DIRS = ("__pycache__", "node_modules")
+INSTALLED_FILES = ("server.jar", "mods/fabric-api.jar", "mods/ward.jar")
 
 
 @dataclass(frozen=True)
@@ -28,7 +30,9 @@ class UninstalledEnvironment:
 
         from . import _assets  # deferred: the network stack costs ~0.3s to import
 
-        asyncio.run(_assets.install(self.directory, self.version))
+        with _lock.hold(self.directory):
+            if not is_installed(self.directory):
+                asyncio.run(_assets.install(self.directory, self.version))
         return InstalledEnvironment(self.directory, self.version)
 
 
@@ -37,15 +41,30 @@ class InstalledEnvironment:
     directory: Path
     version: Version
 
+    def update(self) -> bool:
+        """Download the assets over the old ones; False when a daemon started meanwhile."""
+        import asyncio
+
+        from . import _assets
+
+        with _lock.hold(self.directory):
+            if _daemon.find(self.directory) is not None:
+                return False
+            asyncio.run(_assets.install(self.directory, self.version))
+        return True
+
     def start(self) -> RunningEnvironment:
-        """Spawn the daemon process and wait until it answers."""
-        return RunningEnvironment(self.directory, self.version, _daemon.start(self.directory))
+        """Spawn the daemon process and wait until it answers, unless another process just did."""
+        with _lock.hold(self.directory):
+            process = _daemon.find(self.directory) or _daemon.start(self.directory)
+        return RunningEnvironment(self.directory, self.version, process)
 
     def uninstall(self) -> UninstalledEnvironment:
         """Remove the environment directory and everything in it."""
         try:
-            if self.directory.exists():
-                shutil.rmtree(self.directory)
+            with _lock.hold(self.directory):
+                if self.directory.exists():
+                    shutil.rmtree(self.directory)
         except OSError as e:
             raise InstallError(f"Could not remove {self.directory}: {e}") from e
         return UninstalledEnvironment(self.directory, self.version)
@@ -76,17 +95,18 @@ class RunningEnvironment:
         origin: tuple[int, int] | None = None,
     ) -> Iterator[Event]:
         """Deploy the packs and stream a test run, in ``world`` and from ``origin`` if given."""
-        _daemon.wait_idle(self.process.address)
-        self.require(worlds=world, origin=origin)
-        _deploy(self.directory, datapacks, world)
+        with _lock.hold(self.directory):
+            _daemon.wait_idle(self.process.address)
+            self.require(worlds=world, origin=origin)
+            _deploy(self.directory, datapacks, world)
 
-        return _daemon.stream_tests(
-            self.process.address,
-            selector,
-            coverage=coverage,
-            timeout=timeout,
-            origin=origin,
-        )
+            yield from _daemon.stream_tests(
+                self.process.address,
+                selector,
+                coverage=coverage,
+                timeout=timeout,
+                origin=origin,
+            )
 
     def bench(
         self,
@@ -100,19 +120,20 @@ class RunningEnvironment:
         timeout: float | None = None,
     ) -> Iterator[Event]:
         """Deploy the given datapacks and stream a bench of the commands."""
-        _daemon.wait_idle(self.process.address)
-        _deploy(self.directory, datapacks)
+        with _lock.hold(self.directory):
+            _daemon.wait_idle(self.process.address)
+            _deploy(self.directory, datapacks)
 
-        return _daemon.stream_bench(
-            self.process.address,
-            commands,
-            setup,
-            prepare,
-            batch,
-            warmup=warmup,
-            duration=duration,
-            timeout=timeout,
-        )
+            yield from _daemon.stream_bench(
+                self.process.address,
+                commands,
+                setup,
+                prepare,
+                batch,
+                warmup=warmup,
+                duration=duration,
+                timeout=timeout,
+            )
 
     def require(self, **features: object) -> None:
         """Raise when the mod lacks a feature whose argument is set: ``require(worlds=world)``."""
@@ -120,6 +141,19 @@ class RunningEnvironment:
         if needed and (missing := needed - self.status().features):
             what = " or ".join(FEATURES[feature] for feature in sorted(missing))
             raise MissingFeatureError(self.version.name, what)
+
+
+def is_installed(directory: Path) -> bool:
+    return all((directory / file).exists() for file in INSTALLED_FILES)
+
+
+def installed_mod(directory: Path) -> str | None:
+    """The version of the Ward mod in the folder, read from its jar."""
+    try:
+        with zipfile.ZipFile(directory / "mods" / "ward.jar") as jar:
+            return json.loads(jar.read("fabric.mod.json"))["version"]
+    except OSError, KeyError, ValueError, zipfile.BadZipFile:
+        return None
 
 
 def _deploy(

@@ -38,6 +38,7 @@ from ._exceptions import (
     WardError,
 )
 from ._java import Java, find as find_java
+from ._lock import on_wait as on_lock_wait
 from ._manager import Environment, EnvironmentManager
 from ._protocol import Coverage, Diagnostic, FunctionCoverage, Status, TestLog
 from ._runner import (
@@ -114,6 +115,7 @@ __all__ = [
     "find_java",
     "ignored_lines",
     "json_spans",
+    "on_lock_wait",
     "resolve_coverage",
     "resolve_functions",
     "resolve_resources",

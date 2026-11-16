@@ -12,15 +12,18 @@ from mcward import (
     Environment,
     EnvironmentManager,
     InstalledEnvironment,
+    InstallError,
     RunningEnvironment,
     UninstalledEnvironment,
     Version,
     VersionNotFoundError,
+    on_lock_wait,
 )
 
-from .ui import Option, console, print_note, print_success, select
+from .ui import Option, console, print_note, print_success, print_warning, select
 
 manager = EnvironmentManager()
+on_lock_wait(lambda directory: print_note(f"Waiting for another mcward using {directory.name}"))
 
 
 def curate_versions(versions: Iterable[Version]) -> list[Version]:
@@ -118,6 +121,19 @@ def _select_version(versions: list[Version], message: str, empty: str) -> str:
     return select(message, [v.name for v in versions])
 
 
+def _update_mod(env: InstalledEnvironment, installed: str, newest: str, progress: Progress) -> None:
+    """Bring the mod to the one a fresh install gets; a failed download keeps the old one."""
+    name = env.version.name
+    task = progress.add_task(f"Updating Ward for {name}", total=None)
+    try:
+        if env.update():
+            print_success(f"Updated Ward for {name}: {installed} to {newest}")
+    except InstallError as e:
+        print_warning(f"Could not update Ward for {name}, running {installed}: {e}")
+    finally:
+        progress.remove_task(task)
+
+
 def _start_environment(env: Environment, progress: Progress) -> RunningEnvironment:
     """Start a single environment, reporting steps to the shared progress."""
     if isinstance(env, UninstalledEnvironment):
@@ -125,6 +141,8 @@ def _start_environment(env: Environment, progress: Progress) -> RunningEnvironme
         env = env.install()
         progress.remove_task(task)
         print_success(f"Installed version {env.version.name}")
+    elif isinstance(env, InstalledEnvironment) and (outdated := manager.outdated_mod(env)):
+        _update_mod(env, *outdated, progress)
     if isinstance(env, InstalledEnvironment):
         task = progress.add_task(f"Starting version {env.version.name}", total=None)
         env = env.start()
