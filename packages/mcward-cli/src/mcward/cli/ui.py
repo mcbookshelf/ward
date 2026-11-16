@@ -5,6 +5,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+import rich_click as click
 from rich.console import Console
 
 for _stream in (sys.stdout, sys.stderr):
@@ -54,8 +55,11 @@ def confirm(message: str, default: bool = False) -> bool:
 
 
 def select(message: str, options: Sequence[str | Option]) -> str:
-    """Show a selection prompt; a cancelled prompt exits cleanly."""
+    """Show a selection prompt; a cancelled prompt exits like Ctrl+C."""
     import questionary
+
+    if not sys.stdin.isatty():
+        raise click.UsageError(f"No terminal to answer {message!r}, pass the value instead")
 
     choices = []
     for option in options:
@@ -66,5 +70,5 @@ def select(message: str, options: Sequence[str | Option]) -> str:
         choices.append(questionary.Choice(title, value=option.value or option.title))
     answer = questionary.select(message, choices, style=questionary.Style(_STYLE)).ask()
     if answer is None:
-        sys.exit(0)
+        sys.exit(130)
     return answer

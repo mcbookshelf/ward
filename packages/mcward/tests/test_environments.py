@@ -335,6 +335,16 @@ class TestWorldDeployment:
 
         assert [file.name for file in (env_dir / "world").iterdir()] == ["datapacks"]
 
+    def test_run_without_world_clears_an_interrupted_copy(self, tmp_path: Path) -> None:
+        """A copy cut short has no marker, and the server would still load its level.dat."""
+        env_dir = tmp_path / "env"
+        (env_dir / "world").mkdir(parents=True)
+        (env_dir / "world" / "level.dat").write_text("partial")
+
+        run(env_dir, make_pack(tmp_path), None)
+
+        assert not (env_dir / "world" / "level.dat").exists()
+
     def test_bench_runs_without_the_copy(self, tmp_path: Path) -> None:
         env_dir = tmp_path / "env"
         pack = make_pack(tmp_path)

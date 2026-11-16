@@ -1,5 +1,3 @@
-"""The start, stop and status commands."""
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import rich_click as click
@@ -22,7 +20,7 @@ from ..ui import console, print_note, print_success, print_warning
 @click.command()
 @click.argument("version", required=False)
 def start(version: str | None) -> None:
-    """Start the Ward daemon for a specific version."""
+    """Start the test server of a version."""
     env = get_environment(version or select_installed("Select a version to start:"))
     if isinstance(env, RunningEnvironment):
         print_warning(f"Version {env.version.name} is already running {env.process}")
@@ -34,7 +32,7 @@ def start(version: str | None) -> None:
 @click.argument("version", required=False)
 @click.option("--all", "-a", is_flag=True, help="Stop all running versions.")
 def stop(version: str | None, all: bool = False) -> None:
-    """Stop the Ward daemon."""
+    """Stop a test server."""
     if not all:
         env = get_environment(version or select_running("Select a version to stop:"))
         if isinstance(env, RunningEnvironment):
@@ -71,13 +69,13 @@ def stop(version: str | None, all: bool = False) -> None:
 
 @click.command()
 def status() -> None:
-    """Show status of running daemons."""
+    """Show the running test servers."""
     envs = manager.running_environments()
     if not envs:
         print_note("No versions running")
         return
 
-    table = Table(title="Running Ward Daemons", box=box.SIMPLE)
+    table = Table(title="Running servers", box=box.SIMPLE)
     table.add_column("Version", style="")
     table.add_column("PID", style="dim")
     table.add_column("Port", style="dim")

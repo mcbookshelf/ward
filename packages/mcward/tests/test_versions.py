@@ -244,6 +244,13 @@ class TestVersionStringRepresentation:
         assert repr(v) == "Version('26.1.2')"
 
 
+def make_checkout(directory: Path, mod: str) -> None:
+    (directory / "gradle.properties").write_text("minecraft_version=26.1.2\n")
+    resources = directory / "src" / "main" / "resources"
+    resources.mkdir(parents=True)
+    (resources / "fabric.mod.json").write_text(f'{{"id": "{mod}"}}')
+
+
 class TestVersionRegistry:
     """Test VersionRegistry lazy loading, caching and version resolution."""
 
@@ -284,7 +291,7 @@ class TestVersionRegistry:
     def test_dev_alias_needs_no_data(
         self, registry: VersionRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        (tmp_path / "gradle.properties").write_text("minecraft_version=26.1.2\n")
+        make_checkout(tmp_path, "ward")
         monkeypatch.chdir(tmp_path)
 
         with self.patch_fetch(({}, [])) as mock_fetch:
@@ -292,6 +299,14 @@ class TestVersionRegistry:
             mock_fetch.assert_not_called()
         assert version is not None
         assert version.name == "dev/26.1.2"
+
+    def test_dev_alias_needs_a_ward_checkout(
+        self, registry: VersionRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Another Fabric mod would be built and installed in place of Ward."""
+        make_checkout(tmp_path, "othermod")
+        monkeypatch.chdir(tmp_path)
+        assert registry.get("dev") is None
 
     def test_dev_alias_without_gradle_props(
         self, registry: VersionRegistry, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

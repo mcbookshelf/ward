@@ -202,7 +202,10 @@ async def _fetch_versions(client: httpx.AsyncClient) -> list[Version]:
 
 
 def _get_gradle_version() -> Version | None:
-    """The version targeted by the mod checkout in the working directory."""
+    """The version targeted by the Ward checkout in the working directory."""
+    # Any other Fabric mod would be built and installed as ward.jar
+    if not _is_ward_checkout(Path.cwd()):
+        return None
     try:
         content = (Path.cwd() / "gradle.properties").read_text(encoding="utf-8")
         for line in content.splitlines():
@@ -211,3 +214,11 @@ def _get_gradle_version() -> Version | None:
     except FileNotFoundError, ValueError, IndexError:
         pass
     return None
+
+
+def _is_ward_checkout(directory: Path) -> bool:
+    try:
+        metadata = json.loads((directory / "src/main/resources/fabric.mod.json").read_text("utf-8"))
+    except OSError, ValueError:
+        return False
+    return isinstance(metadata, dict) and metadata.get("id") == "ward"
