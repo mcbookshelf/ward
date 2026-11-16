@@ -64,7 +64,17 @@ public class TestLibrary implements PreparableReloadListener {
 			Identifier id = TEST_FUNCTION_LISTER.fileToId(entry.getKey());
 
 			try {
-				tests.put(id, TestFunction.fromLines(this.dispatcher, compilationContext, readLines(entry.getValue())));
+				List<TestFunction> cases = TestFunction.fromLines(id, this.dispatcher, compilationContext, readLines(entry.getValue()));
+
+				for (int index = 0; index < cases.size(); index++) {
+					TestFunction test = cases.get(index);
+					// A case is registered under the id of its file and its position, as vanilla does for a macro
+					Identifier key = test.arguments() == null ? id : id.withSuffix("/" + (index + 1));
+
+					if (tests.putIfAbsent(key, test) != null) {
+						throw new IllegalArgumentException("The id " + key + " is used by two tests");
+					}
+				}
 			} catch (RuntimeException e) {
 				Ward.LOGGER.error("Failed to load test {}", id, e);
 				Reporter.loadError("ward:test", id.toString(), e);

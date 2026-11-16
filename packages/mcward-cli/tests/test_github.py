@@ -75,6 +75,29 @@ class TestFailedTests:
             "::Expected a chest (line 4, tick 12)"
         )
 
+    def test_case_is_annotated_on_the_file_of_its_function(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        pack = make_pack(tmp_path, "data/ward/test/double.mcfunction")
+
+        session = Session([V1])
+        start_run(session, V1)
+        failed = Failed(
+            "ward:double {n:2}",
+            time=5,
+            error="found 5",
+            required=True,
+            line=3,
+            tick=0,
+            function="ward:double",
+        )
+        session._dispatch(V1, failed)
+
+        [command] = annotations(session, pack_resolver([pack]))
+        assert "title=ward%3Adouble {n%3A2} failed on 26.1.2," in command
+        assert "file=my_pack/data/ward/test/double.mcfunction,line=3" in command
+
     def test_no_file_when_test_is_not_in_workspace(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -64,6 +64,12 @@ class TestResult:
     outcomes: dict[Version, VersionOutcome] = field(default_factory=dict)
     dimension: str | None = None
     logs: dict[Version, list[TestLog]] = field(default_factory=dict)
+    function: str | None = None
+
+    @property
+    def source(self) -> str:
+        """The id of the test file: the name, or the function a case comes from."""
+        return self.function or self.name
 
     @property
     def failed_versions(self) -> list[Version]:
@@ -205,13 +211,20 @@ class TestSession:
             case BatchFinished(environment=environment, dimension=dimension):
                 if self._current_batch.get(version) == (environment, dimension):
                     del self._current_batch[version]
-            case TestPassed(name=name, time=time):
-                self._record(version, name, VersionOutcome(TestStatus.PASSED, time))
+            case TestPassed(name=name, time=time, function=function):
+                self._record(version, name, VersionOutcome(TestStatus.PASSED, time), function)
             case TestFailed(
-                name=name, time=time, error=error, required=required, line=line, tick=tick
+                name=name,
+                time=time,
+                error=error,
+                required=required,
+                line=line,
+                tick=tick,
+                function=function,
             ):
                 status = TestStatus.FAILED if required else TestStatus.SKIPPED
-                self._record(version, name, VersionOutcome(status, time, error, line, tick))
+                outcome = VersionOutcome(status, time, error, line, tick)
+                self._record(version, name, outcome, function)
             case AttemptStarted(name=name):
                 # Only the logs of the attempt that decides the outcome are kept
                 if name in self._results:
@@ -229,8 +242,12 @@ class TestSession:
             case StreamError(message=message):
                 self._aborted[version] = message
 
-    def _record(self, version: Version, name: str, outcome: VersionOutcome) -> None:
-        self._result(version, name).outcomes[version] = outcome
+    def _record(
+        self, version: Version, name: str, outcome: VersionOutcome, function: str | None
+    ) -> None:
+        result = self._result(version, name)
+        result.outcomes[version] = outcome
+        result.function = function
 
     def _result(self, version: Version, name: str) -> TestResult:
         batch, dimension = self._current_batch.get(version, ("", None))

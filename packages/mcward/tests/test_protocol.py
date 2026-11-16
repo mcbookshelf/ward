@@ -43,6 +43,10 @@ class TestParseEvent:
                 BatchFinished(environment="e", dimension="minecraft:the_nether"),
             ),
             ({"type": "test_passed", "name": "a:one", "time": 5}, Passed(name="a:one", time=5)),
+            (
+                {"type": "test_passed", "name": "a:one {x:1}", "time": 5, "function": "a:one"},
+                Passed(name="a:one {x:1}", time=5, function="a:one"),
+            ),
             ({"type": "attempt_started", "name": "a:one"}, AttemptStarted(name="a:one")),
             (
                 {"type": "test_log", "name": "a:one", "message": "hi", "line": 3, "tick": 2},

@@ -9,14 +9,28 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.context.ContextChain;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import org.jspecify.annotations.Nullable;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.execution.tasks.BuildContexts;
 import net.minecraft.commands.functions.CommandFunction;
+import net.minecraft.commands.functions.MacroFunction;
+import net.minecraft.commands.functions.StringTemplate;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.Identifier;
 
-public record TestFunction(List<Entry> commands, TestDirectives directives) implements Consumer<GameTestHelper> {
+/**
+ * A compiled test file, or one case of it when the file has cases: arguments is then set.
+ */
+public record TestFunction(Identifier id, @Nullable CompoundTag arguments, List<Entry> commands, TestDirectives directives)
+		implements Consumer<GameTestHelper> {
 	public record Entry(String command, ContextChain<CommandSourceStack> chain, int line) {
+	}
+
+	private record Line(String text, int number) {
 	}
 
 	@Override
@@ -24,12 +38,27 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) impl
 		new TestExecutor(helper).run(this);
 	}
 
-	public static TestFunction fromLines(
+	/**
+	 * A case reports under the id of its file and its arguments.
+	 */
+	public String name(Identifier instance) {
+		return this.arguments == null ? instance.toString() : this.id + " " + this.arguments;
+	}
+
+	public static @Nullable TestFunction caseOf(Identifier instance) {
+		return BuiltInRegistries.TEST_FUNCTION.getValue(instance) instanceof TestFunction test && test.arguments != null ? test : null;
+	}
+
+	/**
+	 * One test for a plain file, or one for each of its cases.
+	 */
+	public static List<TestFunction> fromLines(
+			Identifier id,
 			CommandDispatcher<CommandSourceStack> dispatcher,
 			CommandSourceStack context,
 			List<String> lines) {
-		TestDirectives.Builder directives = new TestDirectives.Builder();
-		List<Entry> commands = new ArrayList<>();
+		TestDirectives.Builder builder = new TestDirectives.Builder();
+		List<Line> commands = new ArrayList<>();
 		ListIterator<String> remaining = lines.listIterator();
 
 		while (remaining.hasNext()) {
@@ -41,14 +70,30 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) impl
 
 			if (command.startsWith("#")) {
 				// A directive only counts in the header, before the first command
-				if (commands.isEmpty()) parseDirective(command, line, directives);
+				if (commands.isEmpty()) parseDirective(command, line, builder);
 				continue;
 			}
 
-			commands.add(new Entry(command, parseCommand(dispatcher, context, command, line), line));
+			commands.add(new Line(command, line));
 		}
 
-		return new TestFunction(commands, directives.build());
+		TestDirectives directives = builder.build();
+
+		if (directives.cases().isEmpty()) {
+			return List.of(new TestFunction(id, null, compile(dispatcher, context, commands, null), directives));
+		}
+
+		List<TestFunction> cases = new ArrayList<>();
+
+		for (CompoundTag arguments : directives.cases()) {
+			try {
+				cases.add(new TestFunction(id, arguments, compile(dispatcher, context, commands, arguments), directives));
+			} catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("Case " + arguments + ": " + e.getMessage());
+			}
+		}
+
+		return cases;
 	}
 
 	private static String readCommand(ListIterator<String> lines) {
@@ -64,6 +109,40 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) impl
 		return command.toString();
 	}
 
+	private static List<Entry> compile(
+			CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandSourceStack context,
+			List<Line> lines,
+			@Nullable CompoundTag arguments) {
+		List<Entry> commands = new ArrayList<>();
+
+		for (Line line : lines) {
+			String command = line.text().startsWith("$") ? substitute(line, arguments) : line.text();
+			commands.add(new Entry(command, parseCommand(dispatcher, context, command, line.number()), line.number()));
+		}
+
+		return commands;
+	}
+
+	private static String substitute(Line line, @Nullable CompoundTag arguments) {
+		if (arguments == null) {
+			throw new IllegalArgumentException("Macro line on line " + line.number() + ": the test has no @cases");
+		}
+
+		try {
+			StringTemplate template = StringTemplate.fromString(line.text().substring(1));
+			return template.substitute(template.variables().stream().map(variable -> value(arguments, variable)).toList());
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException("Macro line on line " + line.number() + ": " + e.getMessage());
+		}
+	}
+
+	private static String value(CompoundTag arguments, String variable) {
+		Tag value = arguments.get(variable);
+		if (value == null) throw new IllegalArgumentException("No value for '" + variable + "'");
+		return MacroFunction.stringify(value);
+	}
+
 	@SuppressWarnings("unchecked")
 	private static ContextChain<CommandSourceStack> parseCommand(
 			CommandDispatcher<CommandSourceStack> dispatcher,
@@ -72,10 +151,6 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) impl
 			int line) {
 		if (command.startsWith("/")) {
 			throw new IllegalArgumentException("Unknown or invalid command '" + command + "' on line " + line + " (do not use a preceding forwards slash)");
-		}
-
-		if (command.startsWith("$")) {
-			throw new IllegalArgumentException("Macro line on line " + line + ": tests take no macro arguments");
 		}
 
 		try {

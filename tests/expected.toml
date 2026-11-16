@@ -81,6 +81,9 @@ passed = [
   "ward:coverage_overlay",
   "ward:log_messages",
   "ward:log_retry",
+  "ward:cases {double:4,value:2}",
+  "ward:cases {double:10,value:5}",
+  "ward:cases_expected {n:1}",
 ]
 
 # Never in any report: excluded by tests/ward.toml, muted by @coverage off
@@ -96,6 +99,7 @@ absent = ["ward:coverage/excluded", "ward:coverage/muted"]
 "ward:errored_function" = "Unknown function 'ward:helper/missing'"
 "ward:negated_count_expected" = "found 1"
 "ward:chat_sample_expected" = '2 earlier, then "chat sample 3"'
+"ward:cases_expected {n:2}" = { message = "found 2", line = 5, tick = 0 }
 "ward:deadline_expected" = { message = "at the deadline", line = 4, tick = 20 }
 "ward:predicate_inline_expected" = "random_chance"
 "ward:result_none_expected" = "the command did not run"
@@ -249,7 +253,9 @@ unreached = []
 "ward:invalid_environment" = "ward:does_not_exist"
 "ward:invalid_directive" = "Value must be true or false"
 "ward:invalid_dimension" = "Unknown dimension 'ward:does_not_exist'"
-"ward:invalid_macro" = "tests take no macro arguments"
+"ward:invalid_macro" = "Macro line on line 1: the test has no @cases"
+"ward:invalid_cases" = "Value must be a list of compounds"
+"ward:invalid_case_argument" = "Case {n:1}: Macro line on line 2: No value for 'missing'"
 "ward:invalid_slash" = "preceding forwards slash"
 "ward:invalid_number" = "Value must be a whole number"
 "ward:invalid_successes" = "@required_successes is above @max_attempts"

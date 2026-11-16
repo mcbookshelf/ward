@@ -40,10 +40,11 @@ class AttemptStarted:
 
 @dataclass(frozen=True)
 class TestPassed:
-    """A single test passed."""
+    """A test passed; a case of a test names the ``function`` it comes from."""
 
     name: str
     time: int
+    function: str | None = None
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class TestFailed:
     required: bool
     line: int | None
     tick: int | None
+    function: str | None = None
 
 
 @dataclass(frozen=True)
@@ -199,7 +201,9 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                     dimension=data.get("dimension"),
                 )
             case "test_passed":
-                return TestPassed(name=data["name"], time=data["time"])
+                return TestPassed(
+                    name=data["name"], time=data["time"], function=data.get("function")
+                )
             case "test_failed":
                 return TestFailed(
                     name=data["name"],
@@ -208,6 +212,7 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                     required=data["required"],
                     line=data.get("line"),
                     tick=data.get("tick"),
+                    function=data.get("function"),
                 )
             case "attempt_started":
                 return AttemptStarted(name=data["name"])

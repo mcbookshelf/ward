@@ -12,7 +12,6 @@ import java.util.stream.Stream;
 import com.google.common.base.Stopwatch;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.DynamicOps;
 import org.jspecify.annotations.Nullable;
@@ -46,6 +45,7 @@ import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
 import dev.mcbookshelf.ward.coverage.Coverage;
 import dev.mcbookshelf.ward.dummy.Dummy;
+import dev.mcbookshelf.ward.test.TestFunction;
 
 final class TestRunner implements Runner {
 	private static final int TEST_POSITION_RANGE = 14999992;
@@ -130,9 +130,9 @@ final class TestRunner implements Runner {
 	private Collection<Holder.Reference<GameTestInstance>> selectTests(ServerLevel level) throws CommandSyntaxException {
 		String selector = this.options.selector();
 		String pattern = selector.contains(":") || selector.startsWith("#") ? selector : "*:" + selector;
-		List<Holder.Reference<GameTestInstance>> tests = ResourceSelectorArgument
-				.parse(new StringReader(pattern), level.registryAccess().lookupOrThrow(Registries.TEST_INSTANCE))
-				.stream()
+		List<Holder.Reference<GameTestInstance>> tests = level.registryAccess().lookupOrThrow(Registries.TEST_INSTANCE)
+				.listElements()
+				.filter(test -> isSelected(pattern, test.key().identifier()))
 				.filter(test -> !test.key().identifier().getNamespace().equals(Identifier.DEFAULT_NAMESPACE))
 				.filter(test -> !test.value().manualOnly())
 				.filter(this::hasLevel)
@@ -143,6 +143,14 @@ final class TestRunner implements Runner {
 		}
 
 		return tests;
+	}
+
+	/**
+	 * A case is selected by its own id or by the id of its file.
+	 */
+	private static boolean isSelected(String pattern, Identifier id) {
+		TestFunction function = TestFunction.caseOf(id);
+		return ResourceSelectorArgument.matches(pattern, id) || function != null && ResourceSelectorArgument.matches(pattern, function.id());
 	}
 
 	private List<GameTestBatch> orderedBatches(Collection<Holder.Reference<GameTestInstance>> tests) {
@@ -187,7 +195,8 @@ final class TestRunner implements Runner {
 			return true;
 		}
 
-		String id = test.key().identifier().toString();
+		TestFunction function = TestFunction.caseOf(test.key().identifier());
+		String id = (function == null ? test.key().identifier() : function.id()).toString();
 		Ward.LOGGER.error("Test {} targets the unknown dimension {}", id, dimension.identifier());
 		Reporter.loadError("ward:test", id, "Unknown dimension '" + dimension.identifier() + "'");
 		return false;

@@ -74,7 +74,7 @@ def _annotate_test(result: TestResult, resolve: FileResolver) -> str:
     word = "failed" if failed else "skipped"
     title = f"{result.name} {word} on {', '.join(v.name for v in versions)}"
 
-    file = resolve("test", result.name)
+    file = resolve("test", result.source)
     line = outcome.line if file else None
     level = "error" if failed else "warning"
     logs = [describe_log(log) for log in result.logs.get(versions[0], [])]

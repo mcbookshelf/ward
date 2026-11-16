@@ -1,5 +1,7 @@
 package dev.mcbookshelf.ward.test;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -15,12 +17,17 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestEnvironments;
 import net.minecraft.gametest.framework.TestData;
 import net.minecraft.gametest.framework.TestEnvironmentDefinition;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Rotation;
 
-public record TestDirectives(TestData<Identifier> data, @Nullable Coordinates dummy) {
+public record TestDirectives(TestData<Identifier> data, @Nullable Coordinates dummy, List<CompoundTag> cases) {
 	public TestData<Holder<TestEnvironmentDefinition<?>>> createTestData(Registry<TestEnvironmentDefinition<?>> environments) {
 		return this.data.map(id -> environments.getOrThrow(ResourceKey.create(Registries.TEST_ENVIRONMENT, id)));
 	}
@@ -38,6 +45,7 @@ public record TestDirectives(TestData<Identifier> data, @Nullable Coordinates du
 		private int requiredSuccesses = 1;
 		private int padding = 0;
 		private @Nullable Coordinates dummy = null;
+		private List<CompoundTag> cases = List.of();
 
 		public void add(String name, @Nullable String value) {
 			switch (name.toLowerCase(Locale.ROOT)) {
@@ -74,6 +82,8 @@ public record TestDirectives(TestData<Identifier> data, @Nullable Coordinates du
 						throw new IllegalArgumentException(e.getMessage());
 					}
 				}
+				case "cases" ->
+						this.cases = cases(value);
 				default -> throw new IllegalArgumentException("Unknown directive");
 			}
 		}
@@ -96,11 +106,29 @@ public record TestDirectives(TestData<Identifier> data, @Nullable Coordinates du
 					this.requiredSuccesses,
 					this.skyAccess,
 					this.padding);
-			return new TestDirectives(data, this.dummy);
+			return new TestDirectives(data, this.dummy, this.cases);
 		}
 
 		private static Identifier identifier(@Nullable String value) {
 			return Identifier.parse(require(value));
+		}
+
+		private static List<CompoundTag> cases(@Nullable String value) {
+			Tag parsed;
+
+			try {
+				parsed = TagParser.create(NbtOps.INSTANCE).parseFully(require(value));
+			} catch (CommandSyntaxException e) {
+				throw new IllegalArgumentException(e.getMessage());
+			}
+
+			if (!(parsed instanceof ListTag list) || list.isEmpty() || !list.stream().allMatch(CompoundTag.class::isInstance)) {
+				throw new IllegalArgumentException("Value must be a list of compounds, like [{x:1},{x:2}]");
+			}
+
+			List<CompoundTag> cases = list.stream().map(CompoundTag.class::cast).toList();
+			if (new HashSet<>(cases).size() < cases.size()) throw new IllegalArgumentException("Two cases have the same arguments");
+			return cases;
 		}
 
 		private static boolean bool(@Nullable String value) {
