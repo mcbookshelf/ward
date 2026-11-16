@@ -61,8 +61,7 @@ public class TagLoaderMixin {
 	}
 
 	/**
-	 * Vanilla resolves these tags before the reload and applies them after it,
-	 * which would bind them to holders TestRegistries has already replaced.
+	 * Vanilla applies these tags after the reload, to holders TestRegistries has already replaced.
 	 */
 	@ModifyReturnValue(method = "loadTagsForExistingRegistries", at = @At("RETURN"))
 	private static List<Registry.PendingTags<?>> dropReloadedRegistries(List<Registry.PendingTags<?>> tags) {

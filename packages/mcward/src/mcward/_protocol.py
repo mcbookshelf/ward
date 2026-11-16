@@ -1,7 +1,4 @@
-"""The WardBridge protocol: every event the server sends, as a type.
-
-Unknown event types parse to ``None`` and are skipped.
-"""
+"""Every event of the WardBridge protocol as a type; unknown ones parse to None."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -51,11 +48,7 @@ class TestPassed:
 
 @dataclass(frozen=True)
 class TestFailed:
-    """A single test failed; Ward failures carry their position in the file.
-
-    Failures of optional tests (``required`` false) do not fail the run:
-    consumers report them as skipped.
-    """
+    """A test failed; one that is not ``required`` is reported as skipped."""
 
     name: str
     time: int
@@ -95,8 +88,7 @@ class FunctionCoverage:
 
 @dataclass(frozen=True)
 class Coverage:
-    """Coverage recorded during the run, with the data pack format of the server
-    as (major, minor). An older mod does not send the format."""
+    """Coverage of the run, with the server's pack format when the mod sends it."""
 
     functions: dict[str, FunctionCoverage]
     conditions: dict[str, dict[str, dict[str, tuple[int, int]]]] = field(default_factory=dict)

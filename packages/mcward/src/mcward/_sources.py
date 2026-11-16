@@ -39,11 +39,7 @@ def command_lines(source: str) -> list[int]:
 
 
 def ignored_lines(source: str) -> frozenset[int]:
-    """Command line numbers excluded by ``# @coverage`` markers.
-
-    ``ignore`` excludes the next command, ``off`` excludes commands until
-    ``on`` or the end of the file.
-    """
+    """Lines excluded by ``# @coverage``: ``ignore`` skips one command, ``off`` until ``on``."""
     ignored: set[int] = set()
     off = pending = False
     for start, entry in _entries(source):
@@ -60,12 +56,7 @@ def ignored_lines(source: str) -> frozenset[int]:
 
 
 def _entries(source: str) -> Iterator[tuple[int, str]]:
-    """A function file's non-blank entries with their 1-based start lines.
-
-    Mirrors how the game compiles functions: a trailing backslash folds the
-    next line into the entry, and an unterminated continuation fails to
-    compile, so nothing after it runs.
-    """
+    """Non-blank entries and their start lines, folding trailing backslashes like the game."""
     lines = source.splitlines()
     i = 0
     while i < len(lines):
@@ -74,6 +65,7 @@ def _entries(source: str) -> Iterator[tuple[int, str]]:
         while line.endswith("\\"):
             i += 1
             if i == len(lines):
+                # An unterminated continuation fails to compile: nothing after it runs
                 return
             line = line[:-1] + lines[i].strip()
         if line:
@@ -85,11 +77,7 @@ def scan_functions(
     datapacks: Sequence[Path],
     pack_format: PackFormat | None = None,
 ) -> dict[str, SourceFile]:
-    """Map function ids to their sources across the given datapacks.
-
-    Later packs win id collisions, matching datapack stacking order. With the
-    pack format of the server, the overlays it loaded are read on top of each pack.
-    """
+    """Function ids to sources; later packs win, overlays of ``pack_format`` on top."""
     functions: dict[str, SourceFile] = {}
     for pack in datapacks:
         for folder in _data_folders(pack, pack_format):
@@ -126,8 +114,7 @@ def find_resource(
 
 
 def _data_folders(pack: Path, pack_format: PackFormat | None) -> list[str]:
-    """The folders of a pack that hold a data folder for the pack format, as path
-    prefixes, the one that wins last: the root, then each overlay that applies."""
+    """The data folder prefixes for the format: the root, then each overlay, winner last."""
     if pack_format is None:
         return [""]
     source = SourceFile(pack, "pack.mcmeta") if pack.is_file() else SourceFile(pack / "pack.mcmeta")
@@ -139,10 +126,7 @@ def _data_folders(pack: Path, pack_format: PackFormat | None) -> list[str]:
 
 
 def _overlays(metadata: object, pack_format: PackFormat) -> Iterator[str]:
-    """The overlay directories of a pack.mcmeta whose format range has the pack format.
-
-    An entry without min_format and max_format only covers formats older than any Ward runs on.
-    """
+    """The overlay directories whose format range holds the pack format."""
     match metadata:
         case {"overlays": {"entries": [*entries]}}:
             for entry in entries:
@@ -154,10 +138,7 @@ def _overlays(metadata: object, pack_format: PackFormat) -> Iterator[str]:
 
 
 def _format_bound(value: object, minor: int) -> PackFormat | None:
-    """A pack format of pack.mcmeta: a number, or a [major, minor] list.
-
-    Without a minor, a lower bound starts at 0 and an upper bound covers every minor.
-    """
+    """A pack format, a number or [major, minor]; ``minor`` stands in for a missing one."""
     match value:
         case int(major) | [int(major)]:
             return major, minor
@@ -177,12 +158,7 @@ def _function_id(member: str) -> str | None:
 
 
 def _zip_sources(pack: Path) -> dict[str, bytes]:
-    """The pack's function and JSON members, read in one pass and cached.
-
-    Opening an archive costs far more than reading it whole, and a report
-    touches every function several times. The cache is keyed on the file's
-    stat so a pack rebuilt at the same path is reloaded.
-    """
+    """The pack's function and JSON members, read once and cached on the file's stat."""
     try:
         stat = pack.stat()
     except OSError:
@@ -204,9 +180,7 @@ type JsonSpans = dict[str, tuple[tuple[int, int], tuple[int, int]]]
 
 
 def json_spans(text: str) -> JsonSpans:
-    """Where every JSON object of the document is, keyed by its NBT-style path
-    (``pools[0].entries[2]``): its 1-based line span, then its character span
-    as half-open offsets into the text."""
+    """Each JSON object's line span and character span, by path (``pools[0].entries[2]``)."""
     spans: JsonSpans = {}
     pos = 0
     line = 1

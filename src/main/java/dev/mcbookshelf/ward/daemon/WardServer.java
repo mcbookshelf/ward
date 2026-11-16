@@ -66,7 +66,7 @@ public class WardServer extends MinecraftServer {
 	private final LocalSampleLogger sampleLogger = new LocalSampleLogger(4);
 	private final WardDaemon daemon;
 	private final Runner.Options options;
-	private final boolean saved;
+	private final boolean fromSave;
 	private @Nullable Runner runner;
 	private boolean ended;
 	private @Nullable Throwable failure;
@@ -172,13 +172,13 @@ public class WardServer extends MinecraftServer {
 			PackRepository packs,
 			WorldStem worldStem,
 			Runner.Options options,
-			boolean saved) {
+			boolean fromSave) {
 		super(
 				serverThread,
 				storageSource,
 				packs,
 				worldStem,
-				saved ? Optional.empty() : Optional.of(flatGameRules()),
+				fromSave ? Optional.empty() : Optional.of(flatGameRules()),
 				Proxy.NO_PROXY,
 				DataFixers.getDataFixer(),
 				WardServices.offline(),
@@ -187,7 +187,7 @@ public class WardServer extends MinecraftServer {
 				new NotificationManager());
 		this.daemon = daemon;
 		this.options = options;
-		this.saved = saved;
+		this.fromSave = fromSave;
 	}
 
 	@Override
@@ -211,6 +211,9 @@ public class WardServer extends MinecraftServer {
 		return true;
 	}
 
+	/**
+	 * Nothing is saved: this override is what keeps level.dat from being written.
+	 */
 	@Override
 	public boolean saveAllChunks(boolean silent, boolean flush, boolean force) {
 		return true;
@@ -228,6 +231,7 @@ public class WardServer extends MinecraftServer {
 		sendHeartbeat();
 		super.tickServer(haveTime);
 
+		// Vanilla stops ticking tests while the game is frozen
 		if (!this.tickRateManager().runsNormally()) {
 			GameTestTicker.SINGLETON.tick();
 		}
@@ -235,7 +239,7 @@ public class WardServer extends MinecraftServer {
 		try {
 			if (this.runner == null) {
 				this.runner = switch (this.options) {
-					case TestRunner.Options tests -> new TestRunner(this, tests, this.saved);
+					case TestRunner.Options tests -> new TestRunner(this, tests, this.fromSave);
 					case BenchRunner.Options bench -> new BenchRunner(this, bench);
 				};
 			}
@@ -259,6 +263,7 @@ public class WardServer extends MinecraftServer {
 
 	@Override
 	protected void waitUntilNextTick() {
+		// Ticks would outrun the chunk workers: wait for them, one tick at most
 		if (!this.isRunning() || !(Util.backgroundExecutor().service() instanceof ForkJoinPool workers)) {
 			this.runAllTasks();
 			return;

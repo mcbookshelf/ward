@@ -63,7 +63,8 @@ def select_installed(message: str) -> str:
 
 def select_running(message: str) -> str:
     """Prompt for a running version, skipping the prompt when only one fits."""
-    return _select_version(manager.list_running(), message, "No versions running")
+    running = [env.version for env in manager.running_environments()]
+    return _select_version(running, message, "No versions running")
 
 
 def select_available(message: str) -> str:

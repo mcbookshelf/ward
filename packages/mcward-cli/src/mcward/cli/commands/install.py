@@ -1,5 +1,3 @@
-"""The install and clean commands."""
-
 import rich_click as click
 
 from mcward import RunningEnvironment, UninstalledEnvironment

@@ -1,5 +1,3 @@
-"""The list command."""
-
 import rich_click as click
 
 from mcward import Version

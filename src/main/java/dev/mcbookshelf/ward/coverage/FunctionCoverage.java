@@ -38,6 +38,7 @@ public final class FunctionCoverage {
 	}
 
 	private static void stamp(ContextChain<?> command, Line line) {
+		// Every stage: a continuation (execute if function, return run) resumes from nextStage()
 		for (ContextChain<?> stage = command; stage != null; stage = stage.nextStage()) {
 			((CoverageLineHolder) (Object) stage).ward$coverageLine(line);
 		}

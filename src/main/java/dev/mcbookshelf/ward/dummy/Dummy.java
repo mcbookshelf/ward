@@ -78,6 +78,7 @@ public class Dummy extends ServerPlayer {
 		instance.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
 		server.getPlayerList().broadcastAll(new ClientboundRotateHeadPacket(instance, (byte) (instance.yHeadRot * 256 / 360)), level.dimension());
 		server.getPlayerList().broadcastAll(ClientboundEntityPositionSyncPacket.of(instance), level.dimension());
+		// Every skin layer shown
 		instance.entityData.set(DATA_PLAYER_MODE_CUSTOMISATION, (byte) 0x7f);
 		return instance;
 	}
@@ -203,6 +204,7 @@ public class Dummy extends ServerPlayer {
 
 	@Override
 	public void tick() {
+		// What a client's movement packets do: without it, chunk tracking goes stale
 		if (this.level().getServer().getTickCount() % 10 == 0) {
 			this.connection.resetPosition();
 			this.level().getChunkSource().move(this);

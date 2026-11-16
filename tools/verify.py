@@ -1,13 +1,4 @@
-"""Run the Ward integration suite.
-
-Installs and starts the dev environment through mcward itself (the same code
-paths as the CLI), tests the fixture packs over the bridge, and compares the
-aggregated session against tests/expected.toml.
-
-One daemon serves every run: the fixtures, then the runs that must end with an
-error, the runs in a saved world, then the fixtures again, so state left over
-from a run shows up.
-"""
+"""Run the integration suite on one dev daemon and compare it with tests/expected.toml."""
 
 import os
 import sys
@@ -66,8 +57,7 @@ def main() -> int:
 
     step("Running tests over the bridge")
     detail(f"server log: {log}")
-    # The audit mode of the mod: every mixin target is loaded at start,
-    # and each run encodes what a client would be sent
+    # Audit mode: every mixin target loads at start, each run encodes what a client gets
     os.environ["JAVA_TOOL_OPTIONS"] = "-Dward.audit=true"
     running = environment.start()
     started = log.read_text(encoding="utf-8", errors="replace")

@@ -1,5 +1,3 @@
-"""Environment management for Ward."""
-
 from collections.abc import Iterator
 from contextlib import suppress
 from pathlib import Path
@@ -48,10 +46,6 @@ class EnvironmentManager:
         """Versions with a complete environment on disk, newest first."""
         installed = (v for v, directory in self._directories() if is_installed(directory))
         return sorted(installed, reverse=True)
-
-    def list_running(self) -> list[Version]:
-        """Versions whose daemon is alive, newest first."""
-        return [environment.version for environment in self.running_environments()]
 
     def running_environments(self) -> list[RunningEnvironment]:
         """The environments whose daemon is alive, newest first, without asking the registry."""

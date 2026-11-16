@@ -1,5 +1,4 @@
-"""Parse test functions with the ward command tree.
-Inspired by https://github.com/CarbonSmasher/packtest-beet/blob/main/packtest_beet/nesting.py"""
+"""Parse test files with Ward's command tree (after github.com/CarbonSmasher/packtest-beet)."""
 
 import math
 import re

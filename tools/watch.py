@@ -1,12 +1,4 @@
-"""Print the newest Minecraft version Ward has not been checked against.
-
-    uv run tools/watch.py
-
-Prints nothing when up to date. Stateless: a version is "new" when
-fabric-loader supports it but neither a published Modrinth version nor the
-current gradle.properties target covers it. The calling workflow hands the
-version to the release-pr workflow.
-"""
+"""Print the newest Minecraft version Fabric supports and Ward has no release for."""
 
 import sys
 
@@ -32,8 +24,7 @@ def main() -> int:
             for game_version in version["game_versions"]
         }
 
-    # The list is newest-first, so everything above the first known version is a candidate
-    # Everything below it was processed in an earlier era
+    # Newest first: everything above the first known version is new
     candidates = []
     for version in supported:
         if version == current or version in published:

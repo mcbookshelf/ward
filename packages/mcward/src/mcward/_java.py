@@ -1,5 +1,4 @@
-"""Java runtime resolution: a recent enough java on the PATH wins, then the
-runtime in the mcward cache (provisioned by ``_assets`` during installs)."""
+"""Java runtime resolution: a recent enough java on the PATH, else the cached one."""
 
 import re
 import shutil
@@ -16,8 +15,6 @@ _VERSION_PATTERN = re.compile(r'version "(\d+)(?:\.(\d+))?')
 
 @dataclass(frozen=True)
 class Java:
-    """A resolved Java runtime."""
-
     executable: Path
 
     def command(self, jar: Path, *args: str) -> list[str]:

@@ -14,8 +14,7 @@ import net.minecraft.world.entity.PositionMoveRotation;
 import net.minecraft.world.entity.Relative;
 
 /**
- * Untracked: Fabric only releases the network addon of a tracked listener when its channel closes.
- * A dummy has no channel, so it would pin its whole server for the life of the JVM.
+ * Untracked: Fabric frees a tracked listener's addon when its channel closes, and a dummy has none.
  */
 public class FakeGamePacketListener extends ServerGamePacketListenerImpl implements UntrackedPacketListener {
 	public FakeGamePacketListener(

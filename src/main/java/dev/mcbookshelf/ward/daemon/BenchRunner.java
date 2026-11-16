@@ -144,6 +144,7 @@ final class BenchRunner implements Runner {
 		long elapsed = timeBatch();
 		this.spent += elapsed;
 
+		// Double the batch until one takes 10 ms, then size it for 100 samples
 		if (this.spent < this.options.warmup() * 1_000_000L) {
 			if (this.options.batch() <= 0 && elapsed < WARMUP_BATCH_NANOS && this.batch < MAX_BATCH) {
 				this.batch *= 2;

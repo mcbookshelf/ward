@@ -234,8 +234,7 @@ def _resource_source(resource: ResourceReport) -> str | None:
     if resource.file is None or (source := resource.file.read()) is None:
         return None
 
-    # Conditions are marked as character ranges through the highlight API, so
-    # the tints land on the exact chunk even inside minified one-line files
+    # Character ranges for the highlight API: exact even in minified one-line files
     marks = json.dumps(_mark_segments(resource), separators=(",", ":"))
     rows = "".join(f"<span>{escape(content)}</span>" for content in source.splitlines())
     return f'<pre class="json" data-marks="{escape(marks)}">{rows}</pre>'

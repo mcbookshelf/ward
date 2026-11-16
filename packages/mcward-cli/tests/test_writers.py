@@ -159,8 +159,7 @@ class TestWriteCoverageReports:
         assert "DA:1,1" in (tmp_path / "cov.lcov").read_text(encoding="utf-8")
         page = (tmp_path / "cov.html").read_text(encoding="utf-8")
         assert "demo:main" in page
-        # Source lines are escaped, tinted by outcome, and packed without
-        # whitespace (a pre renders anything between them as blank lines)
+        # Escaped, tinted by outcome and packed: a pre renders whitespace as blank lines
         assert (
             '<span class="hit">say start</span>'
             '<span class="guard">execute if entity @p run say &lt;gated&gt;</span>'
@@ -251,11 +250,9 @@ class TestWriteCoverageReports:
         assert page.index("<b>function</b>") < page.index("<b>predicate</b>")
         assert 'class="badge"' not in page
         assert "1/3 commands · 1/1 files" in page
-        # The any_of root is an uncounted combinator; its unevaluated term is
-        # the only branch
+        # The any_of root is an uncounted combinator: its unevaluated term is the only branch
         assert "0/1 conditions · 1/1 files" in page
-        # Condition tints ride the highlight API as character segments: the
-        # evaluated root (hit) is carved around its unevaluated term (miss)
+        # The evaluated root (hit) is carved around its unevaluated term (miss)
         assert (
             'data-marks="[[0,39,&quot;hit&quot;],[39,64,&quot;miss&quot;],[64,70,&quot;hit&quot;]]"'
         ) in page

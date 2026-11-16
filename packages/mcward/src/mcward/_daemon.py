@@ -113,11 +113,7 @@ def stream_tests(
     timeout: float | None = None,
     origin: tuple[int, int] | None = None,
 ) -> Iterator[Event]:
-    """Start a test run via the bridge and stream its events.
-
-    ``timeout`` bounds the wait between consecutive events; ``None`` waits
-    indefinitely.
-    """
+    """Start a test run and stream its events; ``timeout`` bounds the wait between two."""
     request = {"type": "test", "protocol": PROTOCOL_VERSION, "selector": selector}
     if coverage:
         request["coverage"] = True
@@ -208,7 +204,6 @@ def is_ward_process(pid: int, directory: Path) -> bool:
 
 
 def wait_idle(address: tuple[str, int], timeout: float = SHUTDOWN_TIMEOUT) -> None:
-    """Wait until the daemon is ready to serve a run."""
     deadline = time.monotonic() + timeout
     while not _probe(address):
         if time.monotonic() > deadline:
@@ -253,7 +248,6 @@ def _daemon_flag(directory: Path) -> str:
 
 
 def _wait_or_kill(proc: psutil.Process, timeout: float) -> None:
-    """Wait for the process to exit, escalating to terminate then kill."""
     try:
         proc.wait(timeout)
     except psutil.TimeoutExpired:

@@ -1,4 +1,4 @@
-"""Environment states."""
+"""An environment in each of its states: uninstalled, installed, running."""
 
 import json
 import os
@@ -25,7 +25,7 @@ class UninstalledEnvironment:
     version: Version
 
     def install(self) -> InstalledEnvironment:
-        """Download every asset the environment needs."""
+        """Download every asset the environment needs, unless another process just did."""
         import asyncio
 
         from . import _assets  # deferred: the network stack costs ~0.3s to import
@@ -60,7 +60,6 @@ class InstalledEnvironment:
         return RunningEnvironment(self.directory, self.version, process)
 
     def uninstall(self) -> UninstalledEnvironment:
-        """Remove the environment directory and everything in it."""
         try:
             with _lock.hold(self.directory):
                 if self.directory.exists():
@@ -77,11 +76,9 @@ class RunningEnvironment:
     process: RunningProcess
 
     def status(self) -> Status:
-        """Ask the daemon whether it is ready to serve a run."""
         return _daemon.status(self.process.address)
 
     def stop(self) -> InstalledEnvironment:
-        """Shut the daemon down, escalating to a kill if it hangs."""
         _daemon.stop(self.process)
         return InstalledEnvironment(self.directory, self.version)
 
@@ -200,10 +197,7 @@ def _ignored(name: str) -> bool:
 
 
 def _unique_names(datapacks: list[Path]) -> list[str]:
-    """Deployment names for the packs, suffixing duplicates (pack, pack-2, ...).
-
-    Directory packs deploy zipped, so their names gain the extension.
-    """
+    """Deployment names, duplicates suffixed (pack, pack-2); a directory gains ``.zip``."""
     bases = [pack.name if pack.is_file() else f"{pack.name}.zip" for pack in datapacks]
     reserved = set(bases)
     names: list[str] = []

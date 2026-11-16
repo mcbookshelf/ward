@@ -1,29 +1,22 @@
-"""Ward exception hierarchy."""
-
-
 class WardError(Exception):
     """Base exception for all Ward errors."""
 
 
 class VersionError(WardError):
-    """Version-related errors."""
+    pass
 
 
 class VersionNotFoundError(VersionError):
-    """Version or alias not found in registry."""
-
     def __init__(self, version: str):
         self.version = version
         super().__init__(f"Version not found: {version}")
 
 
 class InstallError(WardError):
-    """Installation-related errors."""
+    pass
 
 
 class AssetNotFoundError(InstallError):
-    """Required asset not available for target version."""
-
     def __init__(self, asset: str, version: str):
         self.asset = asset
         self.version = version
@@ -31,8 +24,6 @@ class AssetNotFoundError(InstallError):
 
 
 class DownloadFailedError(InstallError):
-    """Network download failed."""
-
     def __init__(self, url: str, reason: str):
         self.url = url
         self.reason = reason
@@ -59,20 +50,16 @@ class MissingFeatureError(DeployError):
 
 
 class ProcessError(WardError):
-    """Process-related errors."""
+    pass
 
 
 class ProcessStartupError(ProcessError):
-    """Process failed to start or initialize."""
-
     def __init__(self, reason: str):
         self.reason = reason
         super().__init__(f"Process startup failed: {reason}")
 
 
 class ProcessConnectionError(ProcessError):
-    """Process IPC connection failed."""
-
     def __init__(self, reason: str):
         self.reason = reason
         super().__init__(f"Process connection failed: {reason}")

@@ -73,10 +73,7 @@ def report_session(
     coverage: bool = False,
     minimum: CoverageMinimum | None = None,
 ) -> None:
-    """Render the coverage summary and write the requested report files.
-
-    With a minimum, a run that measured coverage and stays under it ends in an error.
-    """
+    """Print the coverage summary and write the reports; under the minimum, raise."""
     if junit_xml is not None:
         write_junit(session, junit_xml)
         console.print(f"Test results written to [magenta]{junit_xml}[/magenta]")

@@ -40,6 +40,7 @@ public record TestFunction(List<Entry> commands, TestDirectives directives) impl
 			CommandFunction.checkCommandLineLength(command);
 
 			if (command.startsWith("#")) {
+				// A directive only counts in the header, before the first command
 				if (commands.isEmpty()) parseDirective(command, line, directives);
 				continue;
 			}

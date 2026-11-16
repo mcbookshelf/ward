@@ -33,7 +33,6 @@ class DefaultCommandGroup(click.RichGroup):
 )
 def cli() -> None:
     """Ward, testing framework for Minecraft datapacks."""
-    pass
 
 
 cli.add_command(bench)

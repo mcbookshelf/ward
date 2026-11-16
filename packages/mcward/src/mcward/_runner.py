@@ -46,10 +46,7 @@ class VersionOutcome:
 
 @dataclass(frozen=True)
 class TestBatch:
-    """A group of tests sharing the same game-test environment and dimension.
-
-    ``total`` is the announced test count, known before results arrive.
-    """
+    """Tests of one environment and dimension; ``total`` is known before the results."""
 
     name: str
     results: list[TestResult]
@@ -79,8 +76,7 @@ class TestResult:
 
     @property
     def status(self) -> TestStatus | None:
-        """Overall status: failed as soon as one version fails, else ``None``
-        while some version has not reported."""
+        """Failed once a version fails, else None while one has not reported."""
         outcomes = [self.outcomes.get(version) for version in self.versions]
         statuses = {outcome.status for outcome in outcomes if outcome}
         if TestStatus.FAILED in statuses:
@@ -172,7 +168,6 @@ class TestSession:
 
     @property
     def summary(self) -> TestSummary:
-        """Aggregate counts for the run."""
         statuses = [result.status for result in self._results.values()]
         completed = sum(status is not None for status in statuses)
         skipped = sum(status is TestStatus.SKIPPED for status in statuses)
@@ -256,13 +251,7 @@ def run_tests(
     world: Path | None = None,
     origin: tuple[int, int] | None = None,
 ) -> Iterator[TestSession]:
-    """Stream tests across already-running environments, aggregating results.
-
-    Yields the same (mutating) session after every event; consumers that need
-    snapshots must copy what they read. With ``tick``, the session is also
-    yielded after that many seconds without an event, so a display keeps moving.
-    With ``world``, every environment runs in its own copy of that save.
-    """
+    """Yield one mutating session after each event, and each ``tick`` seconds without."""
     session = TestSession([env.version for env in environments])
     events: Queue[tuple[Version, Event | None]] = Queue()
 

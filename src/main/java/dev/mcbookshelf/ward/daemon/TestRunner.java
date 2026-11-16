@@ -53,7 +53,7 @@ final class TestRunner implements Runner {
 
 	private final MinecraftServer server;
 	private final Options options;
-	private final boolean saved;
+	private final boolean fromSave;
 	private final TestResults results = new TestResults();
 	private final Stopwatch stopwatch = Stopwatch.createUnstarted();
 	private @Nullable GameTestRunner runner;
@@ -71,10 +71,10 @@ final class TestRunner implements Runner {
 		}
 	}
 
-	TestRunner(MinecraftServer server, Options options, boolean saved) {
+	TestRunner(MinecraftServer server, Options options, boolean fromSave) {
 		this.server = server;
 		this.options = options;
-		this.saved = saved;
+		this.fromSave = fromSave;
 	}
 
 	@Override
@@ -109,8 +109,8 @@ final class TestRunner implements Runner {
 
 		BlockPos startPos = Objects.requireNonNullElseGet(this.options.origin(), () -> pickStartPosition(overworld));
 
-		// A saved world keeps its spawn: the map and its packs may rely on it
-		if (!this.saved) {
+		// A saved world keeps its spawn
+		if (!this.fromSave) {
 			overworld.setRespawnData(LevelData.RespawnData.of(overworld.dimension(), startPos, 0.0F, 0.0F));
 		}
 

@@ -45,11 +45,7 @@ def write_lcov(coverage: ResolvedCoverage, path: Path) -> int:
 
 
 def _lcov_path(file: SourceFile) -> str:
-    """The tracefile path: workspace-relative when possible, absolute otherwise.
-
-    A member of a zipped pack appends its archive path for display; tools
-    cannot open it as a file.
-    """
+    """Workspace-relative if possible; a zip member is appended to its archive's path."""
     resolved = file.path.resolve()
     if resolved.is_relative_to(cwd := Path.cwd()):
         resolved = resolved.relative_to(cwd)
