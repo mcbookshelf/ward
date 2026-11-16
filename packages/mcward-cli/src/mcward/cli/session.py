@@ -149,6 +149,7 @@ def run_session(
             verbose=verbose,
             resolve=resolve,
             world=config.world,
+            origin=config.origin,
         )
         report_session(
             session,

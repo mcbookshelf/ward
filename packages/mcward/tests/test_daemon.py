@@ -526,6 +526,29 @@ class TestStreamTests:
                 list(stream_tests(address))
 
 
+class TestOrigin:
+    def test_origin_goes_in_the_request(self) -> None:
+        socket = MagicMock()
+        finished = iter([{"type": "tests_finished", "elapsed": 1}])
+        with (
+            patch("mcward._daemon._bridge.connect", return_value=socket),
+            patch("mcward._daemon._bridge.send_message") as send,
+            patch("mcward._daemon._bridge.receive_messages", return_value=finished),
+        ):
+            list(stream_tests(("127.0.0.1", 25565), origin=(10, -4)))
+        assert send.call_args.args[1]["origin"] == [10, -4]
+
+    def test_no_origin_leaves_the_request_alone(self) -> None:
+        finished = iter([{"type": "tests_finished", "elapsed": 1}])
+        with (
+            patch("mcward._daemon._bridge.connect"),
+            patch("mcward._daemon._bridge.send_message") as send,
+            patch("mcward._daemon._bridge.receive_messages", return_value=finished),
+        ):
+            list(stream_tests(("127.0.0.1", 25565)))
+        assert "origin" not in send.call_args.args[1]
+
+
 class TestHeartbeat:
     """The first heartbeat bounds the wait for the next event."""
 

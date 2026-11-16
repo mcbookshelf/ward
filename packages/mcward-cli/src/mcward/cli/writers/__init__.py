@@ -76,6 +76,13 @@ def report_session(
         console.print(render_coverage(resolved, verbose))
         for file in write_coverage_reports(session, resolved, specs):
             console.print(f"Coverage report written to [magenta]{file}[/magenta]")
+    if session.failed:
+        for version, (x, z) in session.origins.items():
+            console.print(
+                f"[dim]{version.name} placed its tests from {x}, {z}: "
+                f"set origin = [{x}, {z}] in ward.toml to place them there again[/dim]",
+                highlight=False,
+            )
     if not verbose:
         hint = "More detail: --verbose"
         if session.coverage and not specs:

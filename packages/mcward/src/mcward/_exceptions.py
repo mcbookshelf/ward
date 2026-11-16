@@ -51,6 +51,13 @@ class DeployError(WardError):
     """Datapacks could not be deployed into the environment's world."""
 
 
+class MissingFeatureError(DeployError):
+    def __init__(self, version: str, what: str):
+        self.version = version
+        self.what = what
+        super().__init__(f"Ward for Minecraft {version} cannot {what}")
+
+
 class ProcessError(WardError):
     """Process-related errors."""
 

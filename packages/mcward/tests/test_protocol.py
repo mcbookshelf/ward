@@ -117,9 +117,10 @@ class TestParseEvent:
                 Status(ready=False, protocol=1, mod="1.3", minecraft="26"),
             ),
             (
-                {"type": "status", "ready": True, "worlds": True},
-                Status(ready=True, worlds=True),
+                {"type": "status", "ready": True, "features": ["worlds"]},
+                Status(ready=True, features=frozenset({"worlds"})),
             ),
+            ({"type": "status", "ready": True, "features": []}, Status(ready=True)),
             ({"type": "error", "message": "boom"}, StreamError(message="boom")),
         ],
     )

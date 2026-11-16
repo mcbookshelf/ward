@@ -13,6 +13,7 @@ JAVA_VERSION = 25
 CACHE_DIR = user_cache_path("mcward", appauthor=False)
 JAVA_DIR = CACHE_DIR / "java" / str(JAVA_VERSION)
 
+# Every published mod rejects another value: the protocol only grows, features are named in status
 PROTOCOL_VERSION = 1
 
 WARD_HOST = "127.0.0.1"

@@ -45,6 +45,7 @@ def run(
     verbose: bool = False,
     resolve: FileResolver | None = None,
     world: Path | None = None,
+    origin: tuple[int, int] | None = None,
 ) -> TestSession:
     """Run tests across running environments with a live Rich display."""
     versions = [env.version for env in environments]
@@ -55,7 +56,13 @@ def run(
     rendered = 0.0
     with Live(console=console, refresh_per_second=10) as live:
         frames = run_tests(
-            datapacks, environments, selector=selector, coverage=coverage, tick=0.1, world=world
+            datapacks,
+            environments,
+            selector=selector,
+            coverage=coverage,
+            tick=0.1,
+            world=world,
+            origin=origin,
         )
         for session in frames:
             # Events can outpace the display many times over; render at frame rate

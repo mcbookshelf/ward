@@ -98,7 +98,14 @@ class TestBeetTestCommand:
         )
 
         def fake_run_tests_live(
-            datapacks, envs, selector, coverage=False, verbose=False, resolve=None, world=None
+            datapacks,
+            envs,
+            selector,
+            coverage=False,
+            verbose=False,
+            resolve=None,
+            world=None,
+            origin=None,
         ):
             calls.world = world
             calls.packs = list(datapacks)
