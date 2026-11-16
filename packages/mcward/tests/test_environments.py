@@ -103,7 +103,7 @@ class TestDatapackDeployment:
             make_running(env_dir).test([pack], selector="my:*")
 
         mock_stream.assert_called_once_with(
-            ("127.0.0.1", 25565), "my:*", coverage=False, timeout=None
+            ("127.0.0.1", 25565), "my:*", coverage=False, timeout=None, origin=None
         )
         assert not (deployed / "stale_pack").exists()
         with zipfile.ZipFile(deployed / "my_pack.zip") as archive:
@@ -258,7 +258,10 @@ def run(env_dir: Path, pack: Path, world: Path | None, worlds: bool = True) -> N
     with (
         patch("mcward._daemon.wait_idle"),
         patch("mcward._daemon.stream_tests"),
-        patch("mcward._daemon.status", return_value=Status(ready=True, worlds=worlds)),
+        patch(
+            "mcward._daemon.status",
+            return_value=Status(ready=True, features=frozenset({"worlds"} if worlds else ())),
+        ),
     ):
         make_running(env_dir).test([pack], world=world)
 
@@ -353,7 +356,7 @@ class TestWorldDeployment:
         """An older mod would ignore the save and run the tests in a flat world."""
         env_dir = tmp_path / "env"
 
-        with pytest.raises(DeployError, match="too old to load a world"):
+        with pytest.raises(DeployError, match="cannot load a world"):
             run(env_dir, make_pack(tmp_path), make_world(tmp_path), worlds=False)
 
         assert not (env_dir / "world").exists()

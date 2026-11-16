@@ -32,9 +32,10 @@ class FakeEnvironment:
         self._events = events
 
     def test(
-        self, datapacks, selector="*:*", coverage=False, timeout=None, world=None
+        self, datapacks, selector="*:*", coverage=False, timeout=None, world=None, origin=None
     ) -> Iterator[Event]:
         self.world = world
+        self.origin = origin
         if isinstance(self._events, Exception):
             raise self._events
         yield from self._events
@@ -372,3 +373,10 @@ class TestRunTests:
         assert session.failed
         assert session.aborted[V1] == "reload failed"
         assert session.summary.done
+
+
+def test_session_keeps_the_origin_of_each_version() -> None:
+    session = Session([V1, V2])
+    session._dispatch(V1, Started(total=1, pos=(120, -60, -4500)))
+    session._dispatch(V2, Started(total=1, pos=None))
+    assert session.origins == {V1: (120, -4500)}

@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.netty.bootstrap.ServerBootstrap;
@@ -31,6 +32,7 @@ import dev.mcbookshelf.ward.Messages;
 import dev.mcbookshelf.ward.Ward;
 
 public final class WardBridge {
+	// Every published mod rejects another value: the protocol only grows, and features are named in status
 	private static final int PROTOCOL = 1;
 
 	private static final Gson GSON = new Gson();
@@ -175,7 +177,10 @@ public final class WardBridge {
 			response.addProperty("protocol", PROTOCOL);
 			response.addProperty("mod", Ward.version());
 			response.addProperty("minecraft", SharedConstants.getCurrentVersion().name());
-			response.addProperty("worlds", true);
+			JsonArray features = new JsonArray();
+			features.add("worlds");
+			features.add("origin");
+			response.add("features", features);
 			write(ch, "status", response);
 		}
 

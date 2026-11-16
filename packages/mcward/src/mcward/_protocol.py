@@ -136,6 +136,10 @@ class BenchFinished:
     elapsed: int
 
 
+# What each name in the features of a status lets a mod do
+FEATURES = {"worlds": "load a world", "origin": "place tests at a fixed origin"}
+
+
 @dataclass(frozen=True)
 class Status:
     """Response to a status request. An older mod only sends `ready`."""
@@ -144,7 +148,7 @@ class Status:
     protocol: int | None = None
     mod: str | None = None
     minecraft: str | None = None
-    worlds: bool = False
+    features: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -266,7 +270,7 @@ def parse_event(data: dict[str, Any]) -> Event | None:
                     protocol=data.get("protocol"),
                     mod=data.get("mod"),
                     minecraft=data.get("minecraft"),
-                    worlds=data.get("worlds", False),
+                    features=frozenset(data.get("features", ())),
                 )
             case "error":
                 return StreamError(message=data["message"])

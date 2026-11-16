@@ -48,3 +48,13 @@ class TestWardConfig:
         (tmp_path / "ward.toml").write_text("coverage = 80\n")
         with pytest.raises(WardError, match="coverage must be a table"):
             WardConfig.load(tmp_path)
+
+    def test_origin_is_a_column(self, tmp_path: Path) -> None:
+        (tmp_path / "ward.toml").write_text("origin = [120, -4500]\n")
+        assert WardConfig.load(tmp_path).origin == (120, -4500)
+
+    @pytest.mark.parametrize("value", ["[1, 2, 3]", "[1.5, 2]", '"0 0"', "[true, 1]"])
+    def test_origin_must_be_two_whole_numbers(self, tmp_path: Path, value: str) -> None:
+        (tmp_path / "ward.toml").write_text(f"origin = {value}\n")
+        with pytest.raises(WardError, match="origin must be"):
+            WardConfig.load(tmp_path)

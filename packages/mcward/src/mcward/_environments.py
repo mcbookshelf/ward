@@ -10,8 +10,8 @@ from pathlib import Path
 
 from . import _daemon, _worlds
 from ._daemon import RunningProcess
-from ._exceptions import DeployError, InstallError
-from ._protocol import Event, Status
+from ._exceptions import DeployError, InstallError, MissingFeatureError
+from ._protocol import FEATURES, Event, Status
 from ._versions import Version
 
 IGNORED_DIRS = ("__pycache__", "node_modules")
@@ -73,16 +73,11 @@ class RunningEnvironment:
         coverage: bool = False,
         timeout: float | None = None,
         world: Path | None = None,
+        origin: tuple[int, int] | None = None,
     ) -> Iterator[Event]:
-        """Deploy the given datapacks and stream a test run.
-
-        With a world, the run starts in a copy of that save instead of a flat world.
-        """
+        """Deploy the packs and stream a test run, in ``world`` and from ``origin`` if given."""
         _daemon.wait_idle(self.process.address)
-        if world is not None and not self.status().worlds:
-            raise DeployError(
-                f"The Ward mod for Minecraft {self.version.name} is too old to load a world"
-            )
+        self.require(worlds=world, origin=origin)
         _deploy(self.directory, datapacks, world)
 
         return _daemon.stream_tests(
@@ -90,6 +85,7 @@ class RunningEnvironment:
             selector,
             coverage=coverage,
             timeout=timeout,
+            origin=origin,
         )
 
     def bench(
@@ -117,6 +113,13 @@ class RunningEnvironment:
             duration=duration,
             timeout=timeout,
         )
+
+    def require(self, **features: object) -> None:
+        """Raise when the mod lacks a feature whose argument is set: ``require(worlds=world)``."""
+        needed = {name for name, wanted in features.items() if wanted}
+        if needed and (missing := needed - self.status().features):
+            what = " or ".join(FEATURES[feature] for feature in sorted(missing))
+            raise MissingFeatureError(self.version.name, what)
 
 
 def _deploy(

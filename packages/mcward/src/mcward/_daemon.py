@@ -102,6 +102,7 @@ def stream_tests(
     selector: str = "*:*",
     coverage: bool = False,
     timeout: float | None = None,
+    origin: tuple[int, int] | None = None,
 ) -> Iterator[Event]:
     """Start a test run via the bridge and stream its events.
 
@@ -111,6 +112,8 @@ def stream_tests(
     request = {"type": "test", "protocol": PROTOCOL_VERSION, "selector": selector}
     if coverage:
         request["coverage"] = True
+    if origin is not None:
+        request["origin"] = list(origin)
     return _stream(address, request, TestsFinished, timeout)
 
 

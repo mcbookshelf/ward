@@ -26,6 +26,7 @@ def run(
     verbose: bool = False,
     resolve: FileResolver | None = None,
     world: Path | None = None,
+    origin: tuple[int, int] | None = None,
 ) -> TestSession:
     """Run tests, printing the final results view and GitHub annotations."""
     versions = [env.version for env in environments]
@@ -34,7 +35,7 @@ def run(
 
     # Consume the stream without rendering; it always yields a starting frame
     *_, session = run_tests(
-        datapacks, environments, selector=selector, coverage=coverage, world=world
+        datapacks, environments, selector=selector, coverage=coverage, world=world, origin=origin
     )
     console.print(render_session(session, resolve, verbose))
 

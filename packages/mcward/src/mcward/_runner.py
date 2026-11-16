@@ -117,6 +117,7 @@ class TestSession:
         self._finished: dict[Version, TestsFinished] = {}
         self._aborted: dict[Version, str] = {}
         self._coverage: dict[Version, Coverage] = {}
+        self._origins: dict[Version, tuple[int, int]] = {}
         self._total = 0
 
     @property
@@ -128,6 +129,11 @@ class TestSession:
     def active_batches(self) -> set[tuple[str, str | None]]:
         """Batches some version has started and not yet finished."""
         return set(self._current_batch.values())
+
+    @property
+    def origins(self) -> dict[Version, tuple[int, int]]:
+        """The column each version placed its tests from, to replay a run with ``origin``."""
+        return self._origins
 
     @property
     def coverage(self) -> dict[Version, Coverage]:
@@ -193,8 +199,10 @@ class TestSession:
 
     def _dispatch(self, version: Version, event: Event) -> None:
         match event:
-            case TestsStarted(total=total):
+            case TestsStarted(total=total, pos=pos):
                 self._total = max(self._total, total)
+                if pos is not None:
+                    self._origins[version] = (pos[0], pos[2])
             case BatchStarted(environment=environment, dimension=dimension, total=total):
                 self._current_batch[version] = (environment, dimension)
                 if total is not None:
@@ -246,6 +254,7 @@ def run_tests(
     timeout: float | None = None,
     tick: float | None = None,
     world: Path | None = None,
+    origin: tuple[int, int] | None = None,
 ) -> Iterator[TestSession]:
     """Stream tests across already-running environments, aggregating results.
 
@@ -260,7 +269,12 @@ def run_tests(
     def stream_events(env: RunningEnvironment) -> None:
         try:
             stream = env.test(
-                list(datapacks), selector, coverage=coverage, timeout=timeout, world=world
+                list(datapacks),
+                selector,
+                coverage=coverage,
+                timeout=timeout,
+                world=world,
+                origin=origin,
             )
             for event in stream:
                 events.put((env.version, event))

@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import com.google.common.base.Stopwatch;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -57,11 +58,16 @@ final class TestRunner implements Runner {
 	private final Stopwatch stopwatch = Stopwatch.createUnstarted();
 	private @Nullable GameTestRunner runner;
 
-	record Options(String selector, boolean coverage) implements Runner.Options {
+	record Options(String selector, boolean coverage, @Nullable BlockPos origin) implements Runner.Options {
 		static Options parse(JsonObject request) {
 			return new Options(
 					request.has("selector") ? request.get("selector").getAsString() : "*:*",
-					request.has("coverage") && request.get("coverage").getAsBoolean());
+					request.has("coverage") && request.get("coverage").getAsBoolean(),
+					request.has("origin") ? parseOrigin(request.getAsJsonArray("origin")) : null);
+		}
+
+		private static BlockPos parseOrigin(JsonArray origin) {
+			return new BlockPos(origin.get(0).getAsInt(), 0, origin.get(1).getAsInt());
 		}
 	}
 
@@ -101,7 +107,7 @@ final class TestRunner implements Runner {
 		Collection<Holder.Reference<GameTestInstance>> tests = selectTests(overworld);
 		reportMissingFunctions(tests);
 
-		BlockPos startPos = pickStartPosition(overworld);
+		BlockPos startPos = Objects.requireNonNullElseGet(this.options.origin(), () -> pickStartPosition(overworld));
 
 		// A saved world keeps its spawn: the map and its packs may rely on it
 		if (!this.saved) {
