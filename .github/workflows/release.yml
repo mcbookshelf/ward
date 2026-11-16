@@ -23,16 +23,13 @@ jobs:
           fetch-depth: 0
 
       - name: setup uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
       - name: setup jdk
         uses: actions/setup-java@v5
         with:
           java-version: '25'
           distribution: 'temurin'
-
-      - name: make gradle wrapper executable
-        run: chmod +x ./gradlew
 
       - name: release python packages
         if: github.ref == 'refs/heads/main'

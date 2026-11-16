@@ -1,13 +1,4 @@
-"""Release automation, driven by the versions committed to the tree.
-
-    uv run tools/release.py python [--dry-run]   # the mcward packages, to PyPI
-    uv run tools/release.py java [--dry-run]     # the ward mod, to Modrinth
-
-A release happens when the version in the tree has no tag yet (see the
-versioning section of CONTRIBUTING.md). Artifacts publish first and the tag
-comes last with the GitHub release, so a partially failed run is simply
-re-run: steps skip what already exists.
-"""
+"""Publish the versions of the tree that have no tag; the tag comes last, so rerun on failure."""
 
 import argparse
 import json
@@ -29,6 +20,15 @@ FABRIC_API_ID = "P7dR8mSH"  # https://modrinth.com/mod/fabric-api
 
 # Modrinth's API rules require a uniquely identifying user agent
 USER_AGENT = "mcbookshelf/ward release scripts (github.com/mcbookshelf/ward)"
+
+REPOSITORY = "https://github.com/mcbookshelf/ward"
+PULL_REQUEST = re.compile(r"\(#(\d+)\)$")
+COMMAND_TREES = "packages/mcward-beet/src/mcward/mecha/resources"
+# A commit shows in the notes of each stream whose files it touched
+STREAM_PATHS = {
+    "python": ["packages", "pyproject.toml"],
+    "java": ["src", "gradle.properties", "build.gradle", "settings.gradle", "gradle"],
+}
 
 
 def main() -> int:
@@ -57,12 +57,10 @@ def release_python(dry_run: bool) -> int:
     # Stale artifacts of older versions must never reach `uv publish dist/*`
     shutil.rmtree(ROOT / "dist", ignore_errors=True)
     subprocess.run(["uv", "build", "--all-packages"], check=True)
-    # Trusted publishing via OIDC mints one token covering every matching project
-    # The dist/* default therefore uploads all packages in one go
-    # --check-url tolerates a re-run by skipping files already on the index
+    # One OIDC token covers every project; --check-url skips files already uploaded
     subprocess.run(["uv", "publish", "--check-url", "https://pypi.org/simple/"], check=True)
 
-    notes = generate_notes(tag, previous)
+    notes = release_notes("python", previous)
     create_release(tag, f"mcward {version}", notes, assets=sorted(ROOT.glob("dist/*")))
     print(f"python: released {tag}")
     return 0
@@ -82,7 +80,7 @@ def release_java(dry_run: bool) -> int:
     subprocess.run([gradlew, "build"], check=True)
     jar = mod_jar()
 
-    notes = generate_notes(tag, previous)
+    notes = release_notes("java", previous)
     publish_modrinth(version, minecraft, jar, changelog=notes)
 
     # Snapshot builds are prereleases
@@ -98,7 +96,8 @@ def check_released(stream: str, tag: str, previous: str | None, dry_run: bool) -
         print(f"{stream}: {tag} already released")
         return 0
     if dry_run:
-        print(f"{stream}: would release {tag} (previous: {previous or 'none'})")
+        print(f"{stream}: would release {tag} (previous: {previous or 'none'}) with the notes:")
+        print(release_notes(stream, previous), end="")
         return 0
     return None
 
@@ -144,12 +143,27 @@ def publish_modrinth(version: str, minecraft: str, jar: Path, changelog: str) ->
     print(f"modrinth: published {number} for {minecraft}")
 
 
-def generate_notes(tag: str, previous: str | None) -> str:
-    """Release notes GitHub generates from the merged PRs since the previous tag."""
-    command = ["gh", "api", "repos/{owner}/{repo}/releases/generate-notes", "--jq", ".body"]
-    command += ["-f", f"tag_name={tag}", "-f", f"target_commitish={head()}"]
-    command += ["-f", f"previous_tag_name={previous}"] if previous else []
-    return subprocess.run(command, check=True, capture_output=True, text=True).stdout
+def release_notes(stream: str, previous: str | None) -> str:
+    """The commits since the previous tag that touched the stream's files, one per line."""
+    revisions = f"{previous}..HEAD" if previous else "HEAD"
+    subjects = _git("log", "--format=%s", revisions, "--", *STREAM_PATHS[stream]).splitlines()
+    trees = []
+    if stream == "python" and previous:
+        added = _git("diff", "--name-only", "--diff-filter=A", revisions, "--", COMMAND_TREES)
+        trees = [Path(name).stem for name in added.splitlines()]
+    return format_notes(subjects, trees)
+
+
+def format_notes(subjects: list[str], trees: list[str]) -> str:
+    lines = [PULL_REQUEST.sub(rf"([#\1]({REPOSITORY}/pull/\1))", s) for s in subjects]
+    lines = [line for line in lines if not line.startswith("chore(release)")]
+    lines += [f"Command tree of Ward {version}" for version in trees]
+    return "\n".join(f"- {line}" for line in lines or ["No change besides the version"]) + "\n"
+
+
+def _git(*args: str) -> str:
+    command = ["git", *args]
+    return subprocess.run(command, cwd=ROOT, check=True, capture_output=True, text=True).stdout
 
 
 def create_release(
@@ -178,10 +192,7 @@ def mod_jar() -> Path:
 
 
 def head() -> str:
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
-    )
-    return result.stdout.strip()
+    return _git("rev-parse", "HEAD").strip()
 
 
 def tag_exists(tag: str) -> bool:

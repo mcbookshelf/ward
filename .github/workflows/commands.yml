@@ -23,48 +23,14 @@ jobs:
           distribution: 'temurin'
 
       - name: generate the command tree
-        run: |
-          chmod +x ./gradlew
-          ./gradlew runGenerateCommands
+        run: ./gradlew runGenerateCommands
+
+      - name: setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
       - name: keep the tree only when it differs
         id: tree
-        run: |
-          dir=packages/mcward-beet/src/mcward/mecha/resources
-
-          # Key order is not semantic: restore files that only got reordered
-          for file in $(git diff --name-only -- "$dir"); do
-            if [ "$(jq -S . "$file")" = "$(git show "HEAD:$file" | jq -S .)" ]; then
-              git checkout -q -- "$file"
-            fi
-          done
-
-          status=$(git status --porcelain -uall -- "$dir")
-          if [ -z "$status" ]; then
-            echo "command tree unchanged"
-            exit 0
-          fi
-          if echo "$status" | grep -qv '^??'; then
-            echo "::error::the command tree changed for an already committed" \
-              "version; commands must only change alongside a mod version bump"
-            exit 1
-          fi
-
-          new=$(echo "$status" | head -1 | awk '{print $2}')
-          name=$(basename "$new")
-          closest=$(git ls-files -- "$dir" | xargs -rn1 basename | { cat; echo "$name"; } \
-            | sort -V | grep -B1 -Fx "$name" | head -1)
-          if [ "$closest" != "$name" ] \
-            && [ "$(jq -S . "$new")" = "$(jq -S . "$dir/$closest")" ]; then
-            rm "$new"
-            echo "tree identical to $closest, nothing to release"
-          else
-            echo "version=$(basename "$new" .json)" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: setup uv
-        if: steps.tree.outputs.version
-        uses: astral-sh/setup-uv@v9.0.0
+        run: uv run tools/commands.py
 
       - name: bump the python minor
         if: steps.tree.outputs.version
@@ -86,7 +52,7 @@ jobs:
       - name: open release pull request
         if: steps.bot.outputs.token
         id: pr
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
           token: ${{ steps.bot.outputs.token }}
           add-paths: |
@@ -99,11 +65,7 @@ jobs:
           delete-branch: true
           commit-message: 'chore(release): bump python to ${{ steps.bump.outputs.version }}'
           title: 'chore(release): bump python to ${{ steps.bump.outputs.version }}'
-          body: |
-            Ward ${{ steps.tree.outputs.version }} introduced a new command tree:
-            ships the generated json and bumps the python minor.
-
-            Merging releases **mcward ${{ steps.bump.outputs.version }}** to PyPI.
+          body: 'New command tree from Ward ${{ steps.tree.outputs.version }}. Merging releases **mcward ${{ steps.bump.outputs.version }}** to PyPI.'
           committer: mcbookshelf[bot] <mcbookshelf[bot]@users.noreply.github.com>
           author: mcbookshelf[bot] <mcbookshelf[bot]@users.noreply.github.com>
 
@@ -112,6 +74,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.bot.outputs.token }}
         run: |
-          # The release decision was made by the tree diffing on main; the required CI checks gate the merge, so a red PR waits for a human
+          # Merges by itself once the required checks pass
           gh pr merge "${{ steps.pr.outputs.pull-request-number }}" \
             --squash --auto --repo "$GITHUB_REPOSITORY"

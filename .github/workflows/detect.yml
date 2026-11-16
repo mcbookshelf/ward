@@ -1,4 +1,4 @@
-name: watch
+name: detect
 on:
   schedule:
     - cron: "0 * * * *"
@@ -22,13 +22,13 @@ jobs:
       - name: checkout repository
         uses: actions/checkout@v7
       - name: setup uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: find new minecraft version
         id: find
         env:
           FORCED: ${{ inputs.version }}
         run: |
-          version="${FORCED:-$(uv run tools/watch.py)}"
+          version="${FORCED:-$(uv run tools/detect.py)}"
           if [ -z "$version" ]; then
             echo "no new minecraft version"
           else

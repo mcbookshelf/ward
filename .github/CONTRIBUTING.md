@@ -80,7 +80,13 @@ two independent streams:
   `just bump java 1.2.3` when the mod changes; a new `minecraft_version`
   alone releases a compatibility build (same mod version, new build
   metadata), so `1.2.3+26.1.2` and `1.2.3+26.2` carry the exact same feature
-  set. The mod releases from `main` and from maintenance branches.
+  set. The mod releases from `main` and from maintenance branches. When an
+  automated Minecraft bump does not build, check `loom_version` against
+  <https://fabricmc.net/develop>.
+
+The notes of a release list the commits since the previous tag of its stream
+that touched its files: `packages/` and `pyproject.toml` for Python, `src/` and
+the Gradle files for the mod. A change to both shows in both.
 
 Follow semver when picking a version: new functionality bumps minor,
 bugfixes bump patch, breaking changes bump major.
