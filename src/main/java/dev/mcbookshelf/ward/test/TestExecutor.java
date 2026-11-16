@@ -46,6 +46,7 @@ public class TestExecutor {
 	private final GameTestInfo info;
 	private final long chatSequence = ChatRecorder.sequence();
 	private final int timeout;
+	private String name;
 	private int next;
 	private int line;
 
@@ -54,6 +55,7 @@ public class TestExecutor {
 		this.info = helper.testInfo;
 		this.info.addListener(new Cleanup());
 		this.timeout = this.info.getTimeoutTicks();
+		this.name = this.info.id().toString();
 	}
 
 	public static TestExecutor current() throws CommandSyntaxException {
@@ -70,10 +72,11 @@ public class TestExecutor {
 	public void run(TestFunction function) {
 		CommandSourceStack source;
 		current = this;
+		this.name = function.name(this.info.id());
 
 		// A rerun starts a fresh executor, so the client drops the logs of the previous attempt
 		JsonObject data = new JsonObject();
-		data.addProperty("name", this.info.id().toString());
+		data.addProperty("name", this.name);
 		Reporter.send("attempt_started", data);
 
 		try {
@@ -130,12 +133,11 @@ public class TestExecutor {
 	}
 
 	public void log(Component message) {
-		String name = this.info.id().toString();
 		String text = message.getString();
-		Ward.LOGGER.info("{} logged: {}", name, text);
+		Ward.LOGGER.info("{} logged: {}", this.name, text);
 
 		JsonObject data = new JsonObject();
-		data.addProperty("name", name);
+		data.addProperty("name", this.name);
 		data.addProperty("message", text);
 		data.addProperty("line", this.line);
 		data.addProperty("tick", this.helper.getTick());

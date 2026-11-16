@@ -8,10 +8,12 @@ import net.minecraft.gametest.framework.GameTestBatch;
 import net.minecraft.gametest.framework.GameTestException;
 import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.TestReporter;
+import net.minecraft.resources.Identifier;
 
 import dev.mcbookshelf.ward.Messages;
 import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.test.TestException;
+import dev.mcbookshelf.ward.test.TestFunction;
 
 final class TestResults implements TestReporter {
 	private int total;
@@ -90,7 +92,15 @@ final class TestResults implements TestReporter {
 
 	private static JsonObject describe(GameTestInfo test) {
 		JsonObject data = new JsonObject();
-		data.addProperty("name", test.getTestHolder().key().identifier().toString());
+		Identifier id = test.getTestHolder().key().identifier();
+		TestFunction function = TestFunction.caseOf(id);
+		data.addProperty("name", function == null ? id.toString() : function.name(id));
+
+		// The client finds the file of a case by the id they share
+		if (function != null) {
+			data.addProperty("function", function.id().toString());
+		}
+
 		data.addProperty("time", test.getRunTime());
 		return data;
 	}

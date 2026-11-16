@@ -21,3 +21,5 @@ accessible method net/minecraft/server/commands/ExecuteCommand checkRegions (Lne
 accessible method net/minecraft/server/commands/ExecuteCommand countItems (Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/server/commands/item/ItemAccessor;Lnet/minecraft/commands/arguments/SlotSourceArgument$Result;Ljava/util/function/Predicate;)I
 accessible method net/minecraft/server/commands/ExecuteCommand countSlots (Lnet/minecraft/commands/CommandSourceStack;Lnet/minecraft/server/commands/item/ItemAccessor;Lnet/minecraft/commands/arguments/SlotSourceArgument$Result;)I
 accessible method net/minecraft/server/commands/ExecuteCommand isChunkLoaded (Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)Z
+accessible method net/minecraft/commands/functions/MacroFunction stringify (Lnet/minecraft/nbt/Tag;)Ljava/lang/String;
+accessible method net/minecraft/commands/arguments/ResourceSelectorArgument matches (Ljava/lang/String;Lnet/minecraft/resources/Identifier;)Z

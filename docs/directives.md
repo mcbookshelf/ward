@@ -32,7 +32,39 @@ directive, whatever it starts with.
 | `@padding` | `0` to `128` | `0` | Empty space around the test area |
 | `@skyaccess` | `true`/`false` | `false` | Keeps the sky above the test area open. Alias: `@sky_access` |
 | `@dummy` | position | none | Spawns a [dummy](dummies.md) and runs the test as it |
+| `@cases` | list of compounds | none | Runs the test once for each [case](#cases) |
 
 Boolean directives can be bare: `# @optional` means `true`.
 `# @dummy` without a position spawns at `~ ~ ~`.
 Names ignore case, and a directive written twice keeps its last value.
+
+## Cases
+
+`@cases` runs the test once for each compound of arguments. Use the arguments
+in macro lines, as in a function:
+
+```mcfunction
+# @cases [{value: 2, double: 4}, {value: 5, double: 10}]
+
+$scoreboard players set #n mypack.math $(value)
+function mypack:double
+$assert score #n mypack.math matches $(double)
+```
+
+Each case is a test of its own, named after its arguments:
+
+```text
+mypack:double {double:4,value:2}
+mypack:double {double:10,value:5}
+```
+
+The cases share the other directives of the file. `mcward test mypack:double`
+runs all of them, and `mcward test mypack:double/2` only the second. A long
+list can go over several lines, with a `\` at the end of each:
+
+```mcfunction
+# @cases [ \
+  {value: 2, double: 4}, \
+  {value: 5, double: 10} \
+]
+```

@@ -241,7 +241,7 @@ def _render_result(text: Text, result: TestResult, resolve: FileResolver | None 
 
 
 def _render_logs(text: Text, result: TestResult, resolve: FileResolver | None = None) -> None:
-    file = resolve("test", result.name) if resolve and result.logs else None
+    file = resolve("test", result.source) if resolve and result.logs else None
     for version in result.versions:
         prefix = f"{version.name}: " if len(result.versions) > 1 else ""
         for log in result.logs.get(version, ()):
@@ -256,7 +256,7 @@ def _render_failure(
     style: str,
     resolve: FileResolver | None = None,
 ) -> None:
-    file = resolve("test", result.name) if resolve else None
+    file = resolve("test", result.source) if resolve else None
 
     if len(result.versions) == 1:
         message = describe_failure(result.outcomes[versions[0]], file)
