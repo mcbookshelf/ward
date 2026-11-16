@@ -61,11 +61,11 @@ class ChatAssertion implements Assertion {
 	private static String describe(List<String> received) {
 		if (received.isEmpty()) return "nothing";
 
-		String sample = received.stream()
-				.limit(5)
+		int earlier = Math.max(0, received.size() - 5);
+		String sample = received.subList(earlier, received.size()).stream()
 				.map(msg -> '"' + (msg.length() > 80 ? msg.substring(0, 80) + "…" : msg) + '"')
 				.collect(Collectors.joining(", "));
 
-		return received.size() > 5 ? sample + " and " + (received.size() - 5) + " more" : sample;
+		return earlier > 0 ? earlier + " earlier, then " + sample : sample;
 	}
 }

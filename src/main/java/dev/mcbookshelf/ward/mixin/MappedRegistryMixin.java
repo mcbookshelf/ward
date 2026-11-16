@@ -31,6 +31,7 @@ import net.minecraft.tags.TagKey;
 import dev.mcbookshelf.ward.Reporter;
 import dev.mcbookshelf.ward.Ward;
 import dev.mcbookshelf.ward.test.MappedRegistryAccessor;
+import dev.mcbookshelf.ward.test.TestRegistries;
 
 @Mixin(MappedRegistry.class)
 public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T>, HolderOwner<T> {
@@ -67,6 +68,9 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 	@Unique
 	private @Nullable HolderOwner<T> ward$adopted;
 
+	/**
+	 * Values copied by TestRegistries keep the holders of the registry they were decoded in.
+	 */
 	@Override
 	public boolean canSerialize(HolderOwner<T> owner) {
 		return owner == this || owner == this.ward$adopted;
@@ -121,7 +125,7 @@ public abstract class MappedRegistryMixin<T> implements MappedRegistryAccessor<T
 
 	@Inject(method = "freeze", at = @At("HEAD"))
 	private void dropDanglingReferences(CallbackInfoReturnable<Registry<T>> info) {
-		if (this.frozen) {
+		if (this.frozen || !TestRegistries.skipsBrokenElements(this.key().identifier())) {
 			return;
 		}
 
