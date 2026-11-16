@@ -24,5 +24,7 @@ WORLD_FILE = "ward.world"
 STARTUP_TIMEOUT = 120
 SHUTDOWN_TIMEOUT = 15
 STATUS_TIMEOUT = 10
+# Without a heartbeat for this long, a server that ticked before has stopped
+HEARTBEAT_TIMEOUT = 300
 SOCKET_CONNECT_TIMEOUT = 2
 DOWNLOAD_TIMEOUT = 120

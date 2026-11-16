@@ -2,6 +2,7 @@ package dev.mcbookshelf.ward.daemon;
 
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.MixinEnvironment;
@@ -18,10 +19,14 @@ import dev.mcbookshelf.ward.coverage.Coverage;
 import dev.mcbookshelf.ward.test.ChatRecorder;
 
 public final class WardDaemon {
+	// An unused version would otherwise hold its memory until mcward stop
+	private static final long IDLE_LIMIT = TimeUnit.MINUTES.toNanos(Long.getLong("ward.idle", 60));
+
 	private final WardBridge bridge;
 	private final LevelStorageSource source;
 	private final String levelId;
 	private volatile boolean busy;
+	private volatile long idleSince = System.nanoTime();
 
 	private WardDaemon(LevelStorageSource source, String levelId) {
 		this.source = source;
@@ -55,6 +60,15 @@ public final class WardDaemon {
 		System.exit(0);
 	}
 
+	/**
+	 * Runs on the bridge's event loop, which also starts runs: none can start meanwhile.
+	 */
+	void exitIfIdle() {
+		if (this.busy || System.nanoTime() - this.idleSince < IDLE_LIMIT) return;
+		Ward.LOGGER.info("Ward daemon idle for {} minutes, stopping", TimeUnit.NANOSECONDS.toMinutes(IDLE_LIMIT));
+		shutdown();
+	}
+
 	boolean clientGone() {
 		return this.bridge.clientGone();
 	}
@@ -69,6 +83,7 @@ public final class WardDaemon {
 		}
 
 		this.bridge.release();
+		this.idleSince = System.nanoTime();
 		this.busy = false;
 	}
 

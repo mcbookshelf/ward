@@ -69,3 +69,7 @@ class ProcessConnectionError(ProcessError):
     def __init__(self, reason: str):
         self.reason = reason
         super().__init__(f"Process connection failed: {reason}")
+
+
+class ProcessTimeoutError(ProcessConnectionError):
+    pass

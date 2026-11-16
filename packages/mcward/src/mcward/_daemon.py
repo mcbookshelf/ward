@@ -12,6 +12,7 @@ import psutil
 
 from . import _bridge, _java
 from ._constants import (
+    HEARTBEAT_TIMEOUT,
     OUTPUT_FILE,
     PID_FILE,
     PORT_FILE,
@@ -21,7 +22,7 @@ from ._constants import (
     STATUS_TIMEOUT,
     WARD_HOST,
 )
-from ._exceptions import ProcessConnectionError, ProcessStartupError
+from ._exceptions import ProcessConnectionError, ProcessStartupError, ProcessTimeoutError
 from ._protocol import BenchFinished, Event, Status, StreamError, TestsFinished, parse_event
 
 
@@ -145,16 +146,30 @@ def _stream(
     last: type[Event],
     timeout: float | None,
 ) -> Iterator[Event]:
-    """Send a request and yield its events, up to the one that ends the run or an error."""
+    """Yield a request's events up to its last; with no timeout, a heartbeat arms one."""
+    armed = False
     with _bridge.connect(address) as conn:
         _bridge.send_message(conn, request)
 
-        for message in _bridge.receive_messages(conn, timeout=timeout):
-            if (event := parse_event(message)) is None:
-                continue
-            yield event
-            if isinstance(event, last | StreamError):
-                return
+        try:
+            for message in _bridge.receive_messages(conn, timeout=timeout):
+                if message.get("type") == "heartbeat":
+                    if timeout is None and not armed:
+                        conn.settimeout(HEARTBEAT_TIMEOUT)
+                        armed = True
+                    continue
+                if (event := parse_event(message)) is None:
+                    continue
+                yield event
+                if isinstance(event, last | StreamError):
+                    return
+        except ProcessTimeoutError as e:
+            if not armed:
+                raise
+            raise ProcessConnectionError(
+                f"The server stopped ticking: nothing for {HEARTBEAT_TIMEOUT}s. "
+                "It stays busy until it is stopped"
+            ) from e
 
         raise ProcessConnectionError("Event stream ended before the run finished")
 
