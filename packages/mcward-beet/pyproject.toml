@@ -12,8 +12,8 @@ license = { text = "MPL-2.0" }
 authors = [{ name = "Aksiome", email = "54895777+aksiome@users.noreply.github.com" }]
 # The mcward pins follow the version: `just bump python` rewrites them
 dependencies = [
-    "mcward==1.6.0",
-    "mcward-cli==1.6.0",
+    "mcward==2.0.0",
+    "mcward-cli==2.0.0",
     "beet>=0.116.0",
 ]
 

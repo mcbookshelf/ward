@@ -12,7 +12,7 @@ license = { text = "MPL-2.0" }
 authors = [{ name = "Aksiome", email = "54895777+aksiome@users.noreply.github.com" }]
 # The mcward pin follows the version: `just bump python` rewrites it
 dependencies = [
-    "mcward==1.6.0",
+    "mcward==2.0.0",
     "click>=8.4.0",
     "questionary>=2.1.1",
     "rich>=15.0.0",
