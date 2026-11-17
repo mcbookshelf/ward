@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcward"
-version = "1.6.0"
+version = "2.0.0"
 description = "A testing framework for Minecraft datapacks using mcfunction."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -17,9 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-beet = ["mcward-beet==1.6.0"]
-cli = ["mcward-cli==1.6.0"]
-mecha = ["mcward-beet[mecha]==1.6.0"]
+beet = ["mcward-beet==2.0.0"]
+cli = ["mcward-cli==2.0.0"]
+mecha = ["mcward-beet[mecha]==2.0.0"]
 
 [dependency-groups]
 dev = [
